@@ -199,6 +199,10 @@
         .toggle-password:hover {
             color: #00897b;
         }
+        .sa-row { position: relative; }
+        .sa-row .sa-input { padding-right: 42px; }
+        .sa-pw-eye { position: absolute; right: 90px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 15px; padding: 4px; z-index: 2; }
+        .sa-pw-eye:hover { color: #00897b; }
         .form-options {
             display: flex;
             justify-content: space-between;
@@ -405,9 +409,9 @@
         <div class="demo-accounts sa-panel">
             <h4><i class="fas fa-shield-alt"></i> Super Admin Access</h4>
             <p class="sa-desc">Enter your unique Super Admin code for full system access.</p>
-            <div class="sa-row" style="position:relative">
-                <input type="password" id="superAdminCode" class="form-control sa-input" placeholder="Enter Super Admin Code" style="padding-right:42px">
-                <button type="button" onclick="togglePwVis(this)" title="Show password" style="position:absolute;right:90px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px;padding:4px;z-index:2"><i class="fas fa-eye"></i></button>
+            <div class="sa-row">
+                <input type="password" id="superAdminCode" class="form-control sa-input" placeholder="Enter Super Admin Code">
+                <button type="button" class="sa-pw-eye" onclick="togglePwVis(this)" title="Show password"><i class="fas fa-eye"></i></button>
                 <button type="button" onclick="handleSuperAdminLogin()" class="btn-login sa-btn">
                     <i class="fas fa-key"></i> Login
                 </button>
