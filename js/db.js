@@ -12,7 +12,41 @@ const Database = {
     DB_VERSION: 6, // Bumped to force re-init with zeroed data and updated seed users
 
     // Super Admin access code — unique, required for full system access
-    SUPER_ADMIN_CODE: 'DK-SA-7829-UBMS',
+    DEFAULT_SA_CODE: 'DK-SA-7829-UBMS',
+    SA_CODE_KEY: 'ubms_sa_code',
+
+    getSuperAdminCode() {
+        return localStorage.getItem(this.SA_CODE_KEY) || this.DEFAULT_SA_CODE;
+    },
+
+    updateSuperAdminCode(currentCode, newCode) {
+        if (currentCode !== this.getSuperAdminCode()) {
+            return { success: false, error: 'Current access code is incorrect.' };
+        }
+        if (!newCode || newCode.length < 6) {
+            return { success: false, error: 'New code must be at least 6 characters.' };
+        }
+        localStorage.setItem(this.SA_CODE_KEY, newCode);
+        this.addAuditEntry('SA Code Changed', 'Super Admin access code was updated', 'warning');
+        return { success: true };
+    },
+
+    // ---- Reset password via forgot-password (username + email verification) ----
+    resetPassword(username, email, newPassword, company) {
+        const user = this.findUser(username);
+        if (!user) return { success: false, error: 'No account found with that username.' };
+        if (user.email !== email) return { success: false, error: 'Username and email do not match.' };
+        if (user.status !== 'active') return { success: false, error: 'This account is deactivated.' };
+        if (user.isSuperAdmin) return { success: false, error: 'Super Admin password cannot be reset here.' };
+        // Check company access if specified
+        if (company && !user.companies.includes('all') && !user.companies.includes(company)) {
+            return { success: false, error: 'This account does not have access to this business.' };
+        }
+        if (!newPassword || newPassword.length < 8) return { success: false, error: 'Password must be at least 8 characters.' };
+        this.updateUser(user.id, { password: newPassword, mustChangePassword: false });
+        this.addAuditEntry('Password Reset', `Password reset via forgot-password for ${username}`, 'warning');
+        return { success: true };
+    },
 
     // ---- Initialize ----
     init() {
@@ -371,7 +405,7 @@ const Database = {
 
     // ---- Authenticate Super Admin by code ----
     authenticateSuperAdmin(code) {
-        if (code !== this.SUPER_ADMIN_CODE) {
+        if (code !== this.getSuperAdminCode()) {
             return { success: false, error: 'Invalid Super Admin code' };
         }
         const user = this.getUsers().find(u => u.isSuperAdmin);

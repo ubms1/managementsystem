@@ -233,7 +233,56 @@ const Settings = {
                 </div>
             </div>
 
-        </div>`;
+        </div>
+        ${u && u.isSuperAdmin ? `
+        <div style="margin-top:20px">
+            <div class="card">
+                <div class="card-header"><h3><i class="fas fa-shield-alt" style="margin-right:8px"></i>Change Super Admin Access Code</h3></div>
+                <div class="card-body">
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Change the unique access code used to log in as Super Admin from the main login page.</p>
+                    <div id="saCodeMsg" style="margin-bottom:12px"></div>
+                    <div class="form-group">
+                        <label>Current Access Code</label>
+                        ${Utils.pwWrap('<input type="password" class="form-control" id="curSaCode" placeholder="Enter current access code">')}
+                    </div>
+                    <div class="form-group">
+                        <label>New Access Code <span style="font-size:11px;color:var(--text-muted)">(min 6 characters)</span></label>
+                        ${Utils.pwWrap('<input type="password" class="form-control" id="newSaCode" placeholder="Enter new access code">')}
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New Access Code</label>
+                        ${Utils.pwWrap('<input type="password" class="form-control" id="confirmSaCode" placeholder="Re-enter new access code">')}
+                    </div>
+                    <button class="btn btn-primary" onclick="Settings.saveSaCode()" style="width:100%">
+                        <i class="fas fa-shield-alt"></i> Update Access Code
+                    </button>
+                </div>
+            </div>
+        </div>` : ''}`;
+    },
+
+    saveSaCode() {
+        const cur = document.getElementById('curSaCode').value.trim();
+        const newC = document.getElementById('newSaCode').value.trim();
+        const conf = document.getElementById('confirmSaCode').value.trim();
+        const msgEl = document.getElementById('saCodeMsg');
+
+        const showMsg = (text, type) => {
+            msgEl.innerHTML = `<div class="alert alert-${type}" style="padding:10px 14px;border-radius:6px;font-size:13px;background:${type==='danger'?'#ffeaea':'#eaffea'};color:${type==='danger'?'#c0392b':'#27ae60'};border:1px solid ${type==='danger'?'#f5c6cb':'#a3d9a5'}">${text}</div>`;
+        };
+
+        if (!cur || !newC || !conf) { showMsg('All fields are required.', 'danger'); return; }
+        if (newC !== conf) { showMsg('New access codes do not match.', 'danger'); return; }
+        if (newC === cur) { showMsg('New access code must differ from the current one.', 'danger'); return; }
+
+        const result = Database.updateSuperAdminCode(cur, newC);
+        if (!result.success) { showMsg(result.error, 'danger'); return; }
+
+        document.getElementById('curSaCode').value = '';
+        document.getElementById('newSaCode').value = '';
+        document.getElementById('confirmSaCode').value = '';
+        showMsg('Super Admin access code updated successfully.', 'success');
+        App.showToast('Access code updated successfully', 'success');
     },
 
     saveMyPassword() {
