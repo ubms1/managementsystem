@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Online — AutoCasa Auto Expert</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --red: #e74c3c;
+            --red-light: #fdecea;
+            --red-dark: #c0392b;
+            --dark: #1a1a2e;
+            --dark2: #16213e;
+            --text: #2d2d2d;
+            --text-muted: #6b7280;
+            --bg: #f5f6f8;
+            --white: #ffffff;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --radius: 12px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, var(--dark) 0%, var(--dark2) 100%);
+            color: #fff; text-align: center; padding: 48px 20px 40px; position: relative; overflow: hidden;
+        }
+        .hero::before { content: ''; position: absolute; inset: 0; background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" fill="none" stroke="%23e74c3c" stroke-width="0.5" opacity="0.15"/><circle cx="100" cy="100" r="60" fill="none" stroke="%23e74c3c" stroke-width="0.3" opacity="0.1"/></svg>') center/300px repeat; }
+        .hero * { position: relative; z-index: 1; }
+        .hero-logo { font-size: 48px; color: var(--red); margin-bottom: 12px; }
+        .hero h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+        .hero p { color: rgba(255,255,255,0.7); font-size: 15px; max-width: 500px; margin: 0 auto; }
+
+        /* Nav tabs */
+        .page-tabs {
+            display: flex; justify-content: center; gap: 8px; padding: 20px 20px 0;
+            max-width: 640px; margin: -24px auto 0; position: relative; z-index: 2;
+        }
+        .page-tab {
+            flex: 1; padding: 14px 16px; border: none; border-radius: var(--radius) var(--radius) 0 0;
+            background: var(--white); color: var(--text-muted); font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: all .2s; box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .page-tab.active { background: var(--red); color: #fff; }
+        .page-tab:hover:not(.active) { background: var(--red-light); color: var(--red-dark); }
+
+        /* Container */
+        .container { max-width: 640px; margin: 0 auto; padding: 0 20px 40px; }
+        .panel { background: var(--white); border-radius: 0 0 var(--radius) var(--radius); box-shadow: var(--shadow); padding: 28px; display: none; }
+        .panel.active { display: block; }
+
+        /* Steps */
+        .steps { display: flex; gap: 4px; margin-bottom: 28px; }
+        .step { flex: 1; text-align: center; padding: 10px 4px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-muted); background: #f3f4f6; transition: all .3s; }
+        .step.active { background: var(--red); color: #fff; }
+        .step.done { background: var(--success); color: #fff; }
+        .step-num { display: block; font-size: 16px; font-weight: 700; }
+
+        /* Form */
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+        .form-group label .required { color: var(--danger); }
+        .form-control {
+            width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 8px;
+            font-size: 14px; background: var(--white); transition: border-color .2s; outline: none;
+        }
+        .form-control:focus { border-color: var(--red); }
+        select.form-control { cursor: pointer; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+        /* Service cards */
+        .service-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .service-card {
+            border: 2px solid #e5e7eb; border-radius: 10px; padding: 14px; cursor: pointer;
+            transition: all .2s; text-align: center; position: relative;
+        }
+        .service-card:hover { border-color: var(--red); background: var(--red-light); }
+        .service-card.selected { border-color: var(--red); background: var(--red-light); }
+        .service-card.selected::after {
+            content: '\f058'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
+            position: absolute; top: 8px; right: 8px; color: var(--red); font-size: 18px;
+        }
+        .service-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+        .service-meta { font-size: 11px; color: var(--text-muted); }
+        .service-price { font-weight: 700; color: var(--red-dark); font-size: 16px; margin-top: 6px; }
+        .service-check { position: absolute; top: 6px; left: 6px; width: 20px; height: 20px; border: 2px solid #d1d5db; border-radius: 4px; background: var(--white); }
+        .service-card.selected .service-check { background: var(--red); border-color: var(--red); }
+        .service-card.selected .service-check::after {
+            content: '\2713'; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; height: 100%;
+        }
+
+        /* Time slots */
+        .time-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .time-slot {
+            padding: 10px 4px; border: 2px solid #e5e7eb; border-radius: 8px;
+            text-align: center; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .2s;
+        }
+        .time-slot:hover:not(.unavailable) { border-color: var(--red); background: var(--red-light); }
+        .time-slot.selected { border-color: var(--red); background: var(--red); color: #fff; }
+        .time-slot.unavailable { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;
+            border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: all .2s;
+        }
+        .btn-primary { background: var(--red); color: #fff; }
+        .btn-primary:hover { background: var(--red-dark); }
+        .btn-secondary { background: #e5e7eb; color: var(--text); }
+        .btn-secondary:hover { background: #d1d5db; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-block { width: 100%; justify-content: center; padding: 14px; font-size: 15px; }
+        .btn-group { display: flex; gap: 10px; margin-top: 24px; }
+        .btn-group .btn { flex: 1; justify-content: center; }
+
+        /* Summary */
+        .summary-card {
+            background: linear-gradient(135deg, var(--dark) 0%, var(--dark2) 100%);
+            color: #fff; border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+        }
+        .summary-card h3 { font-size: 18px; margin-bottom: 16px; color: var(--red); }
+        .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-label { color: rgba(255,255,255,0.6); }
+        .summary-value { font-weight: 600; }
+        .summary-total { font-size: 24px; font-weight: 700; color: var(--red); text-align: center; padding: 16px 0 0; }
+
+        /* Success */
+        .success-panel { text-align: center; padding: 40px 20px; }
+        .success-icon { font-size: 64px; color: var(--success); margin-bottom: 16px; }
+        .success-panel h2 { font-size: 22px; margin-bottom: 8px; }
+        .success-panel .ref-number {
+            font-size: 28px; font-weight: 800; color: var(--red-dark); background: var(--red-light);
+            padding: 12px 24px; border-radius: 8px; display: inline-block; margin: 16px 0; letter-spacing: 2px;
+        }
+        .success-panel .note { color: var(--text-muted); font-size: 13px; max-width: 420px; margin: 0 auto; line-height: 1.6; }
+
+        /* Lookup */
+        .booking-status { padding: 20px; border-radius: var(--radius); margin-top: 16px; }
+        .booking-status.pending { background: #fef3c7; border: 1px solid #f59e0b; }
+        .booking-status.confirmed { background: #d1fae5; border: 1px solid #10b981; }
+        .booking-status.completed { background: #e0e7ff; border: 1px solid #6366f1; }
+        .booking-status.cancelled { background: #fee2e2; border: 1px solid #ef4444; }
+        .booking-status.reschedule-pending { background: #fef3c7; border: 1px solid #f59e0b; }
+
+        .status-badge {
+            display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase;
+        }
+        .status-pending { background: #f59e0b; color: #fff; }
+        .status-confirmed { background: #10b981; color: #fff; }
+        .status-completed { background: #6366f1; color: #fff; }
+        .status-cancelled { background: #ef4444; color: #fff; }
+        .status-reschedule-pending { background: #f59e0b; color: #fff; }
+        .status-in-progress { background: #3b82f6; color: #fff; }
+        .status-scheduled { background: #8b5cf6; color: #fff; }
+
+        .reschedule-form { margin-top: 20px; padding: 20px; background: #f9fafb; border-radius: var(--radius); }
+
+        /* Vehicle info box */
+        .vehicle-info-box {
+            padding: 14px; background: #f9fafb; border-radius: var(--radius); margin-bottom: 18px;
+            border: 1px solid #e5e7eb;
+        }
+        .vehicle-info-box h4 { font-size: 13px; margin-bottom: 6px; color: var(--red-dark); }
+
+        /* Category headers */
+        .category-header {
+            font-size: 13px; font-weight: 700; color: var(--text-muted); margin: 18px 0 8px;
+            text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px;
+        }
+        .category-header:first-child { margin-top: 0; }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--dark); color: #fff; padding: 14px 24px; border-radius: 8px;
+            font-size: 14px; z-index: 9999; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .toast.show { display: flex; align-items: center; gap: 10px; animation: slideUp .3s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+        /* Footer */
+        .footer { text-align: center; padding: 20px; color: var(--text-muted); font-size: 12px; }
+        .footer a { color: var(--red-dark); text-decoration: none; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .hero { padding: 32px 16px 28px; }
+            .hero h1 { font-size: 22px; }
+            .panel { padding: 20px; }
+            .form-row { grid-template-columns: 1fr; }
+            .service-grid { grid-template-columns: 1fr; }
+            .time-slots { grid-template-columns: repeat(3, 1fr); }
+            .steps { gap: 2px; }
+            .step { font-size: 10px; padding: 8px 2px; }
+        }
+        .lookup-heading { margin-bottom: 4px; }
+        .lookup-heading i { color: var(--red); }
+        .lookup-subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="hero">
+        <div class="hero-logo"><i class="fas fa-car-side"></i></div>
+        <h1>AutoCasa Auto Expert</h1>
+        <p>Schedule your vehicle service online. Fast, easy, and hassle-free.</p>
+    </div>
+
+    <div class="container">
+        <div class="page-tabs">
+            <button class="page-tab active" onclick="AutoBooking.switchPage('book')">
+                <i class="fas fa-calendar-plus"></i> Book Service
+            </button>
+            <button class="page-tab" onclick="AutoBooking.switchPage('lookup')">
+                <i class="fas fa-search"></i> My Appointment
+            </button>
+        </div>
+
+        <!-- BOOKING PANEL -->
+        <div class="panel active" id="bookPanel">
+            <div class="steps" id="stepsBar">
+                <div class="step active" data-step="1"><span class="step-num">1</span>Services</div>
+                <div class="step" data-step="2"><span class="step-num">2</span>Schedule</div>
+                <div class="step" data-step="3"><span class="step-num">3</span>Details</div>
+                <div class="step" data-step="4"><span class="step-num">4</span>Confirm</div>
+            </div>
+            <div id="bookingStepContent"></div>
+        </div>
+
+        <!-- LOOKUP PANEL -->
+        <div class="panel" id="lookupPanel">
+            <h3 class="lookup-heading"><i class="fas fa-search"></i> Check My Appointment</h3>
+            <p class="lookup-subtitle">Enter your appointment reference and phone number to view or manage your booking.</p>
+            <div class="form-group">
+                <label>Appointment Reference <span class="required">*</span></label>
+                <input type="text" class="form-control" id="lookupRef" placeholder="e.g. AC-A1B2C">
+            </div>
+            <div class="form-group">
+                <label>Phone Number <span class="required">*</span></label>
+                <input type="tel" class="form-control" id="lookupPhone" placeholder="e.g. 0917-123-4567">
+            </div>
+            <button class="btn btn-primary btn-block" onclick="AutoBooking.lookupBooking()">
+                <i class="fas fa-search"></i> Find My Appointment
+            </button>
+            <div id="lookupResult"></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        &copy; 2026 AutoCasa Auto Expert. <a href="index.html">Staff Portal</a>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="../js/utils.js"></script>
+    <script src="../js/data.js"></script>
+    <script src="../js/db.js"></script>
+
+    <script>
+    const AutoBooking = {
+        currentStep: 1,
+        currentPage: 'book',
+        selected: { services: [], date: '', time: '', vehiclePlate: '', vehicleMake: '', vehicleModel: '', vehicleYear: '' },
+
+        init() {
+            Database.init();
+            this.renderStep(1);
+        },
+
+        // ---- Page switching ----
+        switchPage(page) {
+            this.currentPage = page;
+            document.querySelectorAll('.page-tab').forEach((t, i) => t.classList.toggle('active', (i === 0 && page === 'book') || (i === 1 && page === 'lookup')));
+            document.getElementById('bookPanel').classList.toggle('active', page === 'book');
+            document.getElementById('lookupPanel').classList.toggle('active', page === 'lookup');
+            if (page === 'book') this.renderStep(this.currentStep);
+        },
+
+        // ---- Step navigation ----
+        goStep(step) {
+            this.currentStep = step;
+            this.updateStepsBar();
+            this.renderStep(step);
+        },
+
+        updateStepsBar() {
+            document.querySelectorAll('#stepsBar .step').forEach(el => {
+                const s = parseInt(el.dataset.step);
+                el.classList.remove('active', 'done');
+                if (s === this.currentStep) el.classList.add('active');
+                else if (s < this.currentStep) el.classList.add('done');
+            });
+        },
+
+        renderStep(step) {
+            const c = document.getElementById('bookingStepContent');
+            this.updateStepsBar();
+            if (step === 1) this.renderStep1(c);
+            else if (step === 2) this.renderStep2(c);
+            else if (step === 3) this.renderStep3(c);
+            else if (step === 4) this.renderStep4(c);
+        },
+
+        // STEP 1: Service Selection (multi-select)
+        renderStep1(c) {
+            const categories = {};
+            DataStore.autoServices.forEach(s => {
+                if (!categories[s.category]) categories[s.category] = [];
+                categories[s.category].push(s);
+            });
+
+            const catIcons = { Maintenance: 'fa-oil-can', Brakes: 'fa-compact-disc', Engine: 'fa-gear', Transmission: 'fa-gears', Inspection: 'fa-clipboard-check', HVAC: 'fa-fan' };
+
+            let servicesHTML = '';
+            Object.entries(categories).forEach(([cat, services]) => {
+                servicesHTML += `<div class="category-header"><i class="fas ${catIcons[cat] || 'fa-wrench'}" style="margin-right:6px"></i>${cat}</div>`;
+                servicesHTML += '<div class="service-grid">';
+                servicesHTML += services.map(s => `
+                    <div class="service-card ${this.selected.services.includes(s.id) ? 'selected' : ''}" onclick="AutoBooking.toggleService('${s.id}')">
+                        <div class="service-check"></div>
+                        <div class="service-name">${s.name}</div>
+                        <div class="service-meta">${s.duration} min</div>
+                        <div class="service-price">\u20B1${s.price.toLocaleString()}</div>
+                    </div>
+                `).join('');
+                servicesHTML += '</div>';
+            });
+
+            const total = this.getSelectedTotal();
+            const totalDuration = this.getSelectedDuration();
+
+            c.innerHTML = `
+                <h3 style="margin-bottom:4px">Select Services</h3>
+                <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px">Choose one or more services for your vehicle</p>
+                ${servicesHTML}
+
+                <div style="position:sticky;bottom:0;background:var(--white);padding:16px 0 0;border-top:1px solid #e5e7eb;margin-top:20px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <div>
+                            <span style="font-size:13px;color:var(--text-muted)">Selected: <strong id="selCount">${this.selected.services.length}</strong> service(s)</span>
+                            <span style="font-size:12px;color:var(--text-muted);margin-left:12px"><i class="fas fa-clock"></i> ~${totalDuration} min</span>
+                        </div>
+                        <div style="font-size:20px;font-weight:700;color:var(--red-dark)" id="selTotal">\u20B1${total.toLocaleString()}</div>
+                    </div>
+                    <button class="btn btn-primary btn-block" onclick="AutoBooking.validateStep1()">Continue <i class="fas fa-arrow-right"></i></button>
+                </div>
+            `;
+        },
+
+        toggleService(id) {
+            const idx = this.selected.services.indexOf(id);
+            if (idx >= 0) this.selected.services.splice(idx, 1);
+            else this.selected.services.push(id);
+            this.renderStep1(document.getElementById('bookingStepContent'));
+        },
+
+        getSelectedTotal() {
+            return this.selected.services.reduce((sum, id) => {
+                const s = DataStore.autoServices.find(sv => sv.id === id);
+                return sum + (s?.price || 0);
+            }, 0);
+        },
+
+        getSelectedDuration() {
+            return this.selected.services.reduce((sum, id) => {
+                const s = DataStore.autoServices.find(sv => sv.id === id);
+                return sum + (s?.duration || 0);
+            }, 0);
+        },
+
+        validateStep1() {
+            if (this.selected.services.length === 0) { this.showToast('Please select at least one service', 'warning'); return; }
+            this.goStep(2);
+        },
+
+        // STEP 2: Date & Time
+        renderStep2(c) {
+            const today = new Date().toISOString().split('T')[0];
+            const maxDate = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+            const serviceNames = this.selected.services.map(id => DataStore.autoServices.find(s => s.id === id)?.name || id).join(', ');
+
+            c.innerHTML = `
+                <h3 style="margin-bottom:4px">Choose Date & Time</h3>
+                <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px">${serviceNames}</p>
+
+                <div class="form-group">
+                    <label>Preferred Date <span class="required">*</span></label>
+                    <input type="date" class="form-control" id="bookDate" min="${today}" max="${maxDate}"
+                           value="${this.selected.date || today}" onchange="AutoBooking.onDateChange()">
+                </div>
+
+                <div class="form-group">
+                    <label>Available Time Slots <span class="required">*</span></label>
+                    <div class="time-slots" id="timeSlots"></div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="AutoBooking.goStep(1)"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button class="btn btn-primary" onclick="AutoBooking.validateStep2()">Continue <i class="fas fa-arrow-right"></i></button>
+                </div>
+            `;
+
+            this.generateTimeSlots();
+        },
+
+        generateTimeSlots() {
+            const container = document.getElementById('timeSlots');
+            if (!container) return;
+            const date = document.getElementById('bookDate')?.value;
+
+            // Operating hours: 8:00 AM - 5:00 PM
+            const startHour = 8, endHour = 17;
+            const slots = [];
+            for (let h = startHour; h < endHour; h++) {
+                for (let m = 0; m < 60; m += 60) {
+                    const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                    slots.push(timeStr);
+                }
+            }
+
+            // Check existing bookings for autocasa on selected date
+            const existingBookings = (DataStore.bookings || []).filter(b =>
+                b.company === 'autocasa' && b.date === date &&
+                !['cancelled', 'no-show'].includes(b.status)
+            );
+
+            container.innerHTML = slots.map(slot => {
+                const bookedCount = existingBookings.filter(b => b.time === slot).length;
+                const isFull = bookedCount >= 3; // max 3 concurrent slots
+                const isNow = date === new Date().toISOString().split('T')[0];
+                const [sh] = slot.split(':').map(Number);
+                const isPast = isNow && sh <= new Date().getHours();
+
+                const displayTime = this.formatTime12(slot);
+                const unavail = isFull || isPast;
+
+                return `<div class="time-slot ${unavail ? 'unavailable' : ''} ${this.selected.time === slot ? 'selected' : ''}"
+                            onclick="${unavail ? '' : `AutoBooking.selectTime('${slot}')`}">
+                            ${displayTime}
+                            ${isFull ? '<div style="font-size:9px;color:var(--danger)">Full</div>' : ''}
+                        </div>`;
+            }).join('');
+        },
+
+        formatTime12(time24) {
+            const [h, m] = time24.split(':').map(Number);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+            return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+        },
+
+        onDateChange() {
+            this.selected.time = '';
+            this.generateTimeSlots();
+        },
+
+        selectTime(time) {
+            this.selected.time = time;
+            document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+        },
+
+        validateStep2() {
+            this.selected.date = document.getElementById('bookDate')?.value;
+            if (!this.selected.date) { this.showToast('Please select a date', 'warning'); return; }
+            if (!this.selected.time) { this.showToast('Please select a time slot', 'warning'); return; }
+            this.goStep(3);
+        },
+
+        // STEP 3: Vehicle & Customer Details
+        renderStep3(c) {
+            c.innerHTML = `
+                <h3 style="margin-bottom:4px">Vehicle & Contact Details</h3>
+                <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px">Provide your vehicle and contact information</p>
+
+                <div class="vehicle-info-box">
+                    <h4><i class="fas fa-car"></i> Vehicle Information</h4>
+                    <div class="form-row">
+                        <div class="form-group" style="margin-bottom:10px">
+                            <label>Plate Number <span class="required">*</span></label>
+                            <input type="text" class="form-control" id="vPlate" placeholder="ABC-1234" style="text-transform:uppercase" value="${this.selected.vehiclePlate || ''}">
+                        </div>
+                        <div class="form-group" style="margin-bottom:10px">
+                            <label>Year</label>
+                            <input type="number" class="form-control" id="vYear" placeholder="2024" min="1990" max="2030" value="${this.selected.vehicleYear || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="margin-bottom:0">
+                            <label>Make <span class="required">*</span></label>
+                            <input type="text" class="form-control" id="vMake" placeholder="Toyota" value="${this.selected.vehicleMake || ''}">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0">
+                            <label>Model <span class="required">*</span></label>
+                            <input type="text" class="form-control" id="vModel" placeholder="Vios" value="${this.selected.vehicleModel || ''}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Full Name <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="custName" placeholder="Juan dela Cruz" value="${this.selected.customerName || ''}">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Phone Number <span class="required">*</span></label>
+                        <input type="tel" class="form-control" id="custPhone" placeholder="0917-123-4567" value="${this.selected.customerPhone || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" class="form-control" id="custEmail" placeholder="juan@email.com" value="${this.selected.customerEmail || ''}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Concerns / Notes</label>
+                    <textarea class="form-control" id="custNotes" rows="3" placeholder="e.g. Engine noise when starting, A/C not cooling, etc.">${this.selected.notes || ''}</textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="AutoBooking.goStep(2)"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button class="btn btn-primary" onclick="AutoBooking.validateStep3()">Review Booking <i class="fas fa-arrow-right"></i></button>
+                </div>
+            `;
+        },
+
+        validateStep3() {
+            const plate = document.getElementById('vPlate')?.value?.trim();
+            const make = document.getElementById('vMake')?.value?.trim();
+            const model = document.getElementById('vModel')?.value?.trim();
+            const name = document.getElementById('custName')?.value?.trim();
+            const phone = document.getElementById('custPhone')?.value?.trim();
+
+            if (!plate) { this.showToast('Please enter your plate number', 'warning'); return; }
+            if (!make) { this.showToast('Please enter vehicle make', 'warning'); return; }
+            if (!model) { this.showToast('Please enter vehicle model', 'warning'); return; }
+            if (!name) { this.showToast('Please enter your name', 'warning'); return; }
+            if (!phone) { this.showToast('Please enter your phone number', 'warning'); return; }
+
+            this.selected.vehiclePlate = plate.toUpperCase();
+            this.selected.vehicleMake = make;
+            this.selected.vehicleModel = model;
+            this.selected.vehicleYear = document.getElementById('vYear')?.value?.trim() || '';
+            this.selected.customerName = name;
+            this.selected.customerPhone = phone;
+            this.selected.customerEmail = document.getElementById('custEmail')?.value?.trim() || '';
+            this.selected.notes = document.getElementById('custNotes')?.value?.trim() || '';
+            this.goStep(4);
+        },
+
+        // STEP 4: Review & Confirm
+        renderStep4(c) {
+            const serviceDetails = this.selected.services.map(id => DataStore.autoServices.find(s => s.id === id)).filter(Boolean);
+            const total = this.getSelectedTotal();
+            const totalDuration = this.getSelectedDuration();
+
+            c.innerHTML = `
+                <div class="summary-card">
+                    <h3><i class="fas fa-car-side"></i> Appointment Summary</h3>
+                    <div class="summary-row"><span class="summary-label">Vehicle</span><span class="summary-value">${this.selected.vehicleYear ? this.selected.vehicleYear + ' ' : ''}${this.selected.vehicleMake} ${this.selected.vehicleModel}</span></div>
+                    <div class="summary-row"><span class="summary-label">Plate</span><span class="summary-value">${this.selected.vehiclePlate}</span></div>
+                    <div class="summary-row"><span class="summary-label">Services</span><span class="summary-value">${serviceDetails.map(s => s.name).join(', ')}</span></div>
+                    <div class="summary-row"><span class="summary-label">Est. Duration</span><span class="summary-value">~${totalDuration} min</span></div>
+                    <div class="summary-row"><span class="summary-label">Date</span><span class="summary-value">${this.formatDateDisplay(this.selected.date)}</span></div>
+                    <div class="summary-row"><span class="summary-label">Time</span><span class="summary-value">${this.formatTime12(this.selected.time)}</span></div>
+                    <div class="summary-total">\u20B1${total.toLocaleString()}</div>
+                </div>
+
+                <div style="background:#f9fafb;border-radius:var(--radius);padding:16px;margin-bottom:20px;font-size:13px;">
+                    <div style="font-weight:600;margin-bottom:8px"><i class="fas fa-user"></i> Contact Information</div>
+                    <div><strong>${this.selected.customerName}</strong></div>
+                    <div style="color:var(--text-muted)">${this.selected.customerPhone}${this.selected.customerEmail ? ' &middot; ' + this.selected.customerEmail : ''}</div>
+                    ${this.selected.notes ? `<div style="margin-top:8px;color:var(--text-muted)"><em>"${this.selected.notes}"</em></div>` : ''}
+                </div>
+
+                <div style="background:#fef3c7;border-radius:8px;padding:12px;margin-bottom:20px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:8px">
+                    <i class="fas fa-info-circle" style="font-size:16px"></i>
+                    <span>Your appointment will be <strong>pending confirmation</strong> by our service team. You'll receive a confirmation via SMS or call.</span>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="AutoBooking.goStep(3)"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button class="btn btn-success btn-block" onclick="AutoBooking.confirmBooking()" style="flex:2">
+                        <i class="fas fa-check-circle"></i> Confirm Appointment
+                    </button>
+                </div>
+            `;
+        },
+
+        confirmBooking() {
+            const serviceDetails = this.selected.services.map(id => DataStore.autoServices.find(s => s.id === id)).filter(Boolean);
+            const total = this.getSelectedTotal();
+
+            // Check if customer exists by phone
+            const normalizedPhone = this.selected.customerPhone.replace(/[^0-9]/g, '');
+            const existingCustomer = DataStore.customers.find(cu => {
+                const cuPhone = (cu.phone || '').replace(/[^0-9]/g, '');
+                return cuPhone && cuPhone === normalizedPhone;
+            });
+
+            const booking = {
+                id: Utils.generateId('AC'),
+                company: 'autocasa',
+                customer: existingCustomer?.id || null,
+                customerName: this.selected.customerName,
+                customerPhone: this.selected.customerPhone,
+                customerEmail: this.selected.customerEmail,
+                services: this.selected.services,
+                serviceNames: serviceDetails.map(s => s.name),
+                vehiclePlate: this.selected.vehiclePlate,
+                vehicleMake: this.selected.vehicleMake,
+                vehicleModel: this.selected.vehicleModel,
+                vehicleYear: this.selected.vehicleYear,
+                date: this.selected.date,
+                time: this.selected.time,
+                amount: total,
+                status: 'pending',
+                source: 'online',
+                notes: this.selected.notes || '',
+                confirmationSentAt: null,
+                confirmationMethod: null,
+                rescheduleRequest: null,
+                createdAt: new Date().toISOString()
+            };
+
+            DataStore.bookings.push(booking);
+            Database.save();
+
+            this.showSuccess(booking.id);
+        },
+
+        showSuccess(bookingId) {
+            const c = document.getElementById('bookingStepContent');
+            c.innerHTML = `
+                <div class="success-panel">
+                    <div class="success-icon"><i class="fas fa-check-circle"></i></div>
+                    <h2>Appointment Submitted!</h2>
+                    <p style="color:var(--text-muted);margin-bottom:8px">Your service appointment request has been received</p>
+                    <div class="ref-number">${bookingId}</div>
+                    <p class="note">
+                        Please save your appointment reference number. Our service team will confirm your appointment shortly via SMS or call.
+                        <br><br>You can check your appointment status anytime using the <strong>"My Appointment"</strong> tab above.
+                    </p>
+                    <div class="btn-group" style="justify-content:center;margin-top:24px">
+                        <button class="btn btn-primary" onclick="AutoBooking.resetBooking()"><i class="fas fa-plus"></i> Book Another</button>
+                        <button class="btn btn-secondary" onclick="AutoBooking.switchPage('lookup')"><i class="fas fa-search"></i> Check Status</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('stepsBar').style.display = 'none';
+        },
+
+        resetBooking() {
+            this.currentStep = 1;
+            this.selected = { services: [], date: '', time: '', vehiclePlate: '', vehicleMake: '', vehicleModel: '', vehicleYear: '' };
+            document.getElementById('stepsBar').style.display = 'flex';
+            this.renderStep(1);
+        },
+
+        // ---- Booking Lookup ----
+        lookupBooking() {
+            const ref = document.getElementById('lookupRef')?.value?.trim()?.toUpperCase();
+            const phone = document.getElementById('lookupPhone')?.value?.trim();
+            if (!ref || !phone) { this.showToast('Please enter both reference and phone number', 'warning'); return; }
+
+            const normalizedPhone = phone.replace(/[^0-9]/g, '');
+            const booking = DataStore.bookings.find(b => {
+                if (b.company !== 'autocasa') return false;
+                if (b.id?.toUpperCase() !== ref) return false;
+                const bPhone = (b.customerPhone || '').replace(/[^0-9]/g, '');
+                if (bPhone === normalizedPhone) return true;
+                if (b.customer) {
+                    const cu = DataStore.customers.find(c => c.id === b.customer);
+                    const cuPhone = (cu?.phone || '').replace(/[^0-9]/g, '');
+                    if (cuPhone === normalizedPhone) return true;
+                }
+                return false;
+            });
+
+            const container = document.getElementById('lookupResult');
+            if (!booking) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:24px;margin-top:16px;color:var(--danger)">
+                        <i class="fas fa-exclamation-circle" style="font-size:32px;margin-bottom:8px;display:block"></i>
+                        <strong>Appointment not found</strong>
+                        <p style="font-size:12px;color:var(--text-muted);margin-top:4px">Please check your reference number and phone number</p>
+                    </div>
+                `;
+                return;
+            }
+
+            this.renderBookingLookup(booking, container);
+        },
+
+        renderBookingLookup(booking, container) {
+            const serviceNames = (booking.serviceNames || booking.services || []).map(s => {
+                if (typeof s === 'string' && s.startsWith('AS-')) {
+                    const srv = DataStore.autoServices.find(sv => sv.id === s);
+                    return srv?.name || s;
+                }
+                return s;
+            }).join(', ');
+
+            const statusClass = booking.status.replace(/\s+/g, '-');
+            const canReschedule = ['pending', 'confirmed', 'scheduled'].includes(booking.status);
+            const hasReschedule = booking.rescheduleRequest;
+
+            container.innerHTML = `
+                <div class="booking-status ${statusClass}" style="margin-top:20px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                        <strong style="font-size:16px">${booking.id}</strong>
+                        <span class="status-badge status-${statusClass}">${this.getStatusLabel(booking.status)}</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+                        <div><i class="fas fa-car" style="width:18px;color:var(--red-dark)"></i> ${booking.vehicleYear ? booking.vehicleYear + ' ' : ''}${booking.vehicleMake || ''} ${booking.vehicleModel || ''}</div>
+                        <div><i class="fas fa-id-card" style="width:18px;color:var(--red-dark)"></i> ${booking.vehiclePlate || 'N/A'}</div>
+                        <div><i class="fas fa-wrench" style="width:18px;color:var(--red-dark)"></i> ${serviceNames}</div>
+                        <div><i class="fas fa-peso-sign" style="width:18px;color:var(--red-dark)"></i> \u20B1${(booking.amount || 0).toLocaleString()}</div>
+                        <div><i class="fas fa-calendar" style="width:18px;color:var(--red-dark)"></i> ${this.formatDateDisplay(booking.date)}</div>
+                        <div><i class="fas fa-clock" style="width:18px;color:var(--red-dark)"></i> ${this.formatTime12(booking.time)}</div>
+                    </div>
+                </div>
+
+                ${hasReschedule ? `
+                    <div style="margin-top:16px;padding:16px;background:#fef3c7;border-radius:var(--radius);border:1px solid #f59e0b">
+                        <div style="font-weight:600;margin-bottom:8px;color:#92400e"><i class="fas fa-calendar-alt"></i> Reschedule Request Pending</div>
+                        <div style="font-size:13px;color:#92400e">
+                            <strong>New Date:</strong> ${this.formatDateDisplay(hasReschedule.newDate)} at ${this.formatTime12(hasReschedule.newTime)}<br>
+                            <strong>Reason:</strong> ${hasReschedule.reason || 'No reason provided'}<br>
+                            <em style="font-size:11px">Requested: ${new Date(hasReschedule.requestedAt).toLocaleString()}</em>
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${canReschedule && !hasReschedule ? `
+                    <div style="margin-top:16px">
+                        <button class="btn btn-secondary btn-block" onclick="AutoBooking.showRescheduleForm('${booking.id}')">
+                            <i class="fas fa-calendar-alt"></i> Request Reschedule
+                        </button>
+                    </div>
+                    <div id="rescheduleFormArea"></div>
+                ` : ''}
+
+                ${booking.status === 'pending' ? `
+                    <div style="margin-top:12px">
+                        <button class="btn btn-block" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5" onclick="AutoBooking.cancelBooking('${booking.id}')">
+                            <i class="fas fa-times-circle"></i> Cancel Appointment
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+        },
+
+        showRescheduleForm(bookingId) {
+            const area = document.getElementById('rescheduleFormArea');
+            if (!area) return;
+            const today = new Date().toISOString().split('T')[0];
+            const maxDate = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+
+            area.innerHTML = `
+                <div class="reschedule-form">
+                    <h4 style="margin-bottom:12px"><i class="fas fa-calendar-alt" style="color:var(--red)"></i> Request New Schedule</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>New Date <span class="required">*</span></label>
+                            <input type="date" class="form-control" id="reschedDate" min="${today}" max="${maxDate}">
+                        </div>
+                        <div class="form-group">
+                            <label>New Time <span class="required">*</span></label>
+                            <select class="form-control" id="reschedTime">
+                                ${this.generateTimeOptions()}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Reason for Reschedule</label>
+                        <textarea class="form-control" id="reschedReason" rows="2" placeholder="Optional: Why do you need to reschedule?"></textarea>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="document.getElementById('rescheduleFormArea').innerHTML=''">Cancel</button>
+                        <button class="btn btn-primary" onclick="AutoBooking.submitReschedule('${bookingId}')">
+                            <i class="fas fa-paper-plane"></i> Submit Request
+                        </button>
+                    </div>
+                </div>
+            `;
+        },
+
+        generateTimeOptions() {
+            const options = [];
+            for (let h = 8; h < 17; h++) {
+                const t = `${String(h).padStart(2, '0')}:00`;
+                options.push(`<option value="${t}">${this.formatTime12(t)}</option>`);
+            }
+            return options.join('');
+        },
+
+        submitReschedule(bookingId) {
+            const newDate = document.getElementById('reschedDate')?.value;
+            const newTime = document.getElementById('reschedTime')?.value;
+            const reason = document.getElementById('reschedReason')?.value?.trim() || '';
+
+            if (!newDate || !newTime) { this.showToast('Please select a new date and time', 'warning'); return; }
+
+            const booking = DataStore.bookings.find(b => b.id === bookingId);
+            if (!booking) return;
+
+            booking.rescheduleRequest = {
+                newDate,
+                newTime,
+                reason,
+                originalDate: booking.date,
+                originalTime: booking.time,
+                requestedAt: new Date().toISOString()
+            };
+            booking.status = 'reschedule-pending';
+            Database.save();
+
+            this.showToast('Reschedule request submitted! Awaiting staff confirmation.', 'success');
+            this.renderBookingLookup(booking, document.getElementById('lookupResult'));
+        },
+
+        cancelBooking(bookingId) {
+            if (!confirm('Are you sure you want to cancel this appointment?')) return;
+            const booking = DataStore.bookings.find(b => b.id === bookingId);
+            if (!booking) return;
+            booking.status = 'cancelled';
+            booking.cancelledAt = new Date().toISOString();
+            booking.cancelledBy = 'customer';
+            Database.save();
+            this.showToast('Appointment cancelled', 'success');
+            this.renderBookingLookup(booking, document.getElementById('lookupResult'));
+        },
+
+        // ---- Helpers ----
+        formatDateDisplay(dateStr) {
+            if (!dateStr) return '\u2014';
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        },
+
+        getStatusLabel(status) {
+            const map = {
+                'pending': 'Pending Confirmation',
+                'confirmed': 'Confirmed',
+                'scheduled': 'Scheduled',
+                'in-progress': 'In Progress',
+                'completed': 'Completed',
+                'cancelled': 'Cancelled',
+                'no-show': 'No Show',
+                'reschedule-pending': 'Reschedule Pending'
+            };
+            return map[status] || status;
+        },
+
+        showToast(msg, type = 'info') {
+            const t = document.getElementById('toast');
+            const icons = { success: 'check-circle', warning: 'exclamation-triangle', error: 'times-circle', info: 'info-circle' };
+            t.innerHTML = `<i class="fas fa-${icons[type] || 'info-circle'}"></i> ${msg}`;
+            t.className = 'toast show';
+            setTimeout(() => { t.className = 'toast'; }, 3500);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => AutoBooking.init());
+    </script>
+</body>
+</html>

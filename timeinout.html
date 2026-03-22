@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee DTR — UBMS Time-In/Out</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --primary: #0d1b2a;
+            --accent: #00897b;
+            --danger: #e74c3c;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --bg: #f0f4f8;
+            --card: #ffffff;
+            --text: #1a202c;
+            --text-muted: #718096;
+            --border: #e2e8f0;
+            --radius: 16px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.1);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* ---- Header ---- */
+        .kiosk-header {
+            background: var(--company-color, var(--primary));
+            color: white;
+            padding: 20px 24px 16px;
+            text-align: center;
+            position: relative;
+        }
+        .kiosk-logo {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            margin: 0 auto 10px;
+            overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .kiosk-logo img { width: 100%; height: 100%; object-fit: contain; }
+        .kiosk-logo i { font-size: 28px; color: white; }
+        .kiosk-company { font-size: 18px; font-weight: 800; margin-bottom: 2px; }
+        .kiosk-subtitle { font-size: 12px; opacity: 0.75; }
+        /* ---- Live Clock ---- */
+        .clock-box {
+            background: var(--company-color, var(--primary));
+            color: white;
+            text-align: center;
+            padding: 0 24px 24px;
+        }
+        .clock-time {
+            font-size: clamp(40px, 12vw, 72px);
+            font-weight: 800;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .clock-date {
+            font-size: 14px;
+            opacity: 0.75;
+            margin-top: 4px;
+        }
+        /* ---- Main content ---- */
+        .kiosk-body {
+            flex: 1;
+            padding: 20px 16px 32px;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .section-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+        /* ---- Employee List ---- */
+        .emp-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 360px) { .emp-grid { grid-template-columns: 1fr; } }
+        .emp-btn {
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 12px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .emp-btn:hover, .emp-btn.selected {
+            border-color: var(--company-color, var(--accent));
+            background: var(--company-bg, #e8f5e9);
+            box-shadow: 0 0 0 2px var(--company-color, var(--accent))30;
+        }
+        .emp-btn.selected { border-width: 2.5px; }
+        .emp-avatar {
+            width: 40px; height: 40px; min-width: 40px;
+            border-radius: 50%;
+            background: var(--company-color, var(--accent));
+            color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 14px;
+        }
+        .emp-info strong { display: block; font-size: 13px; font-weight: 700; line-height: 1.2; }
+        .emp-info span { font-size: 11px; color: var(--text-muted); }
+        .emp-status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            margin-left: auto; flex-shrink: 0;
+        }
+        .emp-status-dot.in { background: var(--warning); }
+        .emp-status-dot.out { background: var(--success); }
+        .emp-status-dot.none { background: var(--border); }
+        /* ---- Action Panel ---- */
+        .action-panel {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        .action-panel.visible { display: block; }
+        .selected-emp-name {
+            font-size: 18px; font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .selected-emp-pos { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+        .status-info {
+            display: flex; gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+        .status-pill {
+            padding: 6px 14px;
+            border-radius: 99px;
+            font-size: 12px; font-weight: 600;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .status-pill.in { background: #fff3cd; color: #856404; }
+        .status-pill.out { background: #d1fae5; color: #065f46; }
+        .status-pill.none { background: #f1f5f9; color: var(--text-muted); }
+        .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .btn-timein, .btn-timeout {
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+        .btn-timein {
+            background: var(--success);
+            color: white;
+        }
+        .btn-timein:hover { background: #219a52; transform: translateY(-1px); }
+        .btn-timeout {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-timeout:hover { background: #c0392b; transform: translateY(-1px); }
+        .btn-timein:disabled, .btn-timeout:disabled {
+            opacity: 0.35; cursor: not-allowed; transform: none;
+        }
+        .location-info {
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+        /* ---- Log Table ---- */
+        .log-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .log-header {
+            padding: 14px 16px;
+            font-weight: 700;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .log-table th { background: #f8fafc; padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; }
+        .log-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .log-table tr:last-child td { border-bottom: none; }
+        .badge {
+            padding: 3px 8px; border-radius: 99px;
+            font-size: 11px; font-weight: 700;
+        }
+        .badge-in { background: #fff3cd; color: #856404; }
+        .badge-out { background: #d1fae5; color: #065f46; }
+        /* ---- Toast ---- */
+        .toast {
+            position: fixed;
+            bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+            background: var(--primary);
+            color: white;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 14px; font-weight: 600;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+            z-index: 9999;
+            display: flex; align-items: center; gap: 10px;
+            white-space: nowrap;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        /* ---- Loading spinner overlay ---- */
+        .spinner-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center; justify-content: center;
+            z-index: 9998;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .spinner-overlay.active { display: flex; }
+        .spinner { width: 48px; height: 48px; border: 5px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-text { color: white; font-size: 14px; font-weight: 600; }
+        /* ---- No-employees message ---- */
+        .empty-emp {
+            text-align: center; padding: 40px 24px;
+            color: var(--text-muted);
+        }
+        .empty-emp i { font-size: 40px; margin-bottom: 12px; display: block; opacity: 0.4; }
+        /* ---- Mode Tabs ---- */
+        .mode-tabs {
+            display: flex;
+            gap: 0;
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+        .mode-tab {
+            flex: 1;
+            padding: 10px 6px;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all 0.18s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .mode-tab.active {
+            background: var(--company-color, var(--accent));
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        /* ---- PIN Keypad ---- */
+        .pin-panel { display: none; }
+        .pin-panel.visible { display: block; }
+        .pin-display {
+            background: #f8fafc;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 8px;
+            text-align: center;
+            margin-bottom: 14px;
+            font-family: monospace;
+            min-height: 60px;
+            color: var(--text);
+        }
+        .pin-display.has-value { border-color: var(--company-color, var(--accent)); }
+        .pin-display.error { border-color: var(--danger); color: var(--danger); }
+        .pin-display.found { border-color: var(--success); }
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .key-btn {
+            padding: 18px 10px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 22px;
+            font-weight: 700;
+            background: white;
+            cursor: pointer;
+            transition: all 0.12s;
+            color: var(--text);
+        }
+        .key-btn:hover { border-color: var(--company-color, var(--accent)); background: var(--company-bg, #f0fdf4); }
+        .key-btn:active { transform: scale(0.95); }
+        .key-btn.key-clear { font-size: 14px; color: var(--danger); border-color: #fecaca; }
+        .key-btn.key-back { font-size: 16px; color: var(--text-muted); }
+        .pin-emp-card {
+            background: white;
+            border: 2px solid var(--success);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .pin-emp-card.visible { display: flex; align-items: center; gap: 14px; }
+        .pin-emp-avatar {
+            width: 54px; height: 54px; min-width: 54px;
+            border-radius: 50%;
+            background: var(--company-color, var(--accent));
+            color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 900;
+        }
+        /* ---- Biometric Import Panel ---- */
+        .bio-panel { display: none; }
+        .bio-panel.visible { display: block; }
+        .bio-section {
+            background: white;
+            border-radius: 14px;
+            border: 1.5px solid var(--border);
+            padding: 18px;
+            margin-bottom: 14px;
+        }
+        .bio-section h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+        .bio-section textarea {
+            width: 100%;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+            outline: none;
+        }
+        .bio-section textarea:focus { border-color: var(--company-color, var(--accent)); }
+        .device-status {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px;
+            background: #f8fafc;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .device-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--border);
+        }
+        .device-dot.listening { background: var(--success); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        .btn-import {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: var(--company-color, var(--accent));
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn-import:hover { filter: brightness(1.1); }
+        .import-log {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 11px;
+            margin-top: 10px;
+        }
+        .import-log-item {
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            background: #f0fdf4;
+            color: #166534;
+        }
+        .import-log-item.err { background: #fef2f2; color: #991b1b; }
+        /* ---- Footer ---- */
+        .kiosk-footer {
+            text-align: center;
+            padding: 16px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+<div class="spinner-overlay" id="spinner">
+    <div class="spinner"></div>
+    <div class="spinner-text" id="spinnerText">Getting location…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- App root rendered by JS -->
+<div id="app"></div>
+
+<script>
+/* ============================================================
+   UBMS Employee Time-In / Time-Out Kiosk
+   Reads & writes to ubms_database localStorage key.
+   No login required — accessible via shared link.
+   ============================================================ */
+
+const DB_KEY = 'ubms_database';
+
+const COMPANY_META = {
+    dheekay:  { name: 'Dheekay Builders OPC',              color: '#16a085', logo: 'assets/logos/dheekay.png',  bg: '#e8f5f2', type: 'Construction' },
+    kdchavit: { name: 'KDChavit Construction',             color: '#2c3e50', logo: 'assets/logos/kdchavit.png', bg: '#eaf0f6', type: 'Construction' },
+    nuatthai: { name: 'Nuat Thai Foot & Body Massage',     color: '#b8860b', logo: 'assets/logos/nuatthai.png', bg: '#fdf8e1', type: 'Wellness' },
+    autocasa: { name: 'AutoCasa Auto Expert & Repair',     color: '#e74c3c', logo: 'assets/logos/autocasa.png', bg: '#fdecea', type: 'Automotive' }
+};
+
+let state = {
+    company: null,
+    meta: null,
+    employees: [],
+    todayRecords: [],
+    selectedEmployee: null,
+    geoResult: null
+};
+
+// ---- Helpers ----
+function now() { return new Date(); }
+function todayStr() { return now().toISOString().split('T')[0]; }
+function timeStr(d) {
+    return d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+function genId() {
+    return 'ATT-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase();
+}
+function initials(name) {
+    return name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+}
+
+// ---- LocalStorage DB ----
+function loadDB() {
+    try {
+        const s = localStorage.getItem(DB_KEY);
+        return s ? JSON.parse(s) : null;
+    } catch (e) { return null; }
+}
+function saveDB(db) {
+    try { localStorage.setItem(DB_KEY, JSON.stringify(db)); return true; }
+    catch (e) { return false; }
+}
+
+// ---- Toast ----
+let toastTimer;
+function showToast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = '';
+    const icon = document.createElement('i');
+    icon.className = type === 'success' ? 'fas fa-check-circle' : type === 'error' ? 'fas fa-times-circle' : 'fas fa-info-circle';
+    el.appendChild(icon);
+    el.appendChild(document.createTextNode(' ' + msg));
+    el.className = `toast ${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+// ---- Spinner ----
+function showSpinner(msg) {
+    document.getElementById('spinnerText').textContent = msg || 'Please wait…';
+    document.getElementById('spinner').classList.add('active');
+}
+function hideSpinner() { document.getElementById('spinner').classList.remove('active'); }
+
+// ---- Geolocation ----
+function getLocation(timeout = 8000) {
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition(
+            pos => resolve({
+                lat: pos.coords.latitude.toFixed(6),
+                lng: pos.coords.longitude.toFixed(6),
+                accuracy: Math.round(pos.coords.accuracy),
+                mapsUrl: `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
+            }),
+            () => resolve(null),
+            { enableHighAccuracy: true, timeout, maximumAge: 30000 }
+        );
+    });
+}
+
+// ---- Live Clock ----
+function startClock() {
+    function tick() {
+        const el = document.getElementById('liveClock');
+        const de = document.getElementById('liveDate');
+        if (!el) return;
+        const n = now();
+        el.textContent = n.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        if (de) de.textContent = n.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    tick();
+    setInterval(() => { tick(); refreshTodayPanel(); }, 1000);
+}
+
+// ---- Load state from DB ----
+function loadState() {
+    const db = loadDB();
+    if (!db) return;
+    const today = todayStr();
+    state.employees = (db.employees || []).filter(e => e.company === state.company);
+    state.todayRecords = (db.attendanceRecords || []).filter(r => {
+        if (r.date !== today) return false;
+        const emp = (db.employees || []).find(e => e.id === r.employeeId);
+        return emp && emp.company === state.company;
+    });
+}
+
+// ---- Get today record for employee ----
+function getTodayRecord(employeeId) {
+    return state.todayRecords.find(r => r.employeeId === employeeId) || null;
+}
+
+// ---- Render full app ----
+function renderApp() {
+    const company = state.company;
+    const meta = state.meta;
+
+    if (!company || !meta) {
+        document.getElementById('app').innerHTML = `
+        <div style="text-align:center;padding:60px 24px;color:#718096">
+            <i class="fas fa-exclamation-circle" style="font-size:48px;margin-bottom:16px;display:block;color:#e74c3c"></i>
+            <h2 style="margin-bottom:8px">No Company Specified</h2>
+            <p>Please use the link provided by your HR manager.<br>Example: <code>timeinout.html?company=dheekay</code></p>
+        </div>`;
+        return;
+    }
+
+    // Apply company color to CSS variable
+    document.documentElement.style.setProperty('--company-color', meta.color);
+    document.documentElement.style.setProperty('--company-bg', meta.bg);
+    document.title = `DTR — ${meta.name}`;
+
+    const empList = state.employees.length === 0
+        ? `<div class="empty-emp"><i class="fas fa-user-slash"></i><p>No employees found for this company.<br>Please ask HR to add employees first.</p></div>`
+        : `<div class="emp-grid" id="empGrid">${state.employees.map(emp => {
+            const rec = getTodayRecord(emp.id);
+            const dotClass = !rec ? 'none' : rec.timeOut ? 'out' : 'in';
+            return `<button class="emp-btn" id="empBtn_${emp.id}" onclick="selectEmployee('${emp.id}')">
+                <div class="emp-avatar" style="background:${meta.color}">${initials(emp.name)}</div>
+                <div class="emp-info">
+                    <strong>${emp.name}</strong>
+                    <span>${emp.position || 'Employee'}</span>
+                </div>
+                <div class="emp-status-dot ${dotClass}" title="${dotClass === 'in' ? 'Clocked In' : dotClass === 'out' ? 'Clocked Out' : 'Not yet clocked in'}"></div>
+            </button>`;
+        }).join('')}</div>`;
+
+    document.getElementById('app').innerHTML = `
+    <div class="kiosk-header">
+        <div class="kiosk-logo">
+            <img src="${meta.logo}" alt="${meta.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <i class="fas fa-building" style="display:none"></i>
+        </div>
+        <div class="kiosk-company">${meta.name}</div>
+        <div class="kiosk-subtitle">${meta.type} · Employee DTR Portal</div>
+    </div>
+
+    <div class="clock-box">
+        <div class="clock-time" id="liveClock">--:--:--</div>
+        <div class="clock-date" id="liveDate">Loading…</div>
+    </div>
+
+    <div class="kiosk-body">
+
+        <!-- Mode Switcher -->
+        <div class="mode-tabs">
+            <button class="mode-tab active" id="tabBrowse" onclick="switchMode('browse')">
+                <i class="fas fa-users"></i> Browse Name
+            </button>
+            <button class="mode-tab" id="tabPin" onclick="switchMode('pin')">
+                <i class="fas fa-hashtag"></i> Enter User ID
+            </button>
+            <button class="mode-tab" id="tabBio" onclick="switchMode('bio')">
+                <i class="fas fa-fingerprint"></i> Biometric Import
+            </button>
+        </div>
+
+        <!-- ====== BROWSE MODE ====== -->
+        <div id="modeBrowse">
+            <div class="section-label"><i class="fas fa-users" style="margin-right:6px"></i>Select Your Name</div>
+            ${empList}
+        </div>
+
+        <!-- ====== PIN / USER ID MODE ====== -->
+        <div class="pin-panel" id="modePin">
+            <div class="section-label"><i class="fas fa-id-card" style="margin-right:6px"></i>Enter Your User ID</div>
+            <div class="pin-display" id="pinDisplay">_ _ _ _</div>
+            <div class="pin-emp-card" id="pinEmpCard">
+                <div class="pin-emp-avatar" id="pinEmpAvatar"></div>
+                <div>
+                    <div style="font-size:17px;font-weight:800" id="pinEmpName">—</div>
+                    <div style="font-size:12px;color:var(--text-muted)" id="pinEmpPos">—</div>
+                    <div id="pinEmpStatus" style="font-size:12px;margin-top:4px"></div>
+                </div>
+            </div>
+            <div class="keypad">
+                ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="key-btn" onclick="pinKey('${n}')">${n}</button>`).join('')}
+                <button class="key-btn key-clear" onclick="pinClear()"><i class="fas fa-times-circle"></i> CLR</button>
+                <button class="key-btn" onclick="pinKey('0')">0</button>
+                <button class="key-btn key-back" onclick="pinBack()"><i class="fas fa-backspace"></i></button>
+            </div>
+            <div class="action-btns" id="pinActionBtns" style="display:none">
+                <button class="btn-timein" id="pinBtnIn" onclick="doClockIn()">
+                    <i class="fas fa-sign-in-alt"></i> TIME IN
+                </button>
+                <button class="btn-timeout" id="pinBtnOut" onclick="doClockOut()">
+                    <i class="fas fa-sign-out-alt"></i> TIME OUT
+                </button>
+            </div>
+            <div class="location-info" id="pinLocationInfo">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>GPS location will be captured automatically</span>
+            </div>
+        </div>
+
+        <!-- ====== BIOMETRIC IMPORT MODE ====== -->
+        <div class="bio-panel" id="modeBio">
+            <div class="section-label"><i class="fas fa-fingerprint" style="margin-right:6px"></i>Biometric Device Integration</div>
+
+            <!-- Hardware Listener Status -->
+            <div class="bio-section">
+                <h4><i class="fas fa-usb" style="margin-right:6px"></i>Hardware Device Bridge</h4>
+                <div class="device-status">
+                    <div class="device-dot listening" id="deviceDot"></div>
+                    <span id="deviceStatusText">Listening for biometric device data…</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+                    The kiosk polls for data every 3 seconds from the <code>ubms_biometric_queue</code> localStorage key.
+                    A desktop companion app or middleware (e.g. ZKTeco SDK bridge, Python script) can write attendance events here in JSON format:
+                </div>
+                <pre style="background:#f8fafc;border-radius:8px;padding:10px;font-size:11px;margin-top:8px;overflow-x:auto;color:#334155">[{"userId":"1001","timestamp":"2026-03-22T08:05:00","type":"in"},
+{"userId":"1001","timestamp":"2026-03-22T17:02:00","type":"out"}]</pre>
+                <div id="bioQueueLog" class="import-log"></div>
+            </div>
+
+            <!-- Manual CSV Import -->
+            <div class="bio-section">
+                <h4><i class="fas fa-file-csv" style="margin-right:6px"></i>Import from Biometric Device Log (CSV)</h4>
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.6">
+                    Export the attendance log from your biometric device software (ZKTeco, Virdi, Suprema, etc.) and paste it below.<br>
+                    <strong>Supported format:</strong> <code>UserID,Date,Time,Type</code> — Type is <code>in</code> or <code>out</code> (or 0/1)
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);background:#f8fafc;border-radius:8px;padding:8px;margin-bottom:8px;font-family:monospace">
+                    Example:<br>
+                    UserID,Date,Time,Type<br>
+                    1001,2026-03-22,08:05,in<br>
+                    1002,2026-03-22,08:12,in<br>
+                    1001,2026-03-22,17:03,out
+                </div>
+                <textarea id="bioCSV" rows="8" placeholder="Paste your biometric device CSV log here…"></textarea>
+                <button class="btn-import" onclick="importBioCSV()">
+                    <i class="fas fa-cloud-upload-alt" style="margin-right:8px"></i>Process & Sync Attendance Records
+                </button>
+                <div id="bioImportLog" class="import-log"></div>
+            </div>
+        </div>
+
+        <!-- Action Panel (shared by Browse & PIN modes) -->
+        <div class="action-panel" id="actionPanel">
+            <div class="selected-emp-name" id="actionEmpName">—</div>
+            <div class="selected-emp-pos" id="actionEmpPos">—</div>
+            <div class="status-info" id="actionStatus"></div>
+            <div class="action-btns">
+                <button class="btn-timein" id="btnTimeIn" onclick="doClockIn()">
+                    <i class="fas fa-sign-in-alt"></i> TIME IN
+                </button>
+                <button class="btn-timeout" id="btnTimeOut" onclick="doClockOut()">
+                    <i class="fas fa-sign-out-alt"></i> TIME OUT
+                </button>
+            </div>
+            <div class="location-info" id="locationInfo">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>Location will be captured automatically</span>
+            </div>
+        </div>
+
+        <!-- Today's Log -->
+        <div class="section-label" style="margin-top:8px"><i class="fas fa-clipboard-list" style="margin-right:6px"></i>Today's Log — ${todayStr()}</div>
+        <div class="log-card">
+            <div class="log-header">
+                <span>Attendance Records</span>
+                <span id="logCount" style="font-size:12px;color:var(--text-muted)">0 entries</span>
+            </div>
+            <div id="todayLogBody">
+                <table class="log-table">
+                    <thead><tr><th>Employee</th><th>Time In</th><th>Time Out</th><th>Status</th><th>Geolocation</th></tr></thead>
+                    <tbody id="logTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="kiosk-footer">
+        UBMS Employee Attendance Kiosk · ${meta.name}<br>
+        All records are synchronized to the HR payroll system.
+    </div>`;
+
+    renderTodayLog();
+    startClock();
+    startBioQueuePoll();
+}
+
+// ---- Render today's log table ----
+function renderTodayLog() {
+    const tbody = document.getElementById('logTableBody');
+    const count = document.getElementById('logCount');
+    if (!tbody) return;
+    if (state.todayRecords.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">No records yet today</td></tr>`;
+        if (count) count.textContent = '0 entries';
+        return;
+    }
+    if (count) count.textContent = `${state.todayRecords.length} ${state.todayRecords.length === 1 ? 'entry' : 'entries'}`;
+    tbody.innerHTML = state.todayRecords.map(r => {
+        const emp = state.employees.find(e => e.id === r.employeeId);
+        const statusClass = r.timeOut ? 'badge-out' : 'badge-in';
+        const statusLabel = r.timeOut ? 'Complete' : 'Clocked In';
+        // Build geo column
+        let geoHtml = '—';
+        if (r.location || r.locationOut) {
+            let parts = [];
+            if (r.location) {
+                const acc = r.location.accuracy || '?';
+                const accColor = acc <= 20 ? 'var(--success)' : acc <= 100 ? 'var(--warning)' : 'var(--danger)';
+                parts.push(`<a href="${r.location.mapsUrl}" target="_blank" style="color:var(--company-color);font-size:10px;display:flex;align-items:center;gap:3px"><i class="fas fa-sign-in-alt"></i>In <span style="color:${accColor};font-weight:700">±${acc}m</span></a>`);
+            }
+            if (r.locationOut) {
+                const acc = r.locationOut.accuracy || '?';
+                const accColor = acc <= 20 ? 'var(--success)' : acc <= 100 ? 'var(--warning)' : 'var(--danger)';
+                parts.push(`<a href="${r.locationOut.mapsUrl}" target="_blank" style="color:var(--danger);font-size:10px;display:flex;align-items:center;gap:3px"><i class="fas fa-sign-out-alt"></i>Out <span style="color:${accColor};font-weight:700">±${acc}m</span></a>`);
+            }
+            geoHtml = `<div style="display:flex;flex-direction:column;gap:2px">${parts.join('')}</div>`;
+        }
+        const srcBadge = r.source === 'biometric' ? ' <span style="background:#e8eaf6;color:#3f51b5;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">BIO</span>' : '';
+        return `<tr>
+            <td><strong>${emp?.name || r.employeeId}</strong>${srcBadge}</td>
+            <td>${r.timeIn || '—'}</td>
+            <td>${r.timeOut || '<span style="color:var(--warning);font-size:11px">Pending</span>'}</td>
+            <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+            <td>${geoHtml}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ---- Periodically refresh today's panel without full re-render ----
+let lastLogCount = 0;
+function refreshTodayPanel() {
+    if (state.todayRecords.length !== lastLogCount) {
+        lastLogCount = state.todayRecords.length;
+        renderTodayLog();
+        // Refresh employee dots
+        state.employees.forEach(emp => {
+            const btn = document.getElementById(`empBtn_${emp.id}`);
+            if (!btn) return;
+            const dot = btn.querySelector('.emp-status-dot');
+            if (!dot) return;
+            const rec = getTodayRecord(emp.id);
+            dot.className = `emp-status-dot ${!rec ? 'none' : rec.timeOut ? 'out' : 'in'}`;
+        });
+    }
+    // Keep selected employee action panel current
+    if (state.selectedEmployee) updateActionPanel();
+}
+
+// ---- Select employee ----
+function selectEmployee(id) {
+    state.selectedEmployee = id;
+    document.querySelectorAll('.emp-btn').forEach(b => b.classList.remove('selected'));
+    const btn = document.getElementById(`empBtn_${id}`);
+    if (btn) btn.classList.add('selected');
+    updateActionPanel();
+    document.getElementById('actionPanel').classList.add('visible');
+    // Smooth scroll to action panel
+    document.getElementById('actionPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ---- Update action panel for selected employee ----
+function updateActionPanel() {
+    const emp = state.employees.find(e => e.id === state.selectedEmployee);
+    if (!emp) return;
+    const rec = getTodayRecord(emp.id);
+    const nameEl = document.getElementById('actionEmpName');
+    const posEl = document.getElementById('actionEmpPos');
+    const statusEl = document.getElementById('actionStatus');
+    const btnIn = document.getElementById('btnTimeIn');
+    const btnOut = document.getElementById('btnTimeOut');
+    if (!nameEl) return;
+
+    nameEl.textContent = emp.name;
+    posEl.textContent = `${emp.position || 'Employee'} · ${state.meta.name}`;
+
+    if (!rec) {
+        // Not yet clocked in
+        statusEl.innerHTML = `<span class="status-pill none"><i class="fas fa-circle"></i> Not yet clocked in today</span>`;
+        btnIn.disabled = false;
+        btnOut.disabled = true;
+        btnOut.style.opacity = '0.3';
+    } else if (rec.timeIn && !rec.timeOut) {
+        // Clocked in, not yet out
+        statusEl.innerHTML = `<span class="status-pill in"><i class="fas fa-dot-circle"></i> Clocked In at ${rec.timeIn}</span>`;
+        btnIn.disabled = true;
+        btnIn.style.opacity = '0.3';
+        btnOut.disabled = false;
+        btnOut.style.opacity = '1';
+    } else {
+        // Both in and out
+        statusEl.innerHTML = `<span class="status-pill out"><i class="fas fa-check-circle"></i> Clocked Out at ${rec.timeOut}</span><span class="status-pill in" style="background:#f0fdf4"><i class="fas fa-clock"></i> In: ${rec.timeIn}</span>`;
+        btnIn.disabled = true;
+        btnIn.style.opacity = '0.3';
+        btnOut.disabled = true;
+        btnOut.style.opacity = '0.3';
+        document.getElementById('locationInfo').innerHTML = `<i class="fas fa-check-circle" style="color:var(--success)"></i> <span style="color:var(--success)">Attendance complete for today</span>`;
+    }
+}
+
+// ---- Clock In ----
+async function doClockIn() {
+    if (!state.selectedEmployee) return;
+    const emp = state.employees.find(e => e.id === state.selectedEmployee);
+    if (!emp) return;
+    const existing = getTodayRecord(emp.id);
+    if (existing) { showToast('Already clocked in today!', 'error'); return; }
+
+    showSpinner('Getting your location…');
+    const geoResult = await getLocation();
+    hideSpinner();
+
+    const timeInStr = timeStr(now());
+
+    // Compute late minutes if schedule exists
+    let lateMinutes = 0;
+    const db = loadDB();
+    const schedule = (db?.workSchedules || []).find(s => s.employeeId === emp.id);
+    if (schedule) {
+        const dayName = now().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        const daySchedule = schedule[dayName];
+        if (daySchedule && !daySchedule.off && daySchedule.start) {
+            const [sh, sm] = daySchedule.start.split(':').map(Number);
+            const [ch, cm] = [now().getHours(), now().getMinutes()];
+            const diff = (ch * 60 + cm) - (sh * 60 + sm);
+            if (diff > 0) lateMinutes = diff;
+        }
+    }
+
+    const record = {
+        id: genId(),
+        employeeId: emp.id,
+        date: todayStr(),
+        timeIn: timeInStr,
+        timeInTimestamp: now().toISOString(),
+        timeOut: null,
+        timeOutTimestamp: null,
+        status: lateMinutes > 0 ? 'late' : 'present',
+        lateMinutes,
+        undertimeMinutes: 0,
+        overtimeHours: 0,
+        notes: '',
+        location: geoResult,
+        locationOut: null,
+        source: 'kiosk'
+    };
+
+    // Write to localStorage
+    if (!db) { showToast('Database not found. Please open the main UBMS system first.', 'error'); return; }
+    if (!db.attendanceRecords) db.attendanceRecords = [];
+    db.attendanceRecords.push(record);
+    if (!saveDB(db)) { showToast('Could not save. Storage may be full.', 'error'); return; }
+
+    // Update local state
+    state.todayRecords.push(record);
+
+    updateActionPanel();
+    renderTodayLog();
+
+    // Refresh employee dot
+    const btn = document.getElementById(`empBtn_${emp.id}`);
+    if (btn) btn.querySelector('.emp-status-dot').className = 'emp-status-dot in';
+
+    const locMsg = geoResult ? ` · GPS ±${geoResult.accuracy}m` : ` · No GPS`;
+    if (lateMinutes > 0) {
+        showToast(`TIME IN recorded — ${lateMinutes} min late${locMsg}`, 'error');
+    } else {
+        showToast(`TIME IN recorded at ${timeInStr}${locMsg}`, 'success');
+    }
+    updateLocationInfo(geoResult);
+
+    // Reset PIN mode after success
+    if (activeMode === 'pin') {
+        setTimeout(() => { pinClear(); }, 2000);
+    }
+}
+
+// ---- Clock Out ----
+async function doClockOut() {
+    if (!state.selectedEmployee) return;
+    const emp = state.employees.find(e => e.id === state.selectedEmployee);
+    if (!emp) return;
+    const rec = getTodayRecord(emp.id);
+    if (!rec || rec.timeOut) { showToast('No open clock-in found!', 'error'); return; }
+
+    showSpinner('Getting your location…');
+    const geoResult = await getLocation();
+    hideSpinner();
+
+    const timeOutStr = timeStr(now());
+
+    // Compute undertime if schedule exists
+    let undertimeMinutes = 0;
+    const db = loadDB();
+    const schedule = (db?.workSchedules || []).find(s => s.employeeId === emp.id);
+    if (schedule) {
+        const dayName = now().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        const daySchedule = schedule[dayName];
+        if (daySchedule && !daySchedule.off && daySchedule.end) {
+            const [eh, em] = daySchedule.end.split(':').map(Number);
+            const [ch, cm] = [now().getHours(), now().getMinutes()];
+            const diff = (eh * 60 + em) - (ch * 60 + cm);
+            if (diff > 0) undertimeMinutes = diff;
+        }
+    }
+
+    // Update record in DB
+    const idx = (db.attendanceRecords || []).findIndex(r => r.id === rec.id);
+    if (idx >= 0) {
+        db.attendanceRecords[idx].timeOut = timeOutStr;
+        db.attendanceRecords[idx].timeOutTimestamp = now().toISOString();
+        db.attendanceRecords[idx].locationOut = geoResult;
+        db.attendanceRecords[idx].undertimeMinutes = undertimeMinutes;
+        if (!saveDB(db)) { showToast('Could not save. Storage may be full.', 'error'); return; }
+        // Update local state
+        rec.timeOut = timeOutStr;
+        rec.timeOutTimestamp = now().toISOString();
+        rec.locationOut = geoResult;
+        rec.undertimeMinutes = undertimeMinutes;
+    }
+
+    updateActionPanel();
+    renderTodayLog();
+    const btn = document.getElementById(`empBtn_${emp.id}`);
+    if (btn) btn.querySelector('.emp-status-dot').className = 'emp-status-dot out';
+
+    const locMsg = geoResult ? ` · GPS ±${geoResult.accuracy}m` : ` · No GPS`;
+    if (undertimeMinutes > 0) {
+        showToast(`TIME OUT recorded — ${undertimeMinutes} min undertime${locMsg}`, 'error');
+    } else {
+        showToast(`TIME OUT recorded at ${timeOutStr}${locMsg}`, 'success');
+    }
+    updateLocationInfo(geoResult);
+
+    // Reset PIN mode after success
+    if (activeMode === 'pin') {
+        setTimeout(() => { pinClear(); }, 2000);
+    }
+}
+
+function updateLocationInfo(geo) {
+    const el = document.getElementById('locationInfo');
+    const elPin = document.getElementById('pinLocationInfo');
+    [el, elPin].forEach(e => {
+        if (!e) return;
+        if (geo) {
+            const acc = geo.accuracy || 0;
+            const accColor = acc <= 20 ? 'var(--success)' : acc <= 100 ? 'var(--warning)' : 'var(--danger)';
+            const accLabel = acc <= 20 ? 'Excellent' : acc <= 50 ? 'Good' : acc <= 100 ? 'Fair' : 'Poor';
+            e.innerHTML = `
+                <div style="display:flex;flex-direction:column;gap:4px;width:100%">
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <i class="fas fa-map-marker-alt" style="color:var(--success)"></i>
+                        <a href="${geo.mapsUrl}" target="_blank" style="color:var(--success);font-weight:600">Location recorded</a>
+                        <span style="background:${accColor}20;color:${accColor};padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">±${acc}m · ${accLabel}</span>
+                    </div>
+                    <div style="font-size:10px;color:var(--text-muted)">
+                        <i class="fas fa-globe" style="margin-right:4px"></i>${geo.lat}, ${geo.lng}
+                    </div>
+                </div>`;
+        } else {
+            e.innerHTML = `<i class="fas fa-map-marker-slash" style="color:var(--danger)"></i> <span style="color:var(--danger)">Location unavailable — check browser permissions</span>`;
+        }
+    });
+}
+
+// ============================================================
+//  MODE SWITCHER
+// ============================================================
+let activeMode = 'browse'; // 'browse' | 'pin' | 'bio'
+
+function switchMode(mode) {
+    activeMode = mode;
+    // Update tabs
+    ['browse', 'pin', 'bio'].forEach(m => {
+        const tab = document.getElementById('tab' + m.charAt(0).toUpperCase() + m.slice(1));
+        if (tab) tab.classList.toggle('active', m === mode);
+    });
+    // Show/hide panels
+    const browse = document.getElementById('modeBrowse');
+    const pin = document.getElementById('modePin');
+    const bio = document.getElementById('modeBio');
+    const actionPanel = document.getElementById('actionPanel');
+    if (browse) browse.style.display = mode === 'browse' ? '' : 'none';
+    if (pin) pin.classList.toggle('visible', mode === 'pin');
+    if (bio) bio.classList.toggle('visible', mode === 'bio');
+    // Hide browse action panel when switching away
+    if (mode !== 'browse' && actionPanel) actionPanel.classList.remove('visible');
+    if (mode !== 'pin') {
+        // Reset PIN state
+        pinBuffer = '';
+        renderPinDisplay();
+        if (document.getElementById('pinEmpCard')) document.getElementById('pinEmpCard').classList.remove('visible');
+        if (document.getElementById('pinActionBtns')) document.getElementById('pinActionBtns').style.display = 'none';
+    }
+}
+
+// ============================================================
+//  PIN / NUMERIC KEYPAD
+// ============================================================
+let pinBuffer = '';
+
+function pinKey(digit) {
+    if (pinBuffer.length >= 6) return;
+    pinBuffer += digit;
+    renderPinDisplay();
+    if (pinBuffer.length >= 4) tryResolvePinEmployee();
+}
+
+function pinBack() {
+    pinBuffer = pinBuffer.slice(0, -1);
+    renderPinDisplay();
+    if (pinBuffer.length < 4) hidePinEmployee();
+}
+
+function pinClear() {
+    pinBuffer = '';
+    renderPinDisplay();
+    hidePinEmployee();
+}
+
+function renderPinDisplay() {
+    const el = document.getElementById('pinDisplay');
+    if (!el) return;
+    const display = pinBuffer || '_ _ _ _';
+    el.textContent = pinBuffer ? pinBuffer.split('').join('  ') : '_ _ _ _';
+    el.className = 'pin-display' + (pinBuffer.length > 0 ? ' has-value' : '');
+}
+
+function tryResolvePinEmployee() {
+    const uid = pinBuffer;
+    const emp = state.employees.find(e => String(e.userId) === uid);
+    if (emp) {
+        state.selectedEmployee = emp.id;
+        showPinEmployee(emp);
+    } else if (pinBuffer.length >= 6) {
+        // Max length reached, no match
+        const el = document.getElementById('pinDisplay');
+        if (el) el.className = 'pin-display error';
+        hidePinEmployee();
+        showToast('User ID not found. Try again.', 'error');
+    } else {
+        hidePinEmployee();
+    }
+}
+
+function showPinEmployee(emp) {
+    const card = document.getElementById('pinEmpCard');
+    const avatar = document.getElementById('pinEmpAvatar');
+    const name = document.getElementById('pinEmpName');
+    const pos = document.getElementById('pinEmpPos');
+    const statusEl = document.getElementById('pinEmpStatus');
+    const btns = document.getElementById('pinActionBtns');
+    const btnIn = document.getElementById('pinBtnIn');
+    const btnOut = document.getElementById('pinBtnOut');
+    const el = document.getElementById('pinDisplay');
+    if (!card) return;
+    if (el) el.className = 'pin-display found';
+    card.classList.add('visible');
+    avatar.textContent = initials(emp.name);
+    name.textContent = emp.name;
+    pos.textContent = `${emp.position || 'Employee'} · ID: ${emp.userId}`;
+    const rec = getTodayRecord(emp.id);
+    if (!rec) {
+        statusEl.innerHTML = `<span style="color:var(--text-muted)"><i class="fas fa-circle" style="font-size:9px"></i> Not yet clocked in</span>`;
+        btnIn.disabled = false; btnIn.style.opacity = '1';
+        btnOut.disabled = true; btnOut.style.opacity = '0.3';
+    } else if (rec.timeIn && !rec.timeOut) {
+        statusEl.innerHTML = `<span style="color:#856404"><i class="fas fa-dot-circle" style="font-size:9px"></i> Clocked In at ${rec.timeIn}</span>`;
+        btnIn.disabled = true; btnIn.style.opacity = '0.3';
+        btnOut.disabled = false; btnOut.style.opacity = '1';
+    } else {
+        statusEl.innerHTML = `<span style="color:var(--success)"><i class="fas fa-check-circle" style="font-size:9px"></i> Attendance complete</span>`;
+        btnIn.disabled = true; btnIn.style.opacity = '0.3';
+        btnOut.disabled = true; btnOut.style.opacity = '0.3';
+    }
+    btns.style.display = 'grid';
+}
+
+function hidePinEmployee() {
+    state.selectedEmployee = null;
+    const card = document.getElementById('pinEmpCard');
+    const btns = document.getElementById('pinActionBtns');
+    if (card) card.classList.remove('visible');
+    if (btns) btns.style.display = 'none';
+}
+
+// ============================================================
+//  BIOMETRIC CSV IMPORT
+// ============================================================
+function importBioCSV() {
+    const raw = (document.getElementById('bioCSV')?.value || '').trim();
+    if (!raw) { showToast('No CSV data to import', 'error'); return; }
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+    const logEl = document.getElementById('bioImportLog');
+    if (logEl) logEl.innerHTML = '';
+
+    let processed = 0, skipped = 0;
+    const db = loadDB();
+    if (!db) { showToast('Database not found', 'error'); return; }
+    if (!db.attendanceRecords) db.attendanceRecords = [];
+    if (!db.biometricLogs) db.biometricLogs = [];
+
+    // Skip header row if present
+    const dataLines = lines[0].toLowerCase().includes('userid') ? lines.slice(1) : lines;
+
+    dataLines.forEach(line => {
+        const parts = line.split(',').map(s => s.trim());
+        if (parts.length < 4) { logEntry(logEl, `Skipped (bad format): ${line}`, true); skipped++; return; }
+        const [userId, date, time, typeRaw] = parts;
+        // Normalize type
+        const typeStr = typeRaw.toLowerCase();
+        const type = (typeStr === 'in' || typeStr === '0' || typeStr === 'check-in') ? 'in' : 'out';
+        // Find employee by userId
+        const emp = (db.employees || []).find(e => String(e.userId) === String(userId));
+        if (!emp) { logEntry(logEl, `User ID ${userId}: Not found in employee list`, true); skipped++; return; }
+        // Filter to company
+        if (emp.company !== state.company) { logEntry(logEl, `${emp.name}: Different company — skipped`, true); skipped++; return; }
+
+        // Parse datetime
+        let ts;
+        try { ts = new Date(`${date}T${time.includes(':') ? time : time + ':00'}`); }
+        catch { ts = new Date(); }
+        const dateStr = date;
+        const timeStr12 = ts.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+        if (type === 'in') {
+            // Check if already clocked in
+            const existing = db.attendanceRecords.find(r => r.employeeId === emp.id && r.date === dateStr);
+            if (existing) { logEntry(logEl, `${emp.name} ${dateStr}: Already has a record — skipped`, true); skipped++; return; }
+            const rec = {
+                id: genId(),
+                employeeId: emp.id,
+                date: dateStr,
+                timeIn: timeStr12,
+                timeInTimestamp: ts.toISOString(),
+                timeOut: null, timeOutTimestamp: null,
+                status: 'present',
+                lateMinutes: 0, undertimeMinutes: 0, overtimeHours: 0,
+                notes: '', location: null, locationOut: null,
+                source: 'biometric'
+            };
+            db.attendanceRecords.push(rec);
+            logEntry(logEl, `✓ ${emp.name} — TIME IN ${timeStr12} on ${dateStr}`);
+            processed++;
+        } else {
+            // Time Out — update existing record
+            const existing = db.attendanceRecords.find(r => r.employeeId === emp.id && r.date === dateStr && !r.timeOut);
+            if (!existing) { logEntry(logEl, `${emp.name} ${dateStr}: No open time-in found — skipped`, true); skipped++; return; }
+            existing.timeOut = timeStr12;
+            existing.timeOutTimestamp = ts.toISOString();
+            existing.source = 'biometric';
+            logEntry(logEl, `✓ ${emp.name} — TIME OUT ${timeStr12} on ${dateStr}`);
+            processed++;
+        }
+
+        // Store in biometricLogs
+        db.biometricLogs.push({ userId, employeeId: emp.id, timestamp: ts.toISOString(), type, source: 'csv_import', importedAt: new Date().toISOString() });
+    });
+
+    if (!saveDB(db)) { showToast('Could not save. Storage may be full.', 'error'); return; }
+    loadState();
+    renderTodayLog();
+    showToast(`Import done: ${processed} processed, ${skipped} skipped`, processed > 0 ? 'success' : '');
+}
+
+function logEntry(container, msg, isErr = false) {
+    if (!container) return;
+    const d = document.createElement('div');
+    d.className = 'import-log-item' + (isErr ? ' err' : '');
+    d.textContent = msg;
+    container.appendChild(d);
+}
+
+// ============================================================
+//  BIOMETRIC HARDWARE QUEUE POLLING
+// ============================================================
+const BIO_QUEUE_KEY = 'ubms_biometric_queue';
+
+function startBioQueuePoll() {
+    setInterval(processBioQueue, 3000);
+}
+
+function processBioQueue() {
+    try {
+        const raw = localStorage.getItem(BIO_QUEUE_KEY);
+        if (!raw) return;
+        const queue = JSON.parse(raw);
+        if (!Array.isArray(queue) || queue.length === 0) return;
+
+        const db = loadDB();
+        if (!db) return;
+        if (!db.attendanceRecords) db.attendanceRecords = [];
+        if (!db.biometricLogs) db.biometricLogs = [];
+
+        let processed = 0;
+        const remaining = [];
+        const logEl = document.getElementById('bioQueueLog');
+
+        queue.forEach(item => {
+            const { userId, timestamp, type } = item || {};
+            if (!userId || !timestamp || !type) { remaining.push(item); return; }
+            const ts = new Date(timestamp);
+            const dateStr = ts.toISOString().split('T')[0];
+            const timeStr12 = ts.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const emp = (db.employees || []).find(e => String(e.userId) === String(userId) && e.company === state.company);
+            if (!emp) { remaining.push(item); return; }
+
+            if (type === 'in') {
+                const dup = db.attendanceRecords.find(r => r.employeeId === emp.id && r.date === dateStr);
+                if (dup) return; // Already exists
+                db.attendanceRecords.push({
+                    id: genId(), employeeId: emp.id, date: dateStr,
+                    timeIn: timeStr12, timeInTimestamp: ts.toISOString(),
+                    timeOut: null, timeOutTimestamp: null,
+                    status: 'present', lateMinutes: 0, undertimeMinutes: 0, overtimeHours: 0,
+                    notes: '', location: null, locationOut: null, source: 'biometric'
+                });
+            } else {
+                const rec = db.attendanceRecords.find(r => r.employeeId === emp.id && r.date === dateStr && !r.timeOut);
+                if (rec) { rec.timeOut = timeStr12; rec.timeOutTimestamp = ts.toISOString(); rec.source = 'biometric'; }
+            }
+            db.biometricLogs.push({ userId, employeeId: emp.id, timestamp: ts.toISOString(), type, source: 'hardware', processedAt: new Date().toISOString() });
+            logEntry(logEl, `[Device] ${emp.name} — ${type.toUpperCase()} at ${timeStr12}`);
+            processed++;
+        });
+
+        if (processed > 0) {
+            // Clear processed items, keep unprocessed
+            localStorage.setItem(BIO_QUEUE_KEY, JSON.stringify(remaining));
+            saveDB(db);
+            loadState();
+            renderTodayLog();
+            // Update device dot status label
+            const statusEl = document.getElementById('deviceStatusText');
+            if (statusEl) statusEl.textContent = `Last sync: ${new Date().toLocaleTimeString('en-PH')} — ${processed} record(s) processed`;
+        }
+    } catch (e) { /* silently ignore poll errors */ }
+}
+
+// ---- Bootstrap ----
+(function init() {
+    const params = new URLSearchParams(window.location.search);
+    const company = (params.get('company') || params.get('co') || '').toLowerCase().trim();
+    const meta = COMPANY_META[company] || null;
+    state.company = company || null;
+    state.meta = meta;
+
+    loadState();
+    renderApp();
+})();
+</script>
+</body>
+</html>

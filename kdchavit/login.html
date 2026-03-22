@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDChavit Construction — Sign In</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="../css/main.css">
+    <style>
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a252f 0%, #2c3e50 40%, #34495e 100%); font-family: 'Inter', sans-serif; }
+        .login-wrapper { display: flex; width: 960px; max-width: 95vw; background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 80px rgba(0,0,0,.35); }
+        .login-brand { flex: 1; background: linear-gradient(135deg, #1a252f, #2c3e50); padding: 60px 40px; display: flex; flex-direction: column; justify-content: center; color: #fff; position: relative; overflow: hidden; }
+        .login-brand::before { content: ''; position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 70%); }
+        .login-brand h1 { font-size: 2rem; font-weight: 800; margin-bottom: 8px; position: relative; }
+        .login-brand p { font-size: .95rem; opacity: .85; line-height: 1.6; position: relative; }
+        .brand-icon { width: 80px; height: 80px; border-radius: 50%; overflow: hidden; margin-bottom: 24px; position: relative; box-shadow: 0 8px 30px rgba(0,0,0,.3); }
+        .brand-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .login-form-side { flex: 1; padding: 60px 48px; display: flex; flex-direction: column; justify-content: center; }
+        .login-form-side h2 { font-size: 1.5rem; color: #1a1a2e; margin-bottom: 4px; }
+        .login-form-side .subtitle { color: #6b7280; font-size: .9rem; margin-bottom: 32px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: .85rem; font-weight: 600; color: #374151; margin-bottom: 6px; }
+        .form-input { width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: .95rem; font-family: inherit; transition: border-color .2s; box-sizing: border-box; }
+        .form-input:focus { outline: none; border-color: #2c3e50; box-shadow: 0 0 0 3px rgba(44,62,80,.12); }
+        .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, #2c3e50, #34495e); color: #fff; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: transform .15s, box-shadow .15s; }
+        .btn-login:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(44,62,80,.3); }
+        .error-msg { background: #fef2f2; color: #dc2626; padding: 10px 14px; border-radius: 8px; font-size: .85rem; margin-bottom: 16px; display: none; border: 1px solid #fecaca; }
+        .quick-login { margin-top: 24px; padding-top: 20px; border-top: 1px solid #f3f4f6; }
+        .quick-login h4 { font-size: .8rem; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+        .quick-btn { display: inline-block; padding: 6px 14px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; font-size: .8rem; color: #374151; cursor: pointer; margin: 3px; font-family: inherit; transition: background .15s; }
+        .quick-btn:hover { background: #e5e7eb; }
+        .back-link { margin-top: 18px; text-align: center; }
+        .back-link a { color: #2c3e50; text-decoration: none; font-size: .85rem; font-weight: 500; }
+        .back-link a:hover { text-decoration: underline; }
+        @media (max-width: 768px) {
+            .login-wrapper { flex-direction: column; max-width: 440px; }
+            .login-brand { padding: 36px 28px; }
+            .login-form-side { padding: 36px 28px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-brand">
+            <div class="brand-icon"><img src="../assets/logos/kdchavit.png" alt="KDChavit Construction"></div>
+            <h1>KDChavit Construction</h1>
+            <p>Heavy equipment operations, infrastructure project management, and construction logistics — purpose-built for Philippine civil engineering firms.</p>
+        </div>
+        <div class="login-form-side">
+            <h2>Welcome Back</h2>
+            <p class="subtitle">Sign in to KDChavit Construction Management</p>
+            <div class="error-msg" id="errorMsg"></div>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" class="form-input" id="username" placeholder="Enter your username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div style="position:relative">
+                        <input type="password" class="form-input" id="password" placeholder="Enter your password" required autocomplete="current-password" style="padding-right:42px">
+                        <button type="button" onclick="togglePwVis(this)" title="Show password" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px;padding:4px;display:flex;align-items:center;z-index:2"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="submit" class="btn-login"><i class="fas fa-sign-in-alt"></i>&nbsp; Sign In</button>
+            </form>
+            <div class="login-info-notice">
+                <i class="fas fa-info-circle login-info-icon"></i> Contact your administrator for login credentials.
+            </div>
+            <div class="back-link"><a href="../login.html"><i class="fas fa-arrow-left"></i> Back to Unified Platform</a></div>
+            <div class="back-link back-link-secondary">
+                <a href="../dheekay/login.html" class="login-portal-link"><img src="../assets/logos/dheekay.png" alt="" class="login-portal-logo"> Dheekay</a>
+                <a href="../nuatthai/login.html" class="login-portal-link"><img src="../assets/logos/nuatthai.png" alt="" class="login-portal-logo"> Nuat Thai</a>
+                <a href="../autocasa/login.html"><img src="../assets/logos/autocasa.png" alt="" class="login-portal-logo"> AutoCasa</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script src="../js/data.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => { Database.init(); });
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value;
+            const err = document.getElementById('errorMsg');
+            err.style.display = 'none';
+            const result = Auth.login(u, p, 'kdchavit');
+            if (result.success) {
+                if (result.mustChangePassword) {
+                    showChangePwModal(u, 'index.html');
+                } else {
+                    window.location.href = 'index.html';
+                }
+            } else {
+                err.textContent = result.error || result.message || 'Invalid credentials or no access.';
+                err.style.display = 'block';
+            }
+        }
+
+        function showChangePwModal(username, dest) {
+            const ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+            ov.innerHTML = `<div style="background:white;border-radius:16px;padding:32px;width:380px;max-width:90vw">
+                <h3 style="margin-bottom:8px"><i class="fas fa-key" style="color:#e65100"></i> Change Password</h3>
+                <p style="font-size:13px;color:#64748b;margin-bottom:20px">Please set a new password before continuing.</p>
+                <div id="cpErr" style="display:none;color:#dc2626;font-size:13px;margin-bottom:12px"></div>
+                <div style="position:relative;margin-bottom:10px"><input type="password" id="cp1" placeholder="New password (min 8 chars)" style="width:100%;padding:10px 42px 10px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box"><button type="button" onclick="togglePwVis(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px"><i class="fas fa-eye"></i></button></div>
+                <div style="position:relative;margin-bottom:16px"><input type="password" id="cp2" placeholder="Confirm new password" style="width:100%;padding:10px 42px 10px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box"><button type="button" onclick="togglePwVis(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px"><i class="fas fa-eye"></i></button></div>
+                <button onclick="doChangePw('${username}','${dest}')" style="width:100%;padding:12px;background:#2c3e50;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Save & Continue</button>
+            </div>`;
+            document.body.appendChild(ov);
+        }
+
+        function doChangePw(username, dest) {
+            const p1 = document.getElementById('cp1').value;
+            const p2 = document.getElementById('cp2').value;
+            const err = document.getElementById('cpErr');
+            if (p1.length < 8) { err.textContent='Min 8 characters.'; err.style.display='block'; return; }
+            if (p1 !== p2)     { err.textContent='Passwords do not match.'; err.style.display='block'; return; }
+            const user = Database.findUser(username);
+            if (user) Database.updateUser(user.id, { password: p1, mustChangePassword: false });
+            window.location.href = dest;
+        }
+
+        function togglePwVis(btn) {
+            const input = btn.parentElement.querySelector('input');
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') { input.type = 'text'; icon.classList.replace('fa-eye','fa-eye-slash'); btn.title = 'Hide password'; }
+            else { input.type = 'password'; icon.classList.replace('fa-eye-slash','fa-eye'); btn.title = 'Show password'; }
+        }
+
+
+    </script>
+</body>
+</html>

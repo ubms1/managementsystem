@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dheekay Builders OPC — Business Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <style>
+        :root { --primary: #16a085; --primary-hover: #138d75; }
+        .sidebar-logo { background: linear-gradient(135deg, #16a085, #1abc9c) !important; }
+    </style>
+</head>
+<body>
+    <script>
+        window.UBMS_STANDALONE = {
+            company: 'dheekay',
+            companyName: 'Dheekay Builders OPC',
+            companyType: 'construction',
+            color: '#16a085',
+            icon: 'fa-hard-hat',
+            loginUrl: 'login.html'
+        };
+    </script>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <img src="../assets/logos/dheekay.png" alt="Dheekay Builders">
+            </div>
+            <div class="sidebar-brand">
+                <h3>Dheekay Builders</h3>
+                <span>Construction Management</span>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle" onclick="App.toggleSidebar()" title="Toggle sidebar" aria-label="Toggle sidebar">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav" id="sidebarNav">
+            <div class="nav-section">
+                <span class="nav-section-label">CORE</span>
+                <a href="#" class="nav-item active" data-module="dashboard" onclick="App.navigate('dashboard')">
+                    <i class="fas fa-th-large"></i><span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-module="crm" onclick="App.navigate('crm')">
+                    <i class="fas fa-users"></i><span>Clients</span>
+                </a>
+                <a href="#" class="nav-item" data-module="financial" onclick="App.navigate('financial')">
+                    <i class="fas fa-peso-sign"></i><span>Financial</span>
+                </a>
+                <a href="#" class="nav-item" data-module="reports" onclick="App.navigate('reports')">
+                    <i class="fas fa-chart-bar"></i><span>Reports</span>
+                </a>
+                <a href="#" class="nav-item" data-module="financialanalysis" onclick="App.navigate('financialanalysis')">
+                    <i class="fas fa-heartbeat"></i><span>Financial Analysis</span>
+                </a>
+            </div>
+            <div class="nav-section" id="navConstruction">
+                <span class="nav-section-label">CONSTRUCTION</span>
+                <a href="#" class="nav-item" data-module="construction" onclick="App.navigate('construction')">
+                    <i class="fas fa-hard-hat"></i><span>Projects</span>
+                </a>
+                <a href="#" class="nav-item" data-module="jobcosting" onclick="App.navigate('jobcosting')">
+                    <i class="fas fa-calculator"></i><span>Job Costing</span>
+                </a>
+                <a href="#" class="nav-item" data-module="subcontractors" onclick="App.navigate('subcontractors')">
+                    <i class="fas fa-people-carry"></i><span>Subcontractors</span>
+                </a>
+                <a href="#" class="nav-item" data-module="equipment" onclick="App.navigate('equipment')">
+                    <i class="fas fa-truck-monster"></i><span>Equipment & Fleet</span>
+                </a>
+                <a href="#" class="nav-item" data-module="safety" onclick="App.navigate('safety')">
+                    <i class="fas fa-shield-alt"></i><span>Safety / QHSE</span>
+                </a>
+                <a href="#" class="nav-item" data-module="documents" onclick="App.navigate('documents')">
+                    <i class="fas fa-folder-open"></i><span>Documents</span>
+                </a>
+                <a href="#" class="nav-item" data-module="credits" onclick="App.navigate('credits')">
+                    <i class="fas fa-file-invoice-dollar"></i><span>Credit &amp; Collection</span>
+                </a>
+                <a href="#" class="nav-item" data-module="iso" onclick="App.navigate('iso')">
+                    <i class="fas fa-award"></i><span>ISO Compliance</span>
+                </a>
+                <a href="#" class="nav-item" data-module="pos" onclick="App.navigate('pos')">
+                    <i class="fas fa-cash-register"></i><span>POS</span>
+                </a>
+            </div>
+            <div class="nav-section nav-section-hidden" id="navWellness"></div>
+            <div class="nav-section nav-section-hidden" id="navAutomotive"></div>
+            <div class="nav-section">
+                <span class="nav-section-label">BUSINESS TOOLS</span>
+                <a href="#" class="nav-item" data-module="invoicing" onclick="App.navigate('invoicing')">
+                    <i class="fas fa-file-invoice"></i><span>Invoicing</span>
+                </a>
+                <a href="#" class="nav-item" data-module="payroll" onclick="App.navigate('payroll')">
+                    <i class="fas fa-money-check-alt"></i><span>Payroll</span>
+                </a>
+                <a href="#" class="nav-item" data-module="inventory" onclick="App.navigate('inventory')">
+                    <i class="fas fa-boxes-stacked"></i><span>Inventory</span>
+                </a>
+            </div>
+            <div class="nav-section">
+                <span class="nav-section-label">SYSTEM</span>
+                <a href="#" class="nav-item" data-module="settings" onclick="App.navigate('settings')">
+                    <i class="fas fa-cog"></i><span>Settings</span>
+                </a>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info" id="userInfo">
+                <div class="user-avatar"><i class="fas fa-user"></i></div>
+                <div class="user-details">
+                    <span class="user-name" id="userName">Manager</span>
+                    <span class="user-role" id="userRole">Dheekay Builders</span>
+                </div>
+                <button class="btn-logout" onclick="App.logout()" title="Sign Out"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" onclick="App.toggleSidebar()" title="Toggle menu" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
+                <div class="breadcrumb" id="breadcrumb"><span class="breadcrumb-item">Dashboard</span></div>
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search projects, clients..." id="globalSearch" oninput="App.globalSearch(this.value)">
+                </div>
+                <div class="topbar-actions">
+                    <button class="topbar-btn" onclick="App.toggleNotifications()" title="Notifications">
+                        <i class="fas fa-bell"></i><span class="badge" id="notifBadge">0</span>
+                    </button>
+                    <button class="topbar-btn" onclick="App.toggleTheme()" title="Toggle Theme">
+                        <i class="fas fa-moon" id="themeIcon"></i>
+                    </button>
+                    <button class="topbar-btn" onclick="ImportExport.open('import')" title="Import Excel / CSV"><i class="fas fa-file-import"></i></button>
+                    <button class="topbar-btn" onclick="ImportExport.open('export')" title="Export Data to Excel"><i class="fas fa-file-export"></i></button>
+                    <div class="company-badge company-badge-dheekay" id="companyBadge">
+                        <i class="fas fa-hard-hat"></i><span>Dheekay Builders</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="notification-panel" id="notificationPanel">
+            <div class="notif-header"><h3>Notifications</h3><button onclick="App.clearNotifications()">Clear All</button></div>
+            <div class="notif-list" id="notifList"></div>
+        </div>
+
+        <div class="content-area" id="contentArea">
+            <div class="loading-screen" id="loadingScreen"><div class="spinner"></div><p>Loading Dheekay Builders...</p></div>
+        </div>
+    </main>
+
+    <div class="modal-overlay" id="modalOverlay" onclick="App.closeModal()"></div>
+    <div class="modal-container" id="modalContainer">
+        <div class="modal-header" id="modalHeader"><h3 id="modalTitle">Modal</h3><button class="modal-close" onclick="App.closeModal()" title="Close"><i class="fas fa-times"></i></button></div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer" id="modalFooter"></div>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="../js/utils.js"></script>
+    <script src="../js/data.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/dashboard.js"></script>
+    <script src="../js/crm.js"></script>
+    <script src="../js/financial.js"></script>
+    <script src="../js/construction.js"></script>
+    <script src="../js/wellness.js"></script>
+    <script src="../js/automotive.js"></script>
+    <script src="../js/reports.js"></script>
+    <script src="../js/settings.js"></script>
+    <script src="../js/admin.js"></script>
+    <script src="../js/invoicing.js"></script>
+    <script src="../js/payroll.js"></script>
+    <script src="../js/inventory.js"></script>
+    <script src="../js/pos.js"></script>
+    <script src="../js/iso.js"></script>
+    <script src="../js/financialanalysis.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="../js/importexport.js"></script>
+    <script src="../js/app.js"></script>
+</body>
+</html>

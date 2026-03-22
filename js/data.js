@@ -1,0 +1,262 @@
+/* ========================================
+   UBMS - Sample Data Store
+   Multi-tenant data for all 4 companies
+   ======================================== */
+
+const DataStore = {
+    // ============================================================
+    //  COMPANIES
+    // ============================================================
+    companies: {
+        dheekay: {
+            id: 'dheekay', name: 'Dheekay Builders OPC', type: 'construction',
+            address: 'Tuguegarao City, Cagayan Valley', phone: '(078) 844-1234',
+            email: 'info@dheekaybuilders.com', tin: '123-456-789-000',
+            color: '#16a085', icon: 'fa-hard-hat', logo: 'assets/logos/dheekay.png'
+        },
+        kdchavit: {
+            id: 'kdchavit', name: 'KDChavit Construction', type: 'construction',
+            address: 'Tuguegarao City, Cagayan Valley', phone: '(078) 844-5678',
+            email: 'info@kdchavit.com', tin: '987-654-321-000',
+            color: '#2c3e50', icon: 'fa-building', logo: 'assets/logos/kdchavit.png'
+        },
+        nuatthai: {
+            id: 'nuatthai', name: 'Nuat Thai Foot & Body Massage', type: 'wellness',
+            address: 'Enrile Boulevard, Carig, Tuguegarao City', phone: '(078) 844-1234',
+            email: 'hello@nuatthai.ph', tin: '456-789-012-000',
+            color: '#FFD700', icon: 'fa-spa', logo: 'assets/logos/nuatthai.png',
+            branches: [
+                { id: 'tuguegarao', name: 'Nuat Thai Tuguegarao', address: 'Enrile Boulevard, Carig, Tuguegarao City' }
+            ]
+        },
+        autocasa: {
+            id: 'autocasa', name: 'AutoCasa Auto Expert & Repair Services', type: 'automotive',
+            address: 'Metro Manila, Philippines', phone: '(02) 8987-6543',
+            email: 'service@autocasa.ph', tin: '321-654-987-000',
+            color: '#e74c3c', icon: 'fa-car', logo: 'assets/logos/autocasa.png',
+            website: 'https://autocasa.ph'
+        }
+    },
+
+    // ============================================================
+    //  CRM - CUSTOMERS (Unified)
+    // ============================================================
+    customers: [],
+
+    // ============================================================
+    //  FINANCIAL - ACCOUNTS & TRANSACTIONS
+    // ============================================================
+    chartOfAccounts: [
+        { code: '1000', name: 'Cash and Cash Equivalents', type: 'asset', company: 'all' },
+        { code: '1100', name: 'Accounts Receivable', type: 'asset', company: 'all' },
+        { code: '1200', name: 'Inventory', type: 'asset', company: 'all' },
+        { code: '1300', name: 'Prepaid Expenses', type: 'asset', company: 'all' },
+        { code: '2000', name: 'Accounts Payable', type: 'liability', company: 'all' },
+        { code: '2100', name: 'Accrued Expenses', type: 'liability', company: 'all' },
+        { code: '3000', name: 'Owner\'s Equity', type: 'equity', company: 'all' },
+        { code: '4000', name: 'Service Revenue', type: 'revenue', company: 'all' },
+        { code: '4100', name: 'Project Revenue', type: 'revenue', company: 'dheekay' },
+        { code: '4200', name: 'Project Revenue', type: 'revenue', company: 'kdchavit' },
+        { code: '4300', name: 'Massage Service Revenue', type: 'revenue', company: 'nuatthai' },
+        { code: '4400', name: 'Repair Service Revenue', type: 'revenue', company: 'autocasa' },
+        { code: '5000', name: 'Cost of Goods Sold', type: 'expense', company: 'all' },
+        { code: '5100', name: 'Materials Cost', type: 'expense', company: 'all' },
+        { code: '5200', name: 'Labor Cost', type: 'expense', company: 'all' },
+        { code: '6000', name: 'Operating Expenses', type: 'expense', company: 'all' },
+        { code: '6100', name: 'Salaries & Wages', type: 'expense', company: 'all' },
+        { code: '6200', name: 'Rent Expense', type: 'expense', company: 'all' },
+        { code: '6300', name: 'Utilities', type: 'expense', company: 'all' }
+    ],
+
+    invoices: [],
+
+    expenses: [],
+
+    // ============================================================
+    //  CONSTRUCTION - PROJECTS
+    // ============================================================
+    projects: [],
+
+    subcontractors: [],
+
+    // ============================================================
+    //  WELLNESS - SERVICES, THERAPISTS, BOOKINGS
+    // ============================================================
+    spaServices: [
+        { id: 'SVC-001', name: 'Thai Foot Massage', duration: 60, price: 499, category: 'Foot', description: 'Traditional Thai foot reflexology' },
+        { id: 'SVC-002', name: 'Full Body Thai Massage', duration: 90, price: 899, category: 'Body', description: 'Authentic Thai body massage with stretching' },
+        { id: 'SVC-003', name: 'Deep Tissue Massage', duration: 60, price: 699, category: 'Body', description: 'Targeted deep pressure for muscle relief' },
+        { id: 'SVC-004', name: 'Hot Stone Therapy', duration: 90, price: 1199, category: 'Premium', description: 'Heated stones with massage combination' },
+        { id: 'SVC-005', name: 'Aromatherapy Massage', duration: 60, price: 799, category: 'Body', description: 'Essential oils combined with gentle massage' },
+        { id: 'SVC-006', name: 'Combination Package', duration: 120, price: 1499, category: 'Premium', description: 'Foot + body massage combo' },
+        { id: 'SVC-007', name: 'Head & Shoulder Massage', duration: 30, price: 349, category: 'Quick', description: 'Quick relief for tension headaches' },
+        { id: 'SVC-008', name: 'Thai Herbal Compress', duration: 90, price: 999, category: 'Premium', description: 'Herbal compress with traditional massage' },
+        { id: 'SVC-009', name: 'Foot Reflexology', duration: 30, price: 299, category: 'Foot', description: 'Quick foot pressure point treatment' },
+        { id: 'SVC-010', name: 'Couples Massage', duration: 90, price: 1599, category: 'Premium', description: 'Side-by-side massage experience' },
+        { id: 'SVC-011', name: 'Back & Neck Focus', duration: 45, price: 449, category: 'Body', description: 'Targeted back and neck relief' }
+    ],
+
+    therapists: [],
+
+    bookings: [],
+
+    memberships: [],
+
+    // ============================================================
+    //  AUTOMOTIVE - VEHICLES, JOBS, PARTS
+    // ============================================================
+    autoServices: [
+        { id: 'AS-001', name: 'Engine Oil Change', price: 2500, duration: 60, category: 'Maintenance' },
+        { id: 'AS-002', name: 'Coolant Flushing', price: 3500, duration: 90, category: 'Maintenance' },
+        { id: 'AS-003', name: 'Brake Cleaning Service', price: 2000, duration: 45, category: 'Brakes' },
+        { id: 'AS-004', name: 'Brake Fluid Flushing', price: 2800, duration: 60, category: 'Brakes' },
+        { id: 'AS-005', name: 'Sparkplugs Replace', price: 3000, duration: 60, category: 'Engine' },
+        { id: 'AS-006', name: 'Air Filter Replace', price: 1500, duration: 30, category: 'Engine' },
+        { id: 'AS-007', name: 'Fuel Filter Replace', price: 2200, duration: 45, category: 'Engine' },
+        { id: 'AS-008', name: 'Engine Decarb', price: 5500, duration: 120, category: 'Engine' },
+        { id: 'AS-009', name: 'ATF Dialysis', price: 6500, duration: 120, category: 'Transmission' },
+        { id: 'AS-010', name: 'Regular Check-Up', price: 1500, duration: 60, category: 'Inspection' },
+        { id: 'AS-011', name: 'Rotor Reface', price: 3500, duration: 90, category: 'Brakes' },
+        { id: 'AS-012', name: 'Aircon Service', price: 4000, duration: 90, category: 'HVAC' }
+    ],
+
+    vehicles: [],
+
+    jobCards: [],
+
+    autoParts: [],
+
+    // ============================================================
+    //  CONSTRUCTION - EQUIPMENT & FLEET
+    // ============================================================
+    equipment: [],
+
+    // ============================================================
+    //  CONSTRUCTION - SAFETY / QHSE RECORDS
+    // ============================================================
+    safetyRecords: [],
+
+    // ============================================================
+    //  CONSTRUCTION - DOCUMENT MANAGEMENT
+    // ============================================================
+    documents: [],
+
+    // ============================================================
+    //  WELLNESS - SPA INVENTORY (Supplies & Products)
+    // ============================================================
+    spaInventory: [],
+
+    // ============================================================
+    //  AUTOMOTIVE - ESTIMATES / QUOTES
+    // ============================================================
+    estimates: [],
+
+    // ============================================================
+    //  BIR-COMPLIANT INVOICES / OFFICIAL RECEIPTS
+    // ============================================================
+    birInvoices: [],
+
+    // ============================================================
+    //  EMPLOYEES & PAYROLL
+    // ============================================================
+    employees: [],
+    payslips: [],
+
+    // ============================================================
+    //  INVENTORY IN/OUT MODULE (Scanner-enabled)
+    // ============================================================
+    inventoryItems: [],
+    inventoryTransactions: [],
+
+    // Inspections (automotive)
+    inspections: [],
+
+    // Bank reconciliation records (per company per period)
+    bankReconciliations: [],
+    collectionReceipts: [],
+
+    // Performance reviews, timesheets, incident reports
+    performanceReviews: [],
+    timesheets: [],
+    incidentReports: [],
+
+    // Inventory categories per business type
+    inventoryCategories: {
+        construction: ['Purchases', 'Supplies', 'Office Supplies', 'Snacks & Drinks', 'Tools', 'PPE', 'Raw Materials'],
+        wellness: ['Purchases', 'Supplies', 'Office Supplies', 'Oils Inventory', 'Towels & Linens', 'Skincare Products', 'Spa Consumables'],
+        automotive: ['Purchases', 'Supplies', 'Office Supplies', 'Auto Parts', 'Lubricants & Fluids', 'Tires', 'Accessories']
+    },
+
+    // ============================================================
+    //  GROUP FINANCIAL SUMMARY
+    // ============================================================
+    getFinancialSummary(company = 'all') {
+        const filter = (items) => company === 'all' ? items : items.filter(i => i.company === company);
+        const invs = filter(this.invoices);
+        const exps = filter(this.expenses);
+
+        const totalRevenue = invs.reduce((s, i) => s + i.paid, 0);
+        const totalReceivable = invs.reduce((s, i) => s + (i.amount - i.paid), 0);
+        const totalExpenses = exps.reduce((s, e) => s + e.amount, 0);
+
+        return {
+            totalRevenue,
+            totalReceivable,
+            totalExpenses,
+            netIncome: totalRevenue - totalExpenses,
+            invoiceCount: invs.length,
+            paidInvoices: invs.filter(i => i.status === 'paid').length,
+            unpaidInvoices: invs.filter(i => i.status === 'unpaid').length,
+            partialInvoices: invs.filter(i => i.status === 'partial').length
+        };
+    },
+
+    getCompanySummary(companyId) {
+        const fin = this.getFinancialSummary(companyId);
+        const company = this.companies[companyId];
+        let extra = {};
+
+        if (company.type === 'construction') {
+            const projs = this.projects.filter(p => p.company === companyId);
+            extra = {
+                activeProjects: projs.filter(p => p.status === 'in-progress').length,
+                totalProjects: projs.length,
+                totalBudget: projs.reduce((s, p) => s + p.budget, 0),
+                avgProgress: projs.filter(p => p.status === 'in-progress').reduce((s, p) => s + p.progress, 0) / (projs.filter(p => p.status === 'in-progress').length || 1)
+            };
+        } else if (company.type === 'wellness') {
+            const bks = this.bookings.filter(b => b.company === companyId);
+            const today = new Date().toISOString().split('T')[0];
+            extra = {
+                todayBookings: bks.filter(b => b.date === today).length,
+                totalBookings: bks.length,
+                activeMembers: this.memberships.filter(m => m.status === 'active').length,
+                availableTherapists: this.therapists.filter(t => t.status === 'available').length
+            };
+        } else if (company.type === 'automotive') {
+            const jcs = this.jobCards.filter(j => j.company === companyId);
+            extra = {
+                activeJobs: jcs.filter(j => !['completed'].includes(j.status)).length,
+                completedJobs: jcs.filter(j => j.status === 'completed').length,
+                totalVehicles: this.vehicles.length,
+                lowStockParts: this.autoParts.filter(p => p.quantity <= p.minStock).length
+            };
+        }
+
+        return { ...fin, ...extra, company };
+    },
+
+    // Monthly revenue data by company
+    monthlyRevenue: {
+        dheekay:  [0,0,0,0,0,0,0,0,0,0,0,0],
+        kdchavit: [0,0,0,0,0,0,0,0,0,0,0,0],
+        nuatthai: [0,0,0,0,0,0,0,0,0,0,0,0],
+        autocasa: [0,0,0,0,0,0,0,0,0,0,0,0]
+    },
+
+    // Activity log
+    activityLog: [],
+
+    // Notifications
+    notifications: []
+};

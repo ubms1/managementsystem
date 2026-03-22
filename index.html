@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UBMS — Unified Business Management System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo" id="sidebarLogo">
+                <i class="fas fa-cubes"></i>
+            </div>
+            <div class="sidebar-brand">
+                <h3>UBMS</h3>
+                <span>Business Management</span>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle" onclick="App.toggleSidebar()" title="Toggle sidebar" aria-label="Toggle sidebar">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        </div>
+
+        <!-- Company Selector -->
+        <div class="company-selector">
+            <select id="activeCompany" onchange="App.switchCompany(this.value)" title="Switch active company" aria-label="Active company selector">
+                <option value="all">All Companies</option>
+                <option value="dheekay">Dheekay Builders OPC</option>
+                <option value="kdchavit">KDChavit Construction</option>
+                <option value="nuatthai">Nuat Thai Massage</option>
+                <option value="autocasa">AutoCasa Auto Expert</option>
+            </select>
+        </div>
+
+        <nav class="sidebar-nav" id="sidebarNav">
+            <!-- Phase 1: Core -->
+            <div class="nav-section">
+                <span class="nav-section-label">CORE</span>
+                <a href="#" class="nav-item active" data-module="dashboard" onclick="App.navigate('dashboard')">
+                    <i class="fas fa-th-large"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-module="crm" onclick="App.navigate('crm')">
+                    <i class="fas fa-users"></i>
+                    <span>CRM</span>
+                </a>
+                <a href="#" class="nav-item" data-module="financial" onclick="App.navigate('financial')">
+                    <i class="fas fa-peso-sign"></i>
+                    <span>Financial</span>
+                </a>
+                <a href="#" class="nav-item" data-module="reports" onclick="App.navigate('reports')">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="nav-item" data-module="financialanalysis" onclick="App.navigate('financialanalysis')">
+                    <i class="fas fa-heartbeat"></i>
+                    <span>Financial Analysis</span>
+                </a>
+            </div>
+
+            <!-- Phase 2: Industry Hubs -->
+            <div class="nav-section" id="navConstruction">
+                <span class="nav-section-label">CONSTRUCTION HUB</span>
+                <a href="#" class="nav-item" data-module="construction" onclick="App.navigate('construction')">
+                    <i class="fas fa-hard-hat"></i>
+                    <span>Projects</span>
+                </a>
+                <a href="#" class="nav-item" data-module="jobcosting" onclick="App.navigate('jobcosting')">
+                    <i class="fas fa-calculator"></i>
+                    <span>Job Costing</span>
+                </a>
+                <a href="#" class="nav-item" data-module="subcontractors" onclick="App.navigate('subcontractors')">
+                    <i class="fas fa-people-carry"></i>
+                    <span>Subcontractors</span>
+                </a>
+                <a href="#" class="nav-item" data-module="equipment" onclick="App.navigate('equipment')">
+                    <i class="fas fa-truck-monster"></i>
+                    <span>Equipment & Fleet</span>
+                </a>
+                <a href="#" class="nav-item" data-module="safety" onclick="App.navigate('safety')">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Safety / QHSE</span>
+                </a>
+                <a href="#" class="nav-item" data-module="documents" onclick="App.navigate('documents')">
+                    <i class="fas fa-folder-open"></i>
+                    <span>Documents</span>
+                </a>
+                <a href="#" class="nav-item" data-module="credits" onclick="App.navigate('credits')">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Credit &amp; Collection</span>
+                </a>
+                <a href="#" class="nav-item" data-module="iso" onclick="App.navigate('iso')">
+                    <i class="fas fa-award"></i>
+                    <span>ISO Compliance</span>
+                </a>
+                <a href="#" class="nav-item" data-module="pos" onclick="App.navigate('pos')">
+                    <i class="fas fa-cash-register"></i>
+                    <span>POS</span>
+                </a>
+            </div>
+
+            <div class="nav-section" id="navWellness">
+                <span class="nav-section-label">WELLNESS HUB</span>
+                <a href="#" class="nav-item" data-module="booking" onclick="App.navigate('booking')">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Bookings</span>
+                </a>
+                <a href="#" class="nav-item" data-module="therapists" onclick="App.navigate('therapists')">
+                    <i class="fas fa-user-nurse"></i>
+                    <span>Therapists</span>
+                </a>
+                <a href="#" class="nav-item" data-module="pos" onclick="App.navigate('pos')">
+                    <i class="fas fa-cash-register"></i>
+                    <span>POS</span>
+                </a>
+                <a href="#" class="nav-item" data-module="membership" onclick="App.navigate('membership')">
+                    <i class="fas fa-id-card"></i>
+                    <span>Membership</span>
+                </a>
+                <a href="#" class="nav-item" data-module="spainventory" onclick="App.navigate('spainventory')">
+                    <i class="fas fa-boxes-stacked"></i>
+                    <span>Spa Inventory</span>
+                </a>
+                <a href="#" class="nav-item" data-module="iso" onclick="App.navigate('iso')">
+                    <i class="fas fa-award"></i>
+                    <span>ISO Compliance</span>
+                </a>
+            </div>
+
+            <div class="nav-section" id="navAutomotive">
+                <span class="nav-section-label">AUTOMOTIVE HUB</span>
+                <a href="#" class="nav-item" data-module="appointments" onclick="App.navigate('appointments')">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Appointments</span>
+                </a>
+                <a href="#" class="nav-item" data-module="workshop" onclick="App.navigate('workshop')">
+                    <i class="fas fa-wrench"></i>
+                    <span>Workshop</span>
+                </a>
+                <a href="#" class="nav-item" data-module="vehicles" onclick="App.navigate('vehicles')">
+                    <i class="fas fa-car"></i>
+                    <span>Vehicles</span>
+                </a>
+                <a href="#" class="nav-item" data-module="parts" onclick="App.navigate('parts')">
+                    <i class="fas fa-cogs"></i>
+                    <span>Parts Inventory</span>
+                </a>
+                <a href="#" class="nav-item" data-module="inspections" onclick="App.navigate('inspections')">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Inspections</span>
+                </a>
+                <a href="#" class="nav-item" data-module="estimates" onclick="App.navigate('estimates')">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Estimates</span>
+                </a>
+                <a href="#" class="nav-item" data-module="pos" onclick="App.navigate('pos')">
+                    <i class="fas fa-cash-register"></i>
+                    <span>POS</span>
+                </a>
+                <a href="#" class="nav-item" data-module="iso" onclick="App.navigate('iso')">
+                    <i class="fas fa-award"></i>
+                    <span>ISO Compliance</span>
+                </a>
+            </div>
+
+            <!-- Admin -->
+            <div class="nav-section">
+                <span class="nav-section-label">BUSINESS TOOLS</span>
+                <a href="#" class="nav-item" data-module="invoicing" onclick="App.navigate('invoicing')">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>Invoicing</span>
+                </a>
+                <a href="#" class="nav-item" data-module="payroll" onclick="App.navigate('payroll')">
+                    <i class="fas fa-money-check-alt"></i>
+                    <span>Payroll</span>
+                </a>
+                <a href="#" class="nav-item" data-module="inventory" onclick="App.navigate('inventory')">
+                    <i class="fas fa-boxes-stacked"></i>
+                    <span>Inventory</span>
+                </a>
+            </div>
+
+            <!-- Admin -->
+            <div class="nav-section">
+                <span class="nav-section-label">ADMIN</span>
+                <a href="#" class="nav-item" data-module="admin" onclick="App.navigate('admin')">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Admin Panel</span>
+                </a>
+                <a href="#" class="nav-item" data-module="settings" onclick="App.navigate('settings')">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info" id="userInfo">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-details">
+                    <span class="user-name" id="userName">Owner</span>
+                    <span class="user-role" id="userRole">Administrator</span>
+                </div>
+                <button class="btn-logout" onclick="App.logout()" title="Sign Out">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" onclick="App.toggleSidebar()" title="Toggle menu" aria-label="Toggle menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="breadcrumb" id="breadcrumb">
+                    <span class="breadcrumb-item">Dashboard</span>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search across all modules..." id="globalSearch" oninput="App.globalSearch(this.value)">
+                </div>
+                <div class="topbar-actions">
+                    <button class="topbar-btn" onclick="App.toggleNotifications()" title="Notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge" id="notifBadge">5</span>
+                    </button>
+                    <button class="topbar-btn" onclick="App.toggleTheme()" title="Toggle Theme">
+                        <i class="fas fa-moon" id="themeIcon"></i>
+                    </button>
+                    <button class="topbar-btn" onclick="ImportExport.open('import')" title="Import Excel / CSV"><i class="fas fa-file-import"></i></button>
+                    <button class="topbar-btn" onclick="ImportExport.open('export')" title="Export Data to Excel"><i class="fas fa-file-export"></i></button>
+                    <div class="company-badge" id="companyBadge">
+                        <i class="fas fa-cubes"></i>
+                        <span>All Companies</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Notification Panel -->
+        <div class="notification-panel" id="notificationPanel">
+            <div class="notif-header">
+                <h3>Notifications</h3>
+                <button onclick="App.clearNotifications()">Clear All</button>
+            </div>
+            <div class="notif-list" id="notifList"></div>
+        </div>
+
+        <!-- Dynamic Content Area -->
+        <div class="content-area" id="contentArea">
+            <!-- Content will be loaded dynamically by JS modules -->
+            <div class="loading-screen" id="loadingScreen">
+                <div class="spinner"></div>
+                <p>Loading modules...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Container -->
+    <div class="modal-overlay" id="modalOverlay" onclick="App.closeModal()"></div>
+    <div class="modal-container" id="modalContainer">
+        <div class="modal-header" id="modalHeader">
+            <h3 id="modalTitle">Modal</h3>
+            <button class="modal-close" onclick="App.closeModal()" title="Close modal" aria-label="Close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer" id="modalFooter"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/crm.js"></script>
+    <script src="js/financial.js"></script>
+    <script src="js/construction.js"></script>
+    <script src="js/wellness.js"></script>
+    <script src="js/automotive.js"></script>
+    <script src="js/reports.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/invoicing.js"></script>
+    <script src="js/payroll.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/pos.js"></script>
+    <script src="js/iso.js"></script>
+    <script src="js/financialanalysis.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="js/importexport.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

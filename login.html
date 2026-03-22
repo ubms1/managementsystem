@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Business Management System — Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            background: linear-gradient(135deg, #0d1b2a 0%, #1b2838 40%, #0a2647 100%);
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        /* Left Panel - Branding */
+        .login-branding {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            position: relative;
+            overflow: hidden;
+        }
+        .login-branding::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 50%, rgba(0, 137, 123, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(243, 156, 18, 0.1) 0%, transparent 40%);
+            animation: float 15s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-20px, -30px); }
+        }
+        .brand-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 500px;
+        }
+        .brand-logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            box-shadow: 0 20px 60px rgba(0, 137, 123, 0.3);
+            overflow: hidden;
+            background: linear-gradient(135deg, #00897b, #26a69a);
+        }
+        .brand-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .brand-logo i { font-size: 48px; color: white; }
+        .brand-content h1 {
+            font-size: 32px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+        .brand-content p {
+            font-size: 16px;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+        .business-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+        }
+        .biz-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: left;
+            transition: all 0.3s;
+        }
+        .biz-card:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-2px);
+        }
+        .biz-card { cursor: pointer; text-decoration: none; }
+        .biz-card .biz-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .biz-card .biz-icon img { width: 100%; height: 100%; object-fit: contain; }
+        .biz-card h4 { font-size: 13px; font-weight: 600; color: white; margin-bottom: 4px; }
+        .biz-card span { font-size: 11px; color: rgba(255,255,255,0.45); }
+
+        /* Right Panel - Login Form */
+        .login-form-panel {
+            width: 480px;
+            min-height: 100vh;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px;
+            box-shadow: -20px 0 60px rgba(0,0,0,0.2);
+        }
+        .login-form-panel h2 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 8px;
+        }
+        .login-form-panel .subtitle {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 36px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 8px;
+        }
+        .input-wrapper {
+            position: relative;
+        }
+        .input-wrapper > i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 16px;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .toggle-password i {
+            position: static;
+            transform: none;
+            color: inherit;
+            font-size: inherit;
+        }
+        .input-wrapper input, .input-wrapper select {
+            width: 100%;
+            padding: 12px 14px 12px 44px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s;
+            outline: none;
+            background: #f8fafc;
+        }
+        .input-wrapper input[type="password"],
+        .input-wrapper input#password {
+            padding-right: 44px;
+        }
+        .input-wrapper input:focus, .input-wrapper select:focus {
+            border-color: #00897b;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(0, 137, 123, 0.1);
+        }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+            z-index: 2;
+        }
+        .toggle-password:hover {
+            color: #00897b;
+        }
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #64748b;
+            cursor: pointer;
+        }
+        .remember-me input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #00897b;
+        }
+        .forgot-link {
+            font-size: 13px;
+            color: #00897b;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .forgot-link:hover { text-decoration: underline; }
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00897b, #00796b);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-login:hover {
+            background: linear-gradient(135deg, #00796b, #00695c);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(0, 137, 123, 0.3);
+        }
+        .btn-login:active { transform: translateY(0); }
+        .login-divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 24px 0;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .login-divider::before, .login-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+        .demo-accounts {
+            background: #fff3e0;
+            border: 1px solid #ffe0b2;
+            border-radius: 10px;
+            padding: 16px;
+        }
+        .demo-accounts h4 {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+        .error-message.show { display: flex; }
+
+        /* Icon color classes */
+        .icon-owner { color: #f39c12; margin-right: 6px; }
+        .icon-dheekay { color: #16a085; margin-right: 6px; }
+        .icon-nuatthai { color: #FFD700; margin-right: 6px; }
+        .icon-autocasa { color: #e74c3c; margin-right: 6px; }
+
+        @media (max-width: 1024px) {
+            .login-branding { display: none; }
+            .login-form-panel { width: 100%; max-width: 480px; margin: 0 auto; }
+        }
+
+        /* Super Admin Access Panel */
+        .sa-panel { background: #fff3e0; border-color: #ffe0b2; }
+        .sa-panel h4 { color: #e65100; }
+        .sa-desc { font-size: 12px; color: #bf360c; margin-bottom: 10px; }
+        .sa-row { display: flex; gap: 8px; }
+        .sa-input { flex: 1; padding: 10px 14px; border: 2px solid #ffe0b2; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; }
+        .sa-btn { width: auto; padding: 10px 20px; font-size: 13px; background: linear-gradient(135deg, #e65100, #bf360c); }
+        .sa-error { display: none; color: #d32f2f; font-size: 12px; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="login-branding">
+        <div class="brand-content">
+            <div class="brand-logo">
+                <i class="fas fa-cubes"></i>
+            </div>
+            <h1>Unified Business<br>Management System</h1>
+            <p>One platform to manage all your businesses. Centralized control with brand-specific workflows for construction, wellness, and automotive operations.</p>
+            <div class="business-cards">
+                <a class="biz-card" href="dheekay/login.html">
+                    <div class="biz-icon"><img src="assets/logos/dheekay.png" alt="Dheekay"></div>
+                    <h4>Dheekay Builders OPC</h4>
+                    <span>Construction / Contracting</span>
+                </a>
+                <a class="biz-card" href="kdchavit/login.html">
+                    <div class="biz-icon"><img src="assets/logos/kdchavit.png" alt="KDChavit"></div>
+                    <h4>KDChavit Construction</h4>
+                    <span>Construction / Contracting</span>
+                </a>
+                <a class="biz-card" href="nuatthai/login.html">
+                    <div class="biz-icon"><img src="assets/logos/nuatthai.png" alt="Nuat Thai"></div>
+                    <h4>Nuat Thai Massage</h4>
+                    <span>Wellness / Services</span>
+                </a>
+                <a class="biz-card" href="autocasa/login.html">
+                    <div class="biz-icon"><img src="assets/logos/autocasa.png" alt="AutoCasa"></div>
+                    <h4>AutoCasa Auto Expert</h4>
+                    <span>Automotive Repair</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="login-form-panel">
+        <h2>Welcome Back</h2>
+        <p class="subtitle">Sign in to your unified business dashboard</p>
+
+        <div class="error-message" id="errorMsg">
+            <i class="fas fa-exclamation-circle"></i>
+            <span id="errorText">Invalid credentials. Please try again.</span>
+        </div>
+
+        <form id="loginForm" onsubmit="return handleLogin(event)">
+            <div class="form-group">
+                <label>Company</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-building"></i>
+                    <select id="company" title="Select company" aria-label="Company selector" required>
+                        <option value="">Select company...</option>
+                        <option value="all">All Companies (Owner View)</option>
+                        <option value="dheekay">Dheekay Builders OPC</option>
+                        <option value="kdchavit">KDChavit Construction</option>
+                        <option value="nuatthai">Nuat Thai Foot & Body Massage</option>
+                        <option value="autocasa">AutoCasa Auto Expert</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Username</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="username" placeholder="Enter your username" required autocomplete="username">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+                    <button type="button" class="toggle-password" onclick="togglePasswordVisibility()" title="Show password">
+                        <i class="fas fa-eye" id="toggleIcon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-options">
+                <label class="remember-me">
+                    <input type="checkbox" id="rememberMe"> Remember me
+                </label>
+                <a href="#" class="forgot-link">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="btn-login">
+                <i class="fas fa-sign-in-alt"></i>
+                Sign In
+            </button>
+        </form>
+
+        <div class="login-divider">Or</div>
+
+        <div class="demo-accounts sa-panel">
+            <h4><i class="fas fa-shield-alt"></i> Super Admin Access</h4>
+            <p class="sa-desc">Enter your unique Super Admin code for full system access.</p>
+            <div class="sa-row" style="position:relative">
+                <input type="password" id="superAdminCode" class="form-control sa-input" placeholder="Enter Super Admin Code" style="padding-right:42px">
+                <button type="button" onclick="togglePwVis(this)" title="Show password" style="position:absolute;right:90px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px;padding:4px;z-index:2"><i class="fas fa-eye"></i></button>
+                <button type="button" onclick="handleSuperAdminLogin()" class="btn-login sa-btn">
+                    <i class="fas fa-key"></i> Login
+                </button>
+            </div>
+            <div id="saError" class="sa-error"></div>
+        </div>
+
+        <div class="login-info-notice">
+            <i class="fas fa-info-circle login-info-icon"></i>
+            Contact your system administrator to receive your login credentials.
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Initialize database on login page so auth works
+        Database.init();
+
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
+            const toggleBtn = document.querySelector('.toggle-password');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+                toggleBtn.title = 'Hide password';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+                toggleBtn.title = 'Show password';
+            }
+        }
+
+        function togglePwVis(btn) {
+            const input = btn.parentElement.querySelector('input');
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') { input.type = 'text'; icon.classList.replace('fa-eye','fa-eye-slash'); btn.title = 'Hide password'; }
+            else { input.type = 'password'; icon.classList.replace('fa-eye-slash','fa-eye'); btn.title = 'Show password'; }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const company = document.getElementById('company').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            const errorText = document.getElementById('errorText');
+            errorMsg.classList.remove('show');
+
+            const result = Auth.login(username, password, company);
+            if (!result.success) {
+                errorText.textContent = result.error || 'Invalid credentials.';
+                errorMsg.classList.add('show');
+                return false;
+            }
+
+            // Remember me
+            if (document.getElementById('rememberMe').checked) {
+                localStorage.setItem('ubms_remember', JSON.stringify({ username, company }));
+            } else {
+                localStorage.removeItem('ubms_remember');
+            }
+
+            // Route to standalone app if specific company selected, unified if 'all'
+            const companyRoutes = { dheekay: 'dheekay/index.html', kdchavit: 'kdchavit/index.html', nuatthai: 'nuatthai/index.html', autocasa: 'autocasa/index.html' };
+            const destination = companyRoutes[company] || 'index.html';
+
+            if (result.mustChangePassword) {
+                showChangePasswordModal(username, destination);
+            } else {
+                window.location.href = destination;
+            }
+            return false;
+        }
+
+        function showChangePasswordModal(username, destination) {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+            overlay.innerHTML = `
+                <div style="background:white;border-radius:16px;padding:36px;width:400px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+                    <div style="text-align:center;margin-bottom:24px">
+                        <div style="width:60px;height:60px;background:#fff3e0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                            <i class="fas fa-key" style="font-size:24px;color:#e65100"></i>
+                        </div>
+                        <h2 style="font-size:20px;color:#1a1a2e;margin-bottom:8px">Change Your Password</h2>
+                        <p style="font-size:13px;color:#64748b">Your account requires a password change before proceeding.</p>
+                    </div>
+                    <div id="pwChangeError" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px"></div>
+                    <div style="margin-bottom:16px">
+                        <label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:6px">New Password</label>
+                        <div style="position:relative">
+                            <input type="password" id="newPw1" class="form-control" placeholder="Minimum 8 characters" style="width:100%;padding:10px 42px 10px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box">
+                            <button type="button" onclick="togglePwVis(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:24px">
+                        <label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:6px">Confirm New Password</label>
+                        <div style="position:relative">
+                            <input type="password" id="newPw2" class="form-control" placeholder="Re-enter new password" style="width:100%;padding:10px 42px 10px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box">
+                            <button type="button" onclick="togglePwVis(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <button onclick="submitPasswordChange('${username}','${destination}')" style="width:100%;padding:12px;background:linear-gradient(135deg,#00897b,#00796b);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
+                        <i class="fas fa-save"></i> &nbsp;Set New Password & Continue
+                    </button>
+                </div>`;
+            document.body.appendChild(overlay);
+        }
+
+        function submitPasswordChange(username, destination) {
+            const p1 = document.getElementById('newPw1').value;
+            const p2 = document.getElementById('newPw2').value;
+            const err = document.getElementById('pwChangeError');
+            err.style.display = 'none';
+
+            if (p1.length < 8) { err.textContent = 'Password must be at least 8 characters.'; err.style.display = 'block'; return; }
+            if (p1 !== p2)     { err.textContent = 'Passwords do not match.'; err.style.display = 'block'; return; }
+
+            const user = Database.findUser(username);
+            if (!user) { err.textContent = 'Session error. Please refresh.'; err.style.display = 'block'; return; }
+
+            Database.updateUser(user.id, { password: p1, mustChangePassword: false });
+            window.location.href = destination;
+        }
+
+        function handleSuperAdminLogin() {
+            const code = document.getElementById('superAdminCode').value.trim();
+            const saError = document.getElementById('saError');
+            if (!code) {
+                saError.textContent = 'Please enter the Super Admin code.';
+                saError.style.display = 'block';
+                return;
+            }
+            const result = Auth.loginSuperAdmin(code);
+            if (!result.success) {
+                saError.textContent = result.error || 'Invalid code.';
+                saError.style.display = 'block';
+                return;
+            }
+            window.location.href = 'index.html';
+        }
+
+        // Redirect if already logged in
+        const _session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
+        if (_session.isLoggedIn) {
+            window.location.href = 'index.html';
+        }
+
+        // Restore remembered credentials
+        const _remembered = JSON.parse(localStorage.getItem('ubms_remember') || '{}');
+        if (_remembered.username) {
+            document.getElementById('username').value = _remembered.username;
+            document.getElementById('company').value = _remembered.company || '';
+            document.getElementById('rememberMe').checked = true;
+        }
+    </script>
+</body>
+</html>
