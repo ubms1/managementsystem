@@ -102,6 +102,12 @@ const DataStore = {
 
     memberships: [],
 
+    membershipPackages: [
+        { id: 'PKG-001', name: 'Platinum', price: 9999, sessions: 30, sessionsLabel: 'Unlimited', period: 'month', benefits: ['Unlimited massage sessions', '20% discount on add-ons', 'Priority booking', 'Free hot stone upgrade'], status: 'active' },
+        { id: 'PKG-002', name: 'Gold', price: 5999, sessions: 12, sessionsLabel: '12 sessions', period: 'month', benefits: ['12 sessions per month', '10% discount on add-ons', 'Birthday free session', '1 free guest pass/month'], status: 'active' },
+        { id: 'PKG-003', name: 'Silver', price: 2999, sessions: 6, sessionsLabel: '6 sessions', period: 'month', benefits: ['6 sessions per month', '5% discount on services', 'Priority booking', 'Special promo access'], status: 'active' }
+    ],
+
     // ============================================================
     //  AUTOMOTIVE - VEHICLES, JOBS, PARTS
     // ============================================================

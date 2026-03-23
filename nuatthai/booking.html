@@ -199,6 +199,34 @@
         .toast.show { display: flex; align-items: center; gap: 10px; animation: slideUp .3s ease; }
         @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 
+        /* Package cards */
+        .pkg-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        .pkg-card {
+            background: var(--white); border: 2px solid #e5e7eb; border-radius: var(--radius);
+            overflow: hidden; transition: all .3s;
+        }
+        .pkg-card:hover { border-color: var(--gold); box-shadow: 0 8px 32px rgba(197,160,78,0.15); transform: translateY(-2px); }
+        .pkg-card-header {
+            background: linear-gradient(135deg, var(--dark) 0%, var(--dark2) 100%);
+            color: #fff; text-align: center; padding: 20px 16px 16px;
+        }
+        .pkg-card-header h3 { font-size: 20px; margin-bottom: 4px; }
+        .pkg-price { font-size: 36px; font-weight: 800; color: var(--gold); }
+        .pkg-period { font-size: 13px; color: rgba(255,255,255,0.6); }
+        .pkg-sessions { display: inline-block; margin-top: 8px; padding: 4px 14px; border-radius: 20px; background: rgba(197,160,78,0.2); color: var(--gold); font-size: 12px; font-weight: 700; }
+        .pkg-benefits { list-style: none; padding: 20px; margin: 0; }
+        .pkg-benefits li { padding: 8px 0; font-size: 13px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f3f4f6; }
+        .pkg-benefits li:last-child { border-bottom: none; }
+        .pkg-benefits i { color: var(--success); font-size: 14px; flex-shrink: 0; }
+
+        @media (min-width: 600px) { .pkg-grid { grid-template-columns: 1fr 1fr; } }
+        .pkg-panel-heading { margin-bottom: 4px; }
+        .pkg-panel-heading i { color: var(--gold); }
+        .pkg-panel-subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+        .pkg-cta-box { margin-top: 24px; padding: 16px; background: var(--gold-light); border-radius: var(--radius); text-align: center; }
+        .pkg-cta-text { font-size: 13px; color: var(--gold-dark); margin-bottom: 8px; }
+        .pkg-cta-phone { color: var(--gold-dark); font-size: 15px; }
+
         /* Footer */
         .footer { text-align: center; padding: 20px; color: var(--text-muted); font-size: 12px; }
         .footer a { color: var(--gold-dark); text-decoration: none; }
@@ -234,6 +262,9 @@
             <button class="page-tab active" onclick="BookingApp.switchPage('book')">
                 <i class="fas fa-calendar-plus"></i> Book Now
             </button>
+            <button class="page-tab" onclick="BookingApp.switchPage('packages')">
+                <i class="fas fa-crown"></i> Packages
+            </button>
             <button class="page-tab" onclick="BookingApp.switchPage('lookup')">
                 <i class="fas fa-search"></i> My Booking
             </button>
@@ -248,6 +279,17 @@
                 <div class="step" data-step="4"><span class="step-num">4</span>Confirm</div>
             </div>
             <div id="bookingStepContent"></div>
+        </div>
+
+        <!-- PACKAGES PANEL -->
+        <div class="panel" id="packagesPanel">
+            <h3 class="pkg-panel-heading"><i class="fas fa-crown"></i> Membership Packages</h3>
+            <p class="pkg-panel-subtitle">Enjoy exclusive benefits and savings with our membership plans</p>
+            <div class="pkg-grid" id="packagesGrid"></div>
+            <div class="pkg-cta-box">
+                <p class="pkg-cta-text"><i class="fas fa-info-circle"></i> Interested in a membership? Ask our staff during your next visit or call us!</p>
+                <strong class="pkg-cta-phone"><i class="fas fa-phone"></i> (078) 844-1234</strong>
+            </div>
         </div>
 
         <!-- LOOKUP PANEL -->
@@ -295,10 +337,14 @@
         // ---- Page switching ----
         switchPage(page) {
             this.currentPage = page;
-            document.querySelectorAll('.page-tab').forEach((t, i) => t.classList.toggle('active', (i === 0 && page === 'book') || (i === 1 && page === 'lookup')));
+            document.querySelectorAll('.page-tab').forEach((t, i) => {
+                t.classList.toggle('active', (i === 0 && page === 'book') || (i === 1 && page === 'packages') || (i === 2 && page === 'lookup'));
+            });
             document.getElementById('bookPanel').classList.toggle('active', page === 'book');
+            document.getElementById('packagesPanel').classList.toggle('active', page === 'packages');
             document.getElementById('lookupPanel').classList.toggle('active', page === 'lookup');
             if (page === 'book') this.renderStep(this.currentStep);
+            if (page === 'packages') this.renderPackages();
         },
 
         // ---- Step navigation ----
@@ -655,6 +701,30 @@
             this.selected = { branch: null, service: null, date: '', time: '', therapist: null };
             document.getElementById('stepsBar').style.display = 'flex';
             this.renderStep(1);
+        },
+
+        // ---- Render Membership Packages ----
+        renderPackages() {
+            const grid = document.getElementById('packagesGrid');
+            if (!grid) return;
+            const packages = (DataStore.membershipPackages || []).filter(p => p.status === 'active');
+            if (packages.length === 0) {
+                grid.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fas fa-box-open" style="font-size:32px;margin-bottom:8px;display:block"></i>No packages available at the moment.</div>';
+                return;
+            }
+            grid.innerHTML = packages.map(p => `
+                <div class="pkg-card">
+                    <div class="pkg-card-header">
+                        <h3>${p.name}</h3>
+                        <div class="pkg-price">\u20B1${p.price.toLocaleString()}</div>
+                        <div class="pkg-period">per ${p.period}</div>
+                        <div class="pkg-sessions">${p.sessionsLabel}</div>
+                    </div>
+                    <ul class="pkg-benefits">
+                        ${(p.benefits || []).map(b => `<li><i class="fas fa-check-circle"></i> ${b}</li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
         },
 
         // ---- Booking Lookup ----

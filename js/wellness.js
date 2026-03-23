@@ -650,50 +650,130 @@ const Wellness = {
             </div>
         </div>
 
-        <div class="grid-3 mt-3">
+        <div class="section-header mb-2 mt-3">
+            <h2>Membership Packages</h2>
+            <button class="btn btn-primary" onclick="Wellness.openAddPackage()"><i class="fas fa-plus"></i> Add Package</button>
+        </div>
+
+        <div class="grid-3">
+            ${(DataStore.membershipPackages || []).filter(p => p.status === 'active').map(p => `
             <div class="card">
-                <div class="card-header"><h3>Platinum Package</h3></div>
+                <div class="card-header"><h3>${p.name} Package</h3></div>
                 <div class="card-body" style="text-align:center">
-                    <div style="font-size:36px;font-weight:800;color:var(--secondary);margin-bottom:4px">₱9,999</div>
-                    <div style="color:var(--text-muted);margin-bottom:16px">per month</div>
+                    <div style="font-size:36px;font-weight:800;color:var(--secondary);margin-bottom:4px">₱${p.price.toLocaleString()}</div>
+                    <div style="color:var(--text-muted);margin-bottom:16px">per ${p.period}</div>
                     <ul style="text-align:left;font-size:13px;list-style:none;padding:0">
-                        <li style="padding:6px 0;border-bottom:1px solid var(--border)"><i class="fas fa-check text-success" style="margin-right:8px"></i>Unlimited massage sessions</li>
-                        <li style="padding:6px 0;border-bottom:1px solid var(--border)"><i class="fas fa-check text-success" style="margin-right:8px"></i>20% discount on add-ons</li>
-                        <li style="padding:6px 0;border-bottom:1px solid var(--border)"><i class="fas fa-check text-success" style="margin-right:8px"></i>Priority booking</li>
-                        <li style="padding:6px 0"><i class="fas fa-check text-success" style="margin-right:8px"></i>Free hot stone upgrade</li>
+                        ${p.benefits.map((b, i) => `<li style="padding:6px 0;${i < p.benefits.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}"><i class="fas fa-check text-success" style="margin-right:8px"></i>${b}</li>`).join('')}
                     </ul>
+                    <div style="margin-top:14px;display:flex;gap:8px;justify-content:center">
+                        <button class="btn btn-sm btn-secondary" onclick="Wellness.editPackage('${p.id}')"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="Wellness.deletePackage('${p.id}')"><i class="fas fa-trash"></i></button>
+                    </div>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-header"><h3>Gold Package</h3></div>
-                <div class="card-body" style="text-align:center">
-                    <div style="font-size:36px;font-weight:800;color:var(--secondary);margin-bottom:4px">₱5,999</div>
-                    <div style="color:var(--text-muted);margin-bottom:16px">per month</div>
-                    <ul style="text-align:left;font-size:13px;list-style:none;padding:0">
-                        <li style="padding:6px 0;border-bottom:1px solid var(--border)"><i class="fas fa-check text-success" style="margin-right:8px"></i>12 sessions per month</li>
-                        <li style="padding:6px 0;border-bottom:1px solid var(--border)"><i class="fas fa-check text-success" style="margin-right:8px"></i>10% discount on add-ons</li>
-                        <li style="padding:6px 0;border-bottom:1px solid var(--border)"><i class="fas fa-check text-success" style="margin-right:8px"></i>Birthday free session</li>
-                        <li style="padding:6px 0"><i class="fas fa-check text-success" style="margin-right:8px"></i>1 free guest pass/month</li>
-                    </ul>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-header"><h3>Silver Package</h3></div>
-                <div class="card-body" style="text-align:center">
-                    <div style="font-size:36px;font-weight:800;color:var(--secondary);margin-bottom:4px">₱2,999</div>
-                    <div style="color:var(--text-muted);margin-bottom:16px">per month</div>
-                    <ul style="text-align:left;font-size:13px;list-style:none;padding:0">
-                        <li style="padding:6px 0;border-bottom:1px solid var(--border)"><i class="fas fa-check text-success" style="margin-right:8px"></i>6 sessions per month</li>
-                        <li style="padding:6px 0;border-bottom:1px solid var(--border)"><i class="fas fa-check text-success" style="margin-right:8px"></i>5% discount on services</li>
-                        <li style="padding:6px 0;border-bottom:1px solid var(--border)"><i class="fas fa-check text-success" style="margin-right:8px"></i>Priority booking</li>
-                        <li style="padding:6px 0"><i class="fas fa-check text-success" style="margin-right:8px"></i>Special promo access</li>
-                    </ul>
-                </div>
-            </div>
+            `).join('')}
         </div>`;
     },
 
+    // ---- Package CRUD ----
+    openAddPackage() {
+        App.openModal('Add Membership Package', `
+        <form>
+            <div class="form-group"><label>Package Name</label><input type="text" class="form-control" id="pkgName" placeholder="e.g., Diamond"></div>
+            <div class="form-row">
+                <div class="form-group"><label>Price (₱)</label><input type="number" class="form-control" id="pkgPrice" min="0" step="1" value="0"></div>
+                <div class="form-group"><label>Sessions per Period</label><input type="number" class="form-control" id="pkgSessions" min="1" value="6"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Sessions Label</label><input type="text" class="form-control" id="pkgSessionsLabel" placeholder="e.g., 6 sessions or Unlimited"></div>
+                <div class="form-group"><label>Period</label>
+                    <select class="form-control" id="pkgPeriod">
+                        <option value="month">Monthly</option>
+                        <option value="year">Yearly</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group"><label>Benefits (one per line)</label><textarea class="form-control" id="pkgBenefits" rows="4" placeholder="Unlimited massage sessions\n20% discount on add-ons"></textarea></div>
+        </form>`, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Wellness.saveNewPackage()"><i class="fas fa-save"></i> Save</button>
+        `);
+    },
+
+    saveNewPackage() {
+        const name = document.getElementById('pkgName')?.value?.trim();
+        if (!name) { App.showToast('Package name is required', 'error'); return; }
+        const price = parseFloat(document.getElementById('pkgPrice')?.value || 0);
+        const sessions = parseInt(document.getElementById('pkgSessions')?.value || 6);
+        const sessionsLabel = document.getElementById('pkgSessionsLabel')?.value?.trim() || (sessions + ' sessions');
+        const period = document.getElementById('pkgPeriod')?.value || 'month';
+        const benefits = (document.getElementById('pkgBenefits')?.value || '').split('\n').map(b => b.trim()).filter(Boolean);
+
+        if (!DataStore.membershipPackages) DataStore.membershipPackages = [];
+        DataStore.membershipPackages.push({
+            id: Utils.generateId('PKG'),
+            name, price, sessions, sessionsLabel, period, benefits, status: 'active'
+        });
+        Database.save();
+        App.closeModal();
+        App.showToast('Package added', 'success');
+        this.renderMembership(document.getElementById('contentArea'));
+    },
+
+    editPackage(id) {
+        const pkg = (DataStore.membershipPackages || []).find(p => p.id === id);
+        if (!pkg) return;
+        App.openModal('Edit Package — ' + pkg.name, `
+        <form>
+            <div class="form-group"><label>Package Name</label><input type="text" class="form-control" id="pkgName" value="${pkg.name}"></div>
+            <div class="form-row">
+                <div class="form-group"><label>Price (₱)</label><input type="number" class="form-control" id="pkgPrice" min="0" step="1" value="${pkg.price}"></div>
+                <div class="form-group"><label>Sessions per Period</label><input type="number" class="form-control" id="pkgSessions" min="1" value="${pkg.sessions}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Sessions Label</label><input type="text" class="form-control" id="pkgSessionsLabel" value="${pkg.sessionsLabel || ''}"></div>
+                <div class="form-group"><label>Period</label>
+                    <select class="form-control" id="pkgPeriod">
+                        <option value="month" ${pkg.period === 'month' ? 'selected' : ''}>Monthly</option>
+                        <option value="year" ${pkg.period === 'year' ? 'selected' : ''}>Yearly</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group"><label>Benefits (one per line)</label><textarea class="form-control" id="pkgBenefits" rows="4">${(pkg.benefits || []).join('\n')}</textarea></div>
+        </form>`, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Wellness.saveEditPackage('${id}')"><i class="fas fa-save"></i> Update</button>
+        `);
+    },
+
+    saveEditPackage(id) {
+        const pkg = (DataStore.membershipPackages || []).find(p => p.id === id);
+        if (!pkg) return;
+        const name = document.getElementById('pkgName')?.value?.trim();
+        if (!name) { App.showToast('Package name is required', 'error'); return; }
+        pkg.name = name;
+        pkg.price = parseFloat(document.getElementById('pkgPrice')?.value || 0);
+        pkg.sessions = parseInt(document.getElementById('pkgSessions')?.value || 6);
+        pkg.sessionsLabel = document.getElementById('pkgSessionsLabel')?.value?.trim() || (pkg.sessions + ' sessions');
+        pkg.period = document.getElementById('pkgPeriod')?.value || 'month';
+        pkg.benefits = (document.getElementById('pkgBenefits')?.value || '').split('\n').map(b => b.trim()).filter(Boolean);
+        Database.save();
+        App.closeModal();
+        App.showToast('Package updated', 'success');
+        this.renderMembership(document.getElementById('contentArea'));
+    },
+
+    deletePackage(id) {
+        if (!confirm('Delete this membership package?')) return;
+        DataStore.membershipPackages = (DataStore.membershipPackages || []).filter(p => p.id !== id);
+        Database.save();
+        App.showToast('Package deleted', 'success');
+        this.renderMembership(document.getElementById('contentArea'));
+    },
+
     openNewMembership() {
+        const packages = (DataStore.membershipPackages || []).filter(p => p.status === 'active');
+        if (packages.length === 0) { App.showToast('No membership packages available. Add a package first.', 'warning'); return; }
         App.openModal('New Membership', `
         <form>
             <div class="form-group"><label>Client</label>
@@ -703,9 +783,7 @@ const Wellness = {
             </div>
             <div class="form-group"><label>Package</label>
                 <select class="form-control" id="newMemPackage" onchange="Wellness.updateMemPrice()">
-                    <option value="Platinum" data-price="9999" data-sessions="30">Platinum — ₱9,999/mo (Unlimited)</option>
-                    <option value="Gold" data-price="5999" data-sessions="12">Gold — ₱5,999/mo (12 sessions)</option>
-                    <option value="Silver" data-price="2999" data-sessions="6">Silver — ₱2,999/mo (6 sessions)</option>
+                    ${packages.map(p => `<option value="${p.name}" data-price="${p.price}" data-sessions="${p.sessions}">${p.name} — ₱${p.price.toLocaleString()}/mo (${p.sessionsLabel})</option>`).join('')}
                 </select>
             </div>
             <div class="form-group"><label>Valid Until</label><input type="date" class="form-control" id="newMemExpiry"></div>
