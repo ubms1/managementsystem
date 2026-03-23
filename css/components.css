@@ -258,21 +258,26 @@ select.form-control { cursor: pointer; }
     position: relative;
     display: flex;
     align-items: center;
+    width: 100%;
 }
 .pw-toggle-wrap .form-control {
     padding-right: 42px;
+    flex: 1;
+    min-width: 0;
 }
 .pw-toggle-wrap .pw-eye-btn {
     position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
+    right: 4px;
+    top: 4px;
+    bottom: 4px;
+    width: 32px;
     background: none;
     border: none;
+    border-radius: var(--radius-sm);
     color: var(--text-muted);
     cursor: pointer;
     font-size: 15px;
-    padding: 4px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;

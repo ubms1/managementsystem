@@ -181,15 +181,17 @@
         }
         .toggle-password {
             position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
+            right: 4px;
+            top: 4px;
+            bottom: 4px;
+            width: 34px;
             background: none;
             border: none;
+            border-radius: 8px;
             color: #94a3b8;
             cursor: pointer;
             font-size: 16px;
-            padding: 4px;
+            padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -200,8 +202,9 @@
             color: #00897b;
         }
         .sa-row { position: relative; }
-        .sa-row .sa-input { padding-right: 42px; }
-        .sa-pw-eye { position: absolute; right: 90px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 15px; padding: 4px; z-index: 2; }
+        .sa-input-wrap { position: relative; flex: 1; }
+        .sa-input-wrap .sa-input { padding-right: 42px; width: 100%; box-sizing: border-box; }
+        .sa-pw-eye { position: absolute; right: 4px; top: 4px; bottom: 4px; width: 32px; background: none; border: none; border-radius: 6px; color: #94a3b8; cursor: pointer; font-size: 15px; padding: 0; display: flex; align-items: center; justify-content: center; z-index: 2; }
         .sa-pw-eye:hover { color: #00897b; }
         .form-options {
             display: flex;
@@ -410,8 +413,10 @@
             <h4><i class="fas fa-shield-alt"></i> Super Admin Access</h4>
             <p class="sa-desc">Enter your unique Super Admin code for full system access.</p>
             <div class="sa-row">
-                <input type="password" id="superAdminCode" class="form-control sa-input" placeholder="Enter Super Admin Code">
-                <button type="button" class="sa-pw-eye" onclick="togglePwVis(this)" title="Show password"><i class="fas fa-eye"></i></button>
+                <div class="sa-input-wrap">
+                    <input type="password" id="superAdminCode" class="form-control sa-input" placeholder="Enter Super Admin Code">
+                    <button type="button" class="sa-pw-eye" onclick="togglePwVis(this)" title="Show password"><i class="fas fa-eye"></i></button>
+                </div>
                 <button type="button" onclick="handleSuperAdminLogin()" class="btn-login sa-btn">
                     <i class="fas fa-key"></i> Login
                 </button>
@@ -509,14 +514,14 @@
                         <label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:6px">New Password</label>
                         <div style="position:relative">
                             <input type="password" id="newPw1" class="form-control" placeholder="Minimum 8 characters" style="width:100%;padding:10px 42px 10px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box">
-                            <button type="button" onclick="togglePwVis(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px"><i class="fas fa-eye"></i></button>
+                            <button type="button" onclick="togglePwVis(this)" style="position:absolute;right:4px;top:4px;bottom:4px;width:32px;background:none;border:none;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
                     <div style="margin-bottom:24px">
                         <label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:6px">Confirm New Password</label>
                         <div style="position:relative">
                             <input type="password" id="newPw2" class="form-control" placeholder="Re-enter new password" style="width:100%;padding:10px 42px 10px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box">
-                            <button type="button" onclick="togglePwVis(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px"><i class="fas fa-eye"></i></button>
+                            <button type="button" onclick="togglePwVis(this)" style="position:absolute;right:4px;top:4px;bottom:4px;width:32px;background:none;border:none;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
                     <button onclick="submitPasswordChange('${username}','${destination}')" style="width:100%;padding:12px;background:linear-gradient(135deg,#00897b,#00796b);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
@@ -561,8 +566,8 @@
                     <button onclick="verifyForgotPw()" style="width:100%;padding:12px;background:linear-gradient(135deg,#00897b,#00796b);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Verify Identity</button>
                 </div>
                 <div id="fpStep2" style="display:none">
-                    <div style="margin-bottom:12px"><label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:4px">New Password</label><div style="position:relative"><input type="password" id="fpNewPw" class="form-control" placeholder="Min 8 characters" style="width:100%;padding:10px 42px 10px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box"><button type="button" onclick="togglePwVis(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px"><i class="fas fa-eye"></i></button></div></div>
-                    <div style="margin-bottom:16px"><label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:4px">Confirm Password</label><div style="position:relative"><input type="password" id="fpConfirmPw" class="form-control" placeholder="Re-enter new password" style="width:100%;padding:10px 42px 10px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box"><button type="button" onclick="togglePwVis(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:15px"><i class="fas fa-eye"></i></button></div></div>
+                    <div style="margin-bottom:12px"><label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:4px">New Password</label><div style="position:relative"><input type="password" id="fpNewPw" class="form-control" placeholder="Min 8 characters" style="width:100%;padding:10px 42px 10px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box"><button type="button" onclick="togglePwVis(this)" style="position:absolute;right:4px;top:4px;bottom:4px;width:32px;background:none;border:none;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0"><i class="fas fa-eye"></i></button></div></div>
+                    <div style="margin-bottom:16px"><label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:4px">Confirm Password</label><div style="position:relative"><input type="password" id="fpConfirmPw" class="form-control" placeholder="Re-enter new password" style="width:100%;padding:10px 42px 10px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box"><button type="button" onclick="togglePwVis(this)" style="position:absolute;right:4px;top:4px;bottom:4px;width:32px;background:none;border:none;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0"><i class="fas fa-eye"></i></button></div></div>
                     <button onclick="submitForgotPw()" style="width:100%;padding:12px;background:linear-gradient(135deg,#00897b,#00796b);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Reset Password</button>
                 </div>
                 <button onclick="document.getElementById('forgotPwOverlay').remove()" style="width:100%;padding:10px;background:none;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#64748b;cursor:pointer;margin-top:10px">Cancel</button>
