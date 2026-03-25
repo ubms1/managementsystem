@@ -96,6 +96,83 @@ async function initDatabase() {
             )
         `);
 
+        // Create attendance_records table
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS attendance_records (
+                id VARCHAR(50) PRIMARY KEY,
+                employeeId VARCHAR(100) NOT NULL,
+                company VARCHAR(100),
+                date DATE NOT NULL,
+                timeIn VARCHAR(20),
+                timeInTimestamp TIMESTAMP NULL,
+                timeOut VARCHAR(20),
+                timeOutTimestamp TIMESTAMP NULL,
+                status VARCHAR(50) DEFAULT 'present',
+                lateMinutes INT DEFAULT 0,
+                undertimeMinutes INT DEFAULT 0,
+                overtimeHours DECIMAL(5,2) DEFAULT 0,
+                notes TEXT,
+                location JSON,
+                locationOut JSON,
+                source VARCHAR(50) DEFAULT 'manual',
+                faceVerified BOOLEAN DEFAULT FALSE,
+                created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create face_descriptors table for facial recognition data
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS face_descriptors (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                employeeId VARCHAR(100) NOT NULL UNIQUE,
+                descriptor JSON NOT NULL,
+                enrolledAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create project_documents table for uploaded files (contracts, etc.)
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS project_documents (
+                id VARCHAR(50) PRIMARY KEY,
+                company VARCHAR(100) NOT NULL,
+                projectId VARCHAR(50),
+                title VARCHAR(255) NOT NULL,
+                category VARCHAR(100),
+                fileName VARCHAR(255),
+                fileType VARCHAR(50),
+                fileSize INT,
+                fileData LONGBLOB,
+                revision VARCHAR(20) DEFAULT '0',
+                status VARCHAR(50) DEFAULT 'pending',
+                author VARCHAR(255),
+                assignedTo VARCHAR(255),
+                description TEXT,
+                notes TEXT,
+                uploadDate DATE,
+                created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create project_milestones table for project monitoring
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS project_milestones (
+                id VARCHAR(50) PRIMARY KEY,
+                projectId VARCHAR(50) NOT NULL,
+                company VARCHAR(100),
+                milestoneName VARCHAR(255) NOT NULL,
+                category VARCHAR(100),
+                status VARCHAR(50) DEFAULT 'pending',
+                targetDate DATE,
+                completedDate DATE,
+                agingDays INT DEFAULT 0,
+                issues TEXT,
+                remarks TEXT,
+                sortOrder INT DEFAULT 0,
+                created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         console.log('✓ Database initialized successfully');
     } catch (err) {
         console.error('Database initialization error:', err.message);

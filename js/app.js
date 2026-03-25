@@ -130,6 +130,7 @@ const App = {
             subcontractors: 'Subcontractor Management',
             equipment: 'Equipment & Fleet', safety: 'Safety / QHSE',
             documents: 'Document Management',
+            projectmonitoring: 'Project Monitoring & Aging',
             credits: 'Credit & Collection',
             booking: 'Booking Management', therapists: 'Therapist Management',
             pos: 'Point of Sale', membership: 'Membership Management',
@@ -170,6 +171,7 @@ const App = {
             case 'equipment': Construction.renderEquipment(content); break;
             case 'safety': Construction.renderSafety(content); break;
             case 'documents': Construction.renderDocuments(content); break;
+            case 'projectmonitoring': Construction.renderProjectMonitoring(content); break;
             case 'credits': Construction.renderCreditCollection(content); break;
             case 'booking': Wellness.renderBookings(content); break;
             case 'therapists': Wellness.renderTherapists(content); break;

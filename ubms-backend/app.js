@@ -7,6 +7,9 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { initDatabase, seedInitialData } = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const documentRoutes = require('./routes/documentRoutes');
+const milestoneRoutes = require('./routes/milestoneRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -26,6 +29,9 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/milestones', milestoneRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

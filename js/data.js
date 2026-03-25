@@ -148,6 +148,11 @@ const DataStore = {
     documents: [],
 
     // ============================================================
+    //  CONSTRUCTION - PROJECT MILESTONES & MONITORING
+    // ============================================================
+    projectMilestones: [],
+
+    // ============================================================
     //  WELLNESS - SPA INVENTORY (Supplies & Products)
     // ============================================================
     spaInventory: [],

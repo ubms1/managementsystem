@@ -6,6 +6,8 @@
     <title>Employee DTR — UBMS Time-In/Out</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- face-api.js for facial recognition -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -411,6 +413,52 @@
             color: #166534;
         }
         .import-log-item.err { background: #fef2f2; color: #991b1b; }
+        /* ---- Face Scan Panel ---- */
+        .face-scan-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            display: none; align-items: center; justify-content: center;
+            z-index: 9997; flex-direction: column; gap: 16px;
+        }
+        .face-scan-overlay.active { display: flex; }
+        .face-scan-container {
+            position: relative;
+            width: 320px; height: 260px;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+        .face-scan-container video {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        .face-scan-container canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        }
+        .face-scan-guide {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none;
+        }
+        .face-scan-guide .oval {
+            width: 160px; height: 200px;
+            border: 3px dashed rgba(0,255,180,0.6);
+            border-radius: 50%;
+        }
+        .face-scan-status {
+            color: white; font-size: 15px; font-weight: 700;
+            text-align: center; max-width: 320px;
+        }
+        .face-scan-status .sub { font-size: 12px; font-weight: 400; opacity: 0.7; margin-top: 4px; }
+        .face-scan-btns { display: flex; gap: 12px; }
+        .face-scan-btns button {
+            padding: 12px 28px; border: none; border-radius: 10px;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+        }
+        .btn-face-cancel { background: rgba(255,255,255,0.15); color: white; }
+        .btn-face-retry { background: var(--warning); color: white; }
+        .btn-face-enroll { background: var(--success); color: white; }
         /* ---- Footer ---- */
         .kiosk-footer {
             text-align: center;
@@ -428,6 +476,23 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Face Scan Overlay -->
+<div class="face-scan-overlay" id="faceScanOverlay">
+    <div class="face-scan-status" id="faceScanStatus">
+        Initializing camera…
+        <div class="sub">Position your face within the oval guide</div>
+    </div>
+    <div class="face-scan-container">
+        <video id="faceCamVideo" autoplay playsinline muted></video>
+        <canvas id="faceCamCanvas"></canvas>
+        <div class="face-scan-guide"><div class="oval"></div></div>
+    </div>
+    <div class="face-scan-btns">
+        <button class="btn-face-cancel" onclick="cancelFaceScan()"><i class="fas fa-times"></i> Cancel</button>
+        <button class="btn-face-enroll" id="btnFaceEnroll" style="display:none" onclick="enrollFaceNow()"><i class="fas fa-user-plus"></i> Enroll Face</button>
+    </div>
+</div>
 
 <!-- App root rendered by JS -->
 <div id="app"></div>
@@ -607,13 +672,13 @@ function renderApp() {
         <!-- Mode Switcher -->
         <div class="mode-tabs">
             <button class="mode-tab active" id="tabBrowse" onclick="switchMode('browse')">
-                <i class="fas fa-users"></i> Browse Name
+                <i class="fas fa-users"></i> Browse
             </button>
             <button class="mode-tab" id="tabPin" onclick="switchMode('pin')">
-                <i class="fas fa-hashtag"></i> Enter User ID
+                <i class="fas fa-id-card"></i> User ID + Face
             </button>
             <button class="mode-tab" id="tabBio" onclick="switchMode('bio')">
-                <i class="fas fa-fingerprint"></i> Biometric Import
+                <i class="fas fa-fingerprint"></i> Biometric
             </button>
         </div>
 
@@ -625,8 +690,10 @@ function renderApp() {
 
         <!-- ====== PIN / USER ID MODE ====== -->
         <div class="pin-panel" id="modePin">
-            <div class="section-label"><i class="fas fa-id-card" style="margin-right:6px"></i>Enter Your User ID</div>
-            <div class="pin-display" id="pinDisplay">_ _ _ _</div>
+            <div class="section-label"><i class="fas fa-id-card" style="margin-right:6px"></i>Enter Your Alphanumeric User ID</div>
+            <input type="text" id="pinInput" class="form-control" placeholder="e.g., DK-EMP-A1B2" maxlength="20"
+                   style="font-size:18px;font-weight:700;letter-spacing:2px;text-align:center;padding:14px;margin-bottom:14px;border:2px solid var(--border);border-radius:12px;text-transform:uppercase"
+                   oninput="onUserIdInput(this.value)" autocomplete="off">
             <div class="pin-emp-card" id="pinEmpCard">
                 <div class="pin-emp-avatar" id="pinEmpAvatar"></div>
                 <div>
@@ -635,11 +702,11 @@ function renderApp() {
                     <div id="pinEmpStatus" style="font-size:12px;margin-top:4px"></div>
                 </div>
             </div>
-            <div class="keypad">
-                ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="key-btn" onclick="pinKey('${n}')">${n}</button>`).join('')}
-                <button class="key-btn key-clear" onclick="pinClear()"><i class="fas fa-times-circle"></i> CLR</button>
-                <button class="key-btn" onclick="pinKey('0')">0</button>
-                <button class="key-btn key-back" onclick="pinBack()"><i class="fas fa-backspace"></i></button>
+            <div id="faceScanPrompt" style="display:none;text-align:center;margin-bottom:14px">
+                <button onclick="startFaceScan('clock')" style="padding:14px 28px;border:none;border-radius:12px;background:var(--company-color,var(--accent));color:white;font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:10px">
+                    <i class="fas fa-camera"></i> Scan Face to Clock In/Out
+                </button>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:8px"><i class="fas fa-shield-alt"></i> Face verification required for attendance</div>
             </div>
             <div class="action-btns" id="pinActionBtns" style="display:none">
                 <button class="btn-timein" id="pinBtnIn" onclick="doClockIn()">
@@ -1045,57 +1112,44 @@ function switchMode(mode) {
     if (mode !== 'browse' && actionPanel) actionPanel.classList.remove('visible');
     if (mode !== 'pin') {
         // Reset PIN state
-        pinBuffer = '';
-        renderPinDisplay();
+        pinClear();
         if (document.getElementById('pinEmpCard')) document.getElementById('pinEmpCard').classList.remove('visible');
         if (document.getElementById('pinActionBtns')) document.getElementById('pinActionBtns').style.display = 'none';
     }
 }
 
 // ============================================================
-//  PIN / NUMERIC KEYPAD
+//  USER ID + FACE SCAN (Alphanumeric Input)
 // ============================================================
 let pinBuffer = '';
+let faceScanResolvedEmp = null;
 
-function pinKey(digit) {
-    if (pinBuffer.length >= 6) return;
-    pinBuffer += digit;
-    renderPinDisplay();
-    if (pinBuffer.length >= 4) tryResolvePinEmployee();
-}
-
-function pinBack() {
-    pinBuffer = pinBuffer.slice(0, -1);
-    renderPinDisplay();
-    if (pinBuffer.length < 4) hidePinEmployee();
+function onUserIdInput(val) {
+    pinBuffer = val.toUpperCase().trim();
+    const input = document.getElementById('pinInput');
+    if (input) input.value = pinBuffer;
+    if (pinBuffer.length >= 3) {
+        tryResolvePinEmployee();
+    } else {
+        hidePinEmployee();
+    }
 }
 
 function pinClear() {
     pinBuffer = '';
-    renderPinDisplay();
+    faceScanResolvedEmp = null;
+    const input = document.getElementById('pinInput');
+    if (input) input.value = '';
     hidePinEmployee();
-}
-
-function renderPinDisplay() {
-    const el = document.getElementById('pinDisplay');
-    if (!el) return;
-    const display = pinBuffer || '_ _ _ _';
-    el.textContent = pinBuffer ? pinBuffer.split('').join('  ') : '_ _ _ _';
-    el.className = 'pin-display' + (pinBuffer.length > 0 ? ' has-value' : '');
 }
 
 function tryResolvePinEmployee() {
     const uid = pinBuffer;
-    const emp = state.employees.find(e => String(e.userId) === uid);
+    const emp = state.employees.find(e => String(e.userId).toUpperCase() === uid);
     if (emp) {
         state.selectedEmployee = emp.id;
+        faceScanResolvedEmp = emp;
         showPinEmployee(emp);
-    } else if (pinBuffer.length >= 6) {
-        // Max length reached, no match
-        const el = document.getElementById('pinDisplay');
-        if (el) el.className = 'pin-display error';
-        hidePinEmployee();
-        showToast('User ID not found. Try again.', 'error');
     } else {
         hidePinEmployee();
     }
@@ -1107,12 +1161,9 @@ function showPinEmployee(emp) {
     const name = document.getElementById('pinEmpName');
     const pos = document.getElementById('pinEmpPos');
     const statusEl = document.getElementById('pinEmpStatus');
+    const faceScanPrompt = document.getElementById('faceScanPrompt');
     const btns = document.getElementById('pinActionBtns');
-    const btnIn = document.getElementById('pinBtnIn');
-    const btnOut = document.getElementById('pinBtnOut');
-    const el = document.getElementById('pinDisplay');
     if (!card) return;
-    if (el) el.className = 'pin-display found';
     card.classList.add('visible');
     avatar.textContent = initials(emp.name);
     name.textContent = emp.name;
@@ -1120,26 +1171,260 @@ function showPinEmployee(emp) {
     const rec = getTodayRecord(emp.id);
     if (!rec) {
         statusEl.innerHTML = `<span style="color:var(--text-muted)"><i class="fas fa-circle" style="font-size:9px"></i> Not yet clocked in</span>`;
-        btnIn.disabled = false; btnIn.style.opacity = '1';
-        btnOut.disabled = true; btnOut.style.opacity = '0.3';
     } else if (rec.timeIn && !rec.timeOut) {
         statusEl.innerHTML = `<span style="color:#856404"><i class="fas fa-dot-circle" style="font-size:9px"></i> Clocked In at ${rec.timeIn}</span>`;
-        btnIn.disabled = true; btnIn.style.opacity = '0.3';
-        btnOut.disabled = false; btnOut.style.opacity = '1';
     } else {
         statusEl.innerHTML = `<span style="color:var(--success)"><i class="fas fa-check-circle" style="font-size:9px"></i> Attendance complete</span>`;
-        btnIn.disabled = true; btnIn.style.opacity = '0.3';
-        btnOut.disabled = true; btnOut.style.opacity = '0.3';
     }
-    btns.style.display = 'grid';
+    // Show face scan button instead of direct clock in/out buttons
+    if (faceScanPrompt) faceScanPrompt.style.display = 'block';
+    if (btns) btns.style.display = 'none';
 }
 
 function hidePinEmployee() {
     state.selectedEmployee = null;
+    faceScanResolvedEmp = null;
     const card = document.getElementById('pinEmpCard');
     const btns = document.getElementById('pinActionBtns');
+    const faceScanPrompt = document.getElementById('faceScanPrompt');
     if (card) card.classList.remove('visible');
     if (btns) btns.style.display = 'none';
+    if (faceScanPrompt) faceScanPrompt.style.display = 'none';
+}
+
+// ============================================================
+//  FACE RECOGNITION (face-api.js)
+// ============================================================
+const FACE_API_MODEL_URL = 'https://cdn.jsdelivr.net/gh/nicolo-ribaudo/face-api.js-models@master/';
+let faceModelsLoaded = false;
+let faceStream = null;
+let faceDetectionInterval = null;
+let faceScanMode = 'clock'; // 'clock' or 'enroll'
+
+async function loadFaceModels() {
+    if (faceModelsLoaded) return;
+    if (typeof faceapi === 'undefined') {
+        showToast('Face recognition library not loaded. Check your internet connection.', 'error');
+        return;
+    }
+    try {
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(FACE_API_MODEL_URL),
+            faceapi.nets.faceLandmark68TinyNet.loadFromUri(FACE_API_MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(FACE_API_MODEL_URL)
+        ]);
+        faceModelsLoaded = true;
+    } catch (err) {
+        showToast('Failed to load face recognition models: ' + err.message, 'error');
+    }
+}
+
+async function startFaceScan(mode) {
+    faceScanMode = mode || 'clock';
+    showSpinner('Loading face recognition models…');
+    await loadFaceModels();
+    hideSpinner();
+    if (!faceModelsLoaded) return;
+
+    const overlay = document.getElementById('faceScanOverlay');
+    const video = document.getElementById('faceScanVideo');
+    const statusEl = document.getElementById('faceScanStatus');
+    const enrollBtn = document.getElementById('faceScanEnrollBtn');
+    if (!overlay || !video) return;
+
+    // Show overlay
+    overlay.style.display = 'flex';
+    if (statusEl) statusEl.textContent = 'Starting camera…';
+    if (enrollBtn) enrollBtn.style.display = faceScanMode === 'enroll' ? 'inline-flex' : 'none';
+
+    try {
+        faceStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        video.srcObject = faceStream;
+        await video.play();
+        if (statusEl) statusEl.textContent = 'Position your face inside the oval…';
+
+        // Start detection loop
+        faceDetectionInterval = setInterval(async () => {
+            try {
+                const detection = await faceapi
+                    .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+                    .withFaceLandmarks(true)
+                    .withFaceDescriptor();
+
+                const canvas = document.getElementById('faceScanCanvas');
+
+                if (detection) {
+                    if (statusEl) statusEl.textContent = 'Face detected! Hold still…';
+                    statusEl.style.color = '#22c55e';
+
+                    // Draw box on canvas
+                    if (canvas) {
+                        const dims = faceapi.matchDimensions(canvas, video, true);
+                        const resized = faceapi.resizeResults(detection, dims);
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        faceapi.draw.drawDetections(canvas, [resized]);
+                    }
+
+                    if (faceScanMode === 'clock') {
+                        await verifyFaceAndClock(detection.descriptor);
+                    }
+                    // For enroll mode, user presses the enroll button
+                } else {
+                    if (statusEl) {
+                        statusEl.textContent = 'Position your face inside the oval…';
+                        statusEl.style.color = '#fbbf24';
+                    }
+                    if (canvas) {
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    }
+                }
+            } catch (err) { /* detection frame error, continue */ }
+        }, 500);
+    } catch (err) {
+        if (statusEl) statusEl.textContent = 'Camera error: ' + err.message;
+        showToast('Camera access denied or unavailable. Please allow camera permissions.', 'error');
+    }
+}
+
+function cancelFaceScan() {
+    stopFaceScan();
+    const overlay = document.getElementById('faceScanOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function stopFaceScan() {
+    if (faceDetectionInterval) { clearInterval(faceDetectionInterval); faceDetectionInterval = null; }
+    if (faceStream) {
+        faceStream.getTracks().forEach(t => t.stop());
+        faceStream = null;
+    }
+    const video = document.getElementById('faceScanVideo');
+    if (video) { video.pause(); video.srcObject = null; }
+}
+
+// Verify captured face against stored descriptor
+async function verifyFaceAndClock(capturedDescriptor) {
+    if (!faceScanResolvedEmp) { showToast('No employee selected', 'error'); return; }
+    clearInterval(faceDetectionInterval); faceDetectionInterval = null;
+    const emp = faceScanResolvedEmp;
+    const statusEl = document.getElementById('faceScanStatus');
+    if (statusEl) { statusEl.textContent = 'Verifying identity…'; statusEl.style.color = '#3b82f6'; }
+
+    try {
+        // Try to get stored face descriptor from backend
+        const resp = await fetch(`http://localhost:3000/api/attendance/face/${encodeURIComponent(emp.userId)}`);
+        if (!resp.ok || resp.status === 404) {
+            // No face enrolled — offer enrollment
+            stopFaceScan();
+            const overlay = document.getElementById('faceScanOverlay');
+            if (overlay) overlay.style.display = 'none';
+            if (confirm(`No face enrolled for ${emp.name}.\n\nWould you like to enroll your face now? You will need an admin or manager present.`)) {
+                startFaceScan('enroll');
+            }
+            return;
+        }
+        const data = await resp.json();
+        const storedDescriptor = new Float32Array(data.descriptor);
+
+        // Compare faces — Euclidean distance, threshold 0.6
+        const distance = faceapi.euclideanDistance(capturedDescriptor, storedDescriptor);
+        const MATCH_THRESHOLD = 0.6;
+
+        if (distance < MATCH_THRESHOLD) {
+            // Face matched!
+            stopFaceScan();
+            const overlay = document.getElementById('faceScanOverlay');
+            if (overlay) overlay.style.display = 'none';
+            showToast(`Face verified for ${emp.name}! (Match: ${((1 - distance) * 100).toFixed(0)}%)`, 'success');
+            // Now proceed with clock in/out
+            const rec = getTodayRecord(emp.id);
+            if (!rec) {
+                await doClockIn();
+            } else if (rec.timeIn && !rec.timeOut) {
+                await doClockOut();
+            } else {
+                showToast('Attendance already complete for today.', 'error');
+            }
+        } else {
+            // Face did not match
+            if (statusEl) {
+                statusEl.textContent = `Face does not match! (${((1 - distance) * 100).toFixed(0)}% match)`;
+                statusEl.style.color = '#ef4444';
+            }
+            showToast('Face verification failed. Please try again.', 'error');
+            // Restart detection after a delay
+            setTimeout(() => {
+                if (document.getElementById('faceScanOverlay')?.style.display !== 'none') {
+                    faceDetectionInterval = setInterval(async () => {
+                        try {
+                            const det = await faceapi
+                                .detectSingleFace(document.getElementById('faceScanVideo'), new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+                                .withFaceLandmarks(true)
+                                .withFaceDescriptor();
+                            if (det) {
+                                if (statusEl) { statusEl.textContent = 'Face detected! Verifying…'; statusEl.style.color = '#22c55e'; }
+                                await verifyFaceAndClock(det.descriptor);
+                            }
+                        } catch (err) { /* continue */ }
+                    }, 500);
+                }
+            }, 2000);
+        }
+    } catch (err) {
+        // Backend unreachable — allow offline mode with warning
+        stopFaceScan();
+        const overlay = document.getElementById('faceScanOverlay');
+        if (overlay) overlay.style.display = 'none';
+        showToast('Face verification server unavailable. Please contact admin.', 'error');
+    }
+}
+
+// Enroll current face
+async function enrollFaceNow() {
+    if (!faceScanResolvedEmp) { showToast('No employee selected', 'error'); return; }
+    const video = document.getElementById('faceScanVideo');
+    const statusEl = document.getElementById('faceScanStatus');
+    if (!video) return;
+
+    if (statusEl) { statusEl.textContent = 'Capturing face data…'; statusEl.style.color = '#3b82f6'; }
+
+    try {
+        const detection = await faceapi
+            .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+            .withFaceLandmarks(true)
+            .withFaceDescriptor();
+
+        if (!detection) {
+            if (statusEl) { statusEl.textContent = 'No face detected. Look at the camera and try again.'; statusEl.style.color = '#ef4444'; }
+            return;
+        }
+
+        // Send descriptor to backend
+        const resp = await fetch('http://localhost:3000/api/attendance/face/enroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                employeeId: faceScanResolvedEmp.userId,
+                descriptor: Array.from(detection.descriptor)
+            })
+        });
+
+        if (resp.ok) {
+            stopFaceScan();
+            const overlay = document.getElementById('faceScanOverlay');
+            if (overlay) overlay.style.display = 'none';
+            showToast(`Face enrolled successfully for ${faceScanResolvedEmp.name}!`, 'success');
+        } else {
+            const err = await resp.json().catch(() => ({}));
+            showToast('Enrollment failed: ' + (err.error || 'Unknown error'), 'error');
+        }
+    } catch (err) {
+        showToast('Enrollment error: ' + err.message, 'error');
+    }
 }
 
 // ============================================================

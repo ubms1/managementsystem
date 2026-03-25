@@ -924,7 +924,569 @@ const Construction = {
     },
 
     // ============================================================
-    //  DOCUMENT MANAGEMENT
+    //  PROJECT MONITORING & AGING
+    //  (Based on construction.xlsx telecom tower monitoring pattern)
+    // ============================================================
+    renderProjectMonitoring(container) {
+        const projects = App.activeCompany === 'all'
+            ? DataStore.projects
+            : DataStore.projects.filter(p => p.company === App.activeCompany);
+
+        const milestones = (DataStore.projectMilestones || []).filter(m =>
+            App.activeCompany === 'all' || projects.some(p => p.id === m.projectId)
+        );
+
+        const now = new Date();
+        const totalAging = milestones.reduce((s, m) => s + (m.agingDays || 0), 0);
+        const avgAging = milestones.length > 0 ? Math.round(totalAging / milestones.length) : 0;
+        const delayed = milestones.filter(m => m.status !== 'completed' && m.agingDays > 0);
+        const critical = milestones.filter(m => m.status !== 'completed' && m.agingDays > 30);
+
+        container.innerHTML = `
+        <div class="grid-4 mb-3">
+            <div class="stat-card">
+                <div class="stat-header"><div class="stat-icon teal"><i class="fas fa-tasks"></i></div></div>
+                <div class="stat-value">${milestones.length}</div>
+                <div class="stat-label">Total Milestones</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header"><div class="stat-icon orange"><i class="fas fa-hourglass-half"></i></div></div>
+                <div class="stat-value">${delayed.length}</div>
+                <div class="stat-label">Delayed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header"><div class="stat-icon red"><i class="fas fa-exclamation-triangle"></i></div></div>
+                <div class="stat-value">${critical.length}</div>
+                <div class="stat-label">Critical (&gt;30 days)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header"><div class="stat-icon blue"><i class="fas fa-calendar-day"></i></div></div>
+                <div class="stat-value">${avgAging}d</div>
+                <div class="stat-label">Avg Aging Days</div>
+            </div>
+        </div>
+
+        <div class="tabs mb-3">
+            <button class="tab-btn active" onclick="Construction.switchMonitorTab('overview',this)">
+                <i class="fas fa-th-large" style="margin-right:5px"></i>Project Overview
+            </button>
+            <button class="tab-btn" onclick="Construction.switchMonitorTab('milestones',this)">
+                <i class="fas fa-flag-checkered" style="margin-right:5px"></i>Milestone Tracker
+            </button>
+            <button class="tab-btn" onclick="Construction.switchMonitorTab('aging',this)">
+                <i class="fas fa-clock" style="margin-right:5px"></i>Aging Report
+            </button>
+            <button class="tab-btn" onclick="Construction.switchMonitorTab('issues',this)">
+                <i class="fas fa-bug" style="margin-right:5px"></i>Issues & Delays
+            </button>
+        </div>
+
+        <div id="monitorTabContent">${this.renderMonitorOverview(projects, milestones)}</div>`;
+    },
+
+    switchMonitorTab(tab, btn) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const el = document.getElementById('monitorTabContent');
+        const projects = App.activeCompany === 'all'
+            ? DataStore.projects
+            : DataStore.projects.filter(p => p.company === App.activeCompany);
+        const milestones = (DataStore.projectMilestones || []).filter(m =>
+            App.activeCompany === 'all' || projects.some(p => p.id === m.projectId)
+        );
+        switch (tab) {
+            case 'overview':    el.innerHTML = this.renderMonitorOverview(projects, milestones); break;
+            case 'milestones':  el.innerHTML = this.renderMilestoneTracker(projects, milestones); break;
+            case 'aging':       el.innerHTML = this.renderProjectAgingReport(projects, milestones); break;
+            case 'issues':      el.innerHTML = this.renderIssuesPanel(projects, milestones); break;
+        }
+    },
+
+    renderMonitorOverview(projects, milestones) {
+        if (projects.length === 0) {
+            return '<div class="empty-state"><i class="fas fa-project-diagram"></i><h3>No Projects</h3><p>Create projects first to start monitoring.</p></div>';
+        }
+
+        return projects.map(p => {
+            const pMilestones = milestones.filter(m => m.projectId === p.id);
+            const completed = pMilestones.filter(m => m.status === 'completed').length;
+            const total = pMilestones.length;
+            const pctComplete = total > 0 ? Math.round((completed / total) * 100) : 0;
+            const maxAging = pMilestones.reduce((max, m) => Math.max(max, m.agingDays || 0), 0);
+            const now = new Date();
+            const endDate = p.endDate ? new Date(p.endDate) : null;
+            const daysLeft = endDate ? Math.floor((endDate - now) / (1000*60*60*24)) : null;
+
+            const agingColor = maxAging === 0 ? 'var(--success)' : maxAging <= 15 ? 'var(--warning)' : 'var(--danger)';
+            const daysLeftColor = daysLeft === null ? 'var(--text-muted)' : daysLeft < 0 ? 'var(--danger)' : daysLeft <= 14 ? 'var(--warning)' : 'var(--success)';
+
+            // Milestone categories
+            const categories = {};
+            pMilestones.forEach(m => {
+                if (!categories[m.category]) categories[m.category] = { total: 0, completed: 0 };
+                categories[m.category].total++;
+                if (m.status === 'completed') categories[m.category].completed++;
+            });
+
+            // Document status summary
+            const docs = (DataStore.documents || []).filter(d => d.projectId === p.id);
+            const docsApproved = docs.filter(d => d.status === 'approved').length;
+            const docsPending = docs.filter(d => d.status === 'pending').length;
+
+            return `
+            <div class="card mb-2">
+                <div class="card-header" style="border-left:4px solid ${agingColor}">
+                    <div>
+                        <h3 style="font-size:15px">${p.name}</h3>
+                        <span style="font-size:11px;color:var(--text-muted)">${p.id} · ${p.manager || 'No Manager'} · ${p.location || ''}</span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <span class="badge-tag ${Utils.getStatusClass(p.status)}">${p.status}</span>
+                        ${maxAging > 0 ? `<span class="badge-tag badge-danger" style="font-size:11px"><i class="fas fa-clock"></i> ${maxAging}d aging</span>` : ''}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="grid-4" style="gap:12px;margin-bottom:14px">
+                        <div style="text-align:center;padding:10px;background:var(--bg);border-radius:var(--radius-sm)">
+                            <div style="font-size:20px;font-weight:700;color:var(--secondary)">${pctComplete}%</div>
+                            <div style="font-size:11px;color:var(--text-muted)">Milestones (${completed}/${total})</div>
+                        </div>
+                        <div style="text-align:center;padding:10px;background:var(--bg);border-radius:var(--radius-sm)">
+                            <div style="font-size:20px;font-weight:700;color:${agingColor}">${maxAging}d</div>
+                            <div style="font-size:11px;color:var(--text-muted)">Max Aging</div>
+                        </div>
+                        <div style="text-align:center;padding:10px;background:var(--bg);border-radius:var(--radius-sm)">
+                            <div style="font-size:20px;font-weight:700;color:${daysLeftColor}">${daysLeft !== null ? (daysLeft < 0 ? Math.abs(daysLeft) + 'd late' : daysLeft + 'd') : 'N/A'}</div>
+                            <div style="font-size:11px;color:var(--text-muted)">${daysLeft !== null && daysLeft < 0 ? 'Overdue' : 'Days Left'}</div>
+                        </div>
+                        <div style="text-align:center;padding:10px;background:var(--bg);border-radius:var(--radius-sm)">
+                            <div style="font-size:20px;font-weight:700">${docsApproved}/${docs.length}</div>
+                            <div style="font-size:11px;color:var(--text-muted)">Docs Approved</div>
+                        </div>
+                    </div>
+
+                    ${Object.keys(categories).length > 0 ? `
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                        ${Object.entries(categories).map(([cat, data]) => {
+                            const pct = Math.round((data.completed / data.total) * 100);
+                            const color = pct === 100 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)';
+                            return `<div style="padding:6px 12px;background:var(--bg);border-radius:6px;font-size:12px;border-left:3px solid ${color};display:flex;align-items:center;gap:6px">
+                                <span style="font-weight:600">${cat}</span>
+                                <span style="color:${color};font-weight:700">${data.completed}/${data.total}</span>
+                            </div>`;
+                        }).join('')}
+                    </div>` : '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px"><i class="fas fa-info-circle"></i> No milestones added yet</div>'}
+
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-sm btn-primary" onclick="Construction.openAddMilestone('${p.id}')"><i class="fas fa-plus"></i> Add Milestone</button>
+                        <button class="btn btn-sm btn-secondary" onclick="Construction.viewProjectMilestones('${p.id}')"><i class="fas fa-list"></i> View All</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    },
+
+    renderMilestoneTracker(projects, milestones) {
+        const projectFilter = `
+        <div class="section-header mb-2">
+            <h3>Milestone Tracker</h3>
+            <div class="section-actions">
+                <select class="form-control" style="width:200px" id="msProjectFilter" onchange="Construction.filterMilestones()">
+                    <option value="all">All Projects</option>
+                    ${projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                </select>
+                <select class="form-control" style="width:150px" id="msStatusFilter" onchange="Construction.filterMilestones()">
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="delayed">Delayed</option>
+                    <option value="blocked">Blocked</option>
+                </select>
+            </div>
+        </div>`;
+
+        return projectFilter + `
+        <div class="card">
+            <div class="card-body no-padding" id="milestoneTableContainer">
+                ${this.buildMilestoneTable(milestones, projects)}
+            </div>
+        </div>`;
+    },
+
+    buildMilestoneTable(milestones, projects) {
+        if (milestones.length === 0) {
+            return '<div class="empty-state"><i class="fas fa-flag-checkered"></i><h3>No Milestones</h3><p>Add milestones to your projects to start tracking.</p></div>';
+        }
+        return Utils.buildTable(
+            [
+                { label: 'Project', render: r => {
+                    const p = projects.find(pr => pr.id === r.projectId);
+                    return `<strong>${p?.name || r.projectId}</strong>`;
+                }},
+                { label: 'Milestone', render: r => `<div><strong>${r.milestoneName}</strong><div style="font-size:11px;color:var(--text-muted)">${r.category || 'General'}</div></div>` },
+                { label: 'Target Date', render: r => r.targetDate ? Utils.formatDate(r.targetDate) : '-' },
+                { label: 'Completed', render: r => r.completedDate ? `<span class="text-success">${Utils.formatDate(r.completedDate)}</span>` : '<span style="color:var(--text-muted)">—</span>' },
+                { label: 'Aging', render: r => {
+                    const days = r.agingDays || 0;
+                    if (r.status === 'completed') return '<span class="badge-tag badge-success">Done</span>';
+                    if (days === 0) return '<span class="badge-tag badge-success">On time</span>';
+                    if (days <= 15) return `<span class="badge-tag badge-warning">${days}d</span>`;
+                    if (days <= 30) return `<span class="badge-tag badge-danger">${days}d</span>`;
+                    return `<span class="badge-tag badge-danger" style="background:#7f1d1d;color:#fca5a5">${days}d CRITICAL</span>`;
+                }},
+                { label: 'Status', render: r => `<span class="badge-tag ${Utils.getStatusClass(r.status)}">${r.status}</span>` },
+                { label: 'Issues', render: r => r.issues ? `<span style="color:var(--danger);font-size:12px" title="${Utils.escapeHtml(r.issues)}"><i class="fas fa-exclamation-circle"></i> ${r.issues.substring(0, 30)}${r.issues.length > 30 ? '…' : ''}</span>` : '<span style="color:var(--text-muted)">—</span>' }
+            ],
+            milestones,
+            {
+                actions: r => `
+                    <button class="btn btn-sm btn-secondary" onclick="Construction.openEditMilestone('${r.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                    ${Auth.canEditDelete() ? `<button class="btn btn-sm btn-danger" onclick="Construction.deleteMilestone('${r.id}')" title="Delete" style="margin-left:4px"><i class="fas fa-trash"></i></button>` : ''}
+                `
+            }
+        );
+    },
+
+    filterMilestones() {
+        const projFilter = document.getElementById('msProjectFilter')?.value || 'all';
+        const statusFilter = document.getElementById('msStatusFilter')?.value || 'all';
+        const projects = App.activeCompany === 'all'
+            ? DataStore.projects
+            : DataStore.projects.filter(p => p.company === App.activeCompany);
+        let milestones = (DataStore.projectMilestones || []).filter(m =>
+            App.activeCompany === 'all' || projects.some(p => p.id === m.projectId)
+        );
+        if (projFilter !== 'all') milestones = milestones.filter(m => m.projectId === projFilter);
+        if (statusFilter !== 'all') milestones = milestones.filter(m => m.status === statusFilter);
+        document.getElementById('milestoneTableContainer').innerHTML = this.buildMilestoneTable(milestones, projects);
+    },
+
+    renderProjectAgingReport(projects, milestones) {
+        const activeMilestones = milestones.filter(m => m.status !== 'completed');
+        const buckets = { ontime: [], d15: [], d30: [], d60: [], d90: [] };
+
+        activeMilestones.forEach(m => {
+            const days = m.agingDays || 0;
+            if (days <= 0) buckets.ontime.push(m);
+            else if (days <= 15) buckets.d15.push(m);
+            else if (days <= 30) buckets.d30.push(m);
+            else if (days <= 60) buckets.d60.push(m);
+            else buckets.d90.push(m);
+        });
+
+        const renderBucket = (items, label, badgeCls, color) => `
+        <div class="card mb-2">
+            <div class="card-header">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <span class="badge-tag ${badgeCls}">${label}</span>
+                    <span style="font-size:12px;color:var(--text-secondary)">${items.length} milestone(s)</span>
+                </div>
+            </div>
+            ${items.length > 0 ? `<div class="card-body no-padding">
+                <table class="data-table" style="font-size:12px">
+                    <thead><tr><th>Project</th><th>Milestone</th><th>Category</th><th>Target Date</th><th>Aging Days</th><th>Issues</th></tr></thead>
+                    <tbody>${items.map(m => {
+                        const p = projects.find(pr => pr.id === m.projectId);
+                        return `<tr>
+                            <td><strong>${p?.name || m.projectId}</strong></td>
+                            <td>${m.milestoneName}</td>
+                            <td><span class="badge-tag badge-neutral">${m.category || 'General'}</span></td>
+                            <td>${m.targetDate ? Utils.formatDate(m.targetDate) : '—'}</td>
+                            <td><span style="color:${color};font-weight:700">${m.agingDays || 0}d</span></td>
+                            <td style="font-size:11px">${m.issues || '—'}</td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>
+            </div>` : ''}
+        </div>`;
+
+        const summary = [
+            { label: 'On Time',     count: buckets.ontime.length, color: 'var(--success)' },
+            { label: '1-15 Days',   count: buckets.d15.length,    color: 'var(--warning)' },
+            { label: '16-30 Days',  count: buckets.d30.length,    color: '#f97316' },
+            { label: '31-60 Days',  count: buckets.d60.length,    color: 'var(--danger)' },
+            { label: '61+ Days',    count: buckets.d90.length,    color: '#7f1d1d' }
+        ];
+
+        return `
+        <div class="section-header mb-3">
+            <h3>Project Aging Report</h3>
+            <span style="font-size:13px;color:var(--text-secondary)">Active milestones: <strong>${activeMilestones.length}</strong></span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+            ${summary.map(b => `
+            <div class="stat-card" style="border-top:3px solid ${b.color}">
+                <div class="stat-value" style="font-size:22px;color:${b.color}">${b.count}</div>
+                <div class="stat-label">${b.label}</div>
+            </div>`).join('')}
+        </div>
+
+        ${renderBucket(buckets.ontime, 'On Time', 'badge-success', 'var(--success)')}
+        ${renderBucket(buckets.d15, '1–15 Days Delayed', 'badge-warning', 'var(--warning)')}
+        ${renderBucket(buckets.d30, '16–30 Days Delayed', 'badge-warning', '#f97316')}
+        ${renderBucket(buckets.d60, '31–60 Days Delayed', 'badge-danger', 'var(--danger)')}
+        ${renderBucket(buckets.d90, '61+ Days Delayed', 'badge-danger', '#7f1d1d')}
+
+        ${activeMilestones.length === 0 ? '<div class="empty-state"><i class="fas fa-check-circle" style="color:var(--success)"></i><h3>All Clear</h3><p>No active milestones to track.</p></div>' : ''}`;
+    },
+
+    renderIssuesPanel(projects, milestones) {
+        const withIssues = milestones.filter(m => m.issues || m.remarks || m.status === 'blocked' || m.status === 'delayed');
+
+        if (withIssues.length === 0) {
+            return '<div class="empty-state"><i class="fas fa-check-circle" style="color:var(--success);font-size:36px"></i><h3>No Issues</h3><p>All milestones are progressing normally.</p></div>';
+        }
+
+        return `
+        <div class="section-header mb-2">
+            <h3>Issues & Delay Log</h3>
+            <span style="font-size:13px;color:var(--text-secondary)">${withIssues.length} item(s) with issues</span>
+        </div>
+        ${withIssues.map(m => {
+            const p = projects.find(pr => pr.id === m.projectId);
+            const agingColor = (m.agingDays || 0) > 30 ? 'var(--danger)' : (m.agingDays || 0) > 0 ? 'var(--warning)' : 'var(--success)';
+            return `
+            <div class="card mb-2" style="border-left:4px solid ${agingColor}">
+                <div class="card-body">
+                    <div class="flex-between mb-1">
+                        <div>
+                            <strong>${m.milestoneName}</strong>
+                            <span style="font-size:12px;color:var(--text-muted);margin-left:8px">${p?.name || ''}</span>
+                        </div>
+                        <div style="display:flex;gap:6px">
+                            <span class="badge-tag ${Utils.getStatusClass(m.status)}">${m.status}</span>
+                            ${m.agingDays > 0 ? `<span class="badge-tag badge-danger">${m.agingDays}d</span>` : ''}
+                        </div>
+                    </div>
+                    ${m.issues ? `<div style="padding:8px 12px;background:rgba(239,68,68,0.06);border-radius:6px;font-size:13px;margin-bottom:6px"><i class="fas fa-exclamation-circle" style="color:var(--danger);margin-right:6px"></i><strong>Issue:</strong> ${Utils.escapeHtml(m.issues)}</div>` : ''}
+                    ${m.remarks ? `<div style="padding:8px 12px;background:var(--bg);border-radius:6px;font-size:13px"><i class="fas fa-sticky-note" style="color:var(--warning);margin-right:6px"></i><strong>Remarks:</strong> ${Utils.escapeHtml(m.remarks)}</div>` : ''}
+                </div>
+            </div>`;
+        }).join('')}`;
+    },
+
+    // Milestone CRUD operations
+    openAddMilestone(projectId) {
+        const MILESTONE_CATEGORIES = [
+            'Site Survey', 'Approved TSSR', 'BP Secured', 'Construction Started',
+            'Construction Completed', 'Post-Construction', 'PQ/PO Tracking',
+            'COOP Surveyed', 'Energization', 'Grid Connection', 'Permit',
+            'Foundation', 'Structural', 'Electrical', 'Plumbing', 'Finishing',
+            'Inspection', 'Handover', 'Other'
+        ];
+
+        const html = `
+        <form>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Milestone Name <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="newMsName" placeholder="e.g., Construction Started">
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select class="form-control" id="newMsCategory">
+                        ${MILESTONE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Target Date</label>
+                    <input type="date" class="form-control" id="newMsTarget">
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select class="form-control" id="newMsStatus">
+                        <option value="pending">Pending</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="delayed">Delayed</option>
+                        <option value="blocked">Blocked</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Issues / Delay Reason</label>
+                <textarea class="form-control" id="newMsIssues" rows="2" placeholder="Describe any issues or delays..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Remarks</label>
+                <textarea class="form-control" id="newMsRemarks" rows="2" placeholder="Additional notes..."></textarea>
+            </div>
+        </form>`;
+
+        App.openModal('Add Milestone', html, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Construction.saveMilestone('${projectId}')"><i class="fas fa-save"></i> Save</button>
+        `);
+    },
+
+    saveMilestone(projectId) {
+        const name = document.getElementById('newMsName')?.value?.trim();
+        if (!name) { App.showToast('Milestone name is required', 'error'); return; }
+
+        if (!DataStore.projectMilestones) DataStore.projectMilestones = [];
+
+        const targetDate = document.getElementById('newMsTarget')?.value || '';
+        const status = document.getElementById('newMsStatus')?.value || 'pending';
+        let agingDays = 0;
+        if (targetDate && status !== 'completed') {
+            const diff = Math.floor((Date.now() - new Date(targetDate).getTime()) / (1000*60*60*24));
+            agingDays = Math.max(0, diff);
+        }
+
+        DataStore.projectMilestones.push({
+            id: Utils.generateId('MS'),
+            projectId,
+            milestoneName: name,
+            category: document.getElementById('newMsCategory')?.value || 'Other',
+            targetDate,
+            completedDate: status === 'completed' ? new Date().toISOString().split('T')[0] : '',
+            status,
+            agingDays,
+            issues: document.getElementById('newMsIssues')?.value || '',
+            remarks: document.getElementById('newMsRemarks')?.value || ''
+        });
+
+        Database.save();
+        App.closeModal();
+        App.showToast(`Milestone "${name}" added`, 'success');
+        this.renderProjectMonitoring(document.getElementById('contentArea'));
+    },
+
+    openEditMilestone(id) {
+        const m = (DataStore.projectMilestones || []).find(ms => ms.id === id);
+        if (!m) return;
+
+        const MILESTONE_CATEGORIES = [
+            'Site Survey', 'Approved TSSR', 'BP Secured', 'Construction Started',
+            'Construction Completed', 'Post-Construction', 'PQ/PO Tracking',
+            'COOP Surveyed', 'Energization', 'Grid Connection', 'Permit',
+            'Foundation', 'Structural', 'Electrical', 'Plumbing', 'Finishing',
+            'Inspection', 'Handover', 'Other'
+        ];
+
+        const html = `
+        <form>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Milestone Name <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="editMsName" value="${Utils.escapeHtml(m.milestoneName)}">
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select class="form-control" id="editMsCategory">
+                        ${MILESTONE_CATEGORIES.map(c => `<option value="${c}" ${m.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Target Date</label>
+                    <input type="date" class="form-control" id="editMsTarget" value="${m.targetDate || ''}">
+                </div>
+                <div class="form-group">
+                    <label>Completed Date</label>
+                    <input type="date" class="form-control" id="editMsCompleted" value="${m.completedDate || ''}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select class="form-control" id="editMsStatus">
+                    ${['pending','in-progress','completed','delayed','blocked'].map(s => `<option value="${s}" ${m.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Issues / Delay Reason</label>
+                <textarea class="form-control" id="editMsIssues" rows="2">${Utils.escapeHtml(m.issues || '')}</textarea>
+            </div>
+            <div class="form-group">
+                <label>Remarks</label>
+                <textarea class="form-control" id="editMsRemarks" rows="2">${Utils.escapeHtml(m.remarks || '')}</textarea>
+            </div>
+        </form>`;
+
+        App.openModal('Edit Milestone', html, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Construction.saveEditMilestone('${id}')"><i class="fas fa-save"></i> Save</button>
+        `);
+    },
+
+    saveEditMilestone(id) {
+        const idx = (DataStore.projectMilestones || []).findIndex(ms => ms.id === id);
+        if (idx < 0) return;
+        const name = document.getElementById('editMsName')?.value?.trim();
+        if (!name) { App.showToast('Milestone name is required', 'error'); return; }
+
+        const m = DataStore.projectMilestones[idx];
+        m.milestoneName = name;
+        m.category = document.getElementById('editMsCategory')?.value || m.category;
+        m.targetDate = document.getElementById('editMsTarget')?.value || '';
+        m.completedDate = document.getElementById('editMsCompleted')?.value || '';
+        m.status = document.getElementById('editMsStatus')?.value || m.status;
+        m.issues = document.getElementById('editMsIssues')?.value || '';
+        m.remarks = document.getElementById('editMsRemarks')?.value || '';
+
+        // Recalculate aging
+        if (m.status === 'completed' && m.completedDate) {
+            m.agingDays = 0;
+        } else if (m.targetDate) {
+            const diff = Math.floor((Date.now() - new Date(m.targetDate).getTime()) / (1000*60*60*24));
+            m.agingDays = Math.max(0, diff);
+        } else {
+            m.agingDays = 0;
+        }
+
+        Database.save();
+        App.closeModal();
+        App.showToast(`Milestone "${name}" updated`, 'success');
+        this.renderProjectMonitoring(document.getElementById('contentArea'));
+    },
+
+    deleteMilestone(id) {
+        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can delete', 'error'); return; }
+        if (!confirm('Delete this milestone?')) return;
+        DataStore.projectMilestones = (DataStore.projectMilestones || []).filter(m => m.id !== id);
+        Database.save();
+        App.showToast('Milestone deleted', 'success');
+        this.renderProjectMonitoring(document.getElementById('contentArea'));
+    },
+
+    viewProjectMilestones(projectId) {
+        const p = DataStore.projects.find(pr => pr.id === projectId);
+        const milestones = (DataStore.projectMilestones || []).filter(m => m.projectId === projectId);
+
+        let html = `<h3 style="margin-bottom:16px">${p?.name || projectId} — Milestones</h3>`;
+
+        if (milestones.length === 0) {
+            html += '<div style="text-align:center;padding:24px;color:var(--text-muted)">No milestones yet</div>';
+        } else {
+            html += '<table class="data-table" style="font-size:12px"><thead><tr><th>Milestone</th><th>Category</th><th>Target</th><th>Completed</th><th>Aging</th><th>Status</th><th>Issues</th></tr></thead><tbody>';
+            milestones.forEach(m => {
+                const agingColor = m.agingDays > 30 ? 'var(--danger)' : m.agingDays > 0 ? 'var(--warning)' : 'var(--success)';
+                html += `<tr>
+                    <td><strong>${m.milestoneName}</strong></td>
+                    <td><span class="badge-tag badge-neutral">${m.category || ''}</span></td>
+                    <td>${m.targetDate ? Utils.formatDate(m.targetDate) : '—'}</td>
+                    <td>${m.completedDate ? `<span class="text-success">${Utils.formatDate(m.completedDate)}</span>` : '—'}</td>
+                    <td><span style="color:${agingColor};font-weight:700">${m.status === 'completed' ? '✓' : (m.agingDays || 0) + 'd'}</span></td>
+                    <td><span class="badge-tag ${Utils.getStatusClass(m.status)}">${m.status}</span></td>
+                    <td style="font-size:11px;max-width:200px">${m.issues || '—'}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+        }
+
+        App.openModal('Project Milestones', html, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
+            <button class="btn btn-primary" onclick="App.closeModal(); Construction.openAddMilestone('${projectId}')"><i class="fas fa-plus"></i> Add Milestone</button>
+        `, true);
+    },
+
+    // ============================================================
+    //  DOCUMENT MANAGEMENT (Enhanced with File Upload)
     // ============================================================
     renderDocuments(container) {
         const documents = App.activeCompany === 'all'
@@ -974,7 +1536,14 @@ const Construction = {
         }
         return Utils.buildTable(
             [
-                { label: 'Document', render: r => `<div><strong>${r.title}</strong><div style="font-size:11px;color:var(--text-muted)">${r.id} — Rev ${r.revision || '0'}</div></div>` },
+                { label: 'Document', render: r => {
+                    const icon = r.hasFile ? (r.fileType === 'application/pdf' ? 'fa-file-pdf' : 'fa-file-image') : 'fa-file-alt';
+                    const iconColor = r.hasFile ? (r.fileType === 'application/pdf' ? '#e74c3c' : '#3498db') : 'var(--text-muted)';
+                    return `<div style="display:flex;align-items:center;gap:8px">
+                        <i class="fas ${icon}" style="font-size:18px;color:${iconColor}"></i>
+                        <div><strong>${r.title}</strong><div style="font-size:11px;color:var(--text-muted)">${r.id} — Rev ${r.revision || '0'}${r.hasFile ? ' · <span style="color:var(--success)"><i class="fas fa-paperclip"></i> File attached</span>' : ''}</div></div>
+                    </div>`;
+                }},
                 { label: 'Category', render: r => {
                     const colors = { RFI: 'badge-info', Submittal: 'badge-warning', Contract: 'badge-teal', Drawing: 'badge-neutral', Permit: 'badge-success', Specification: 'badge-neutral', Report: 'badge-neutral' };
                     return `<span class="badge-tag ${colors[r.category] || 'badge-neutral'}">${r.category}</span>`;
@@ -988,6 +1557,7 @@ const Construction = {
             {
                 actions: (r) => `
                     <button class="btn btn-sm btn-secondary" onclick="Construction.viewDocument('${r.id}')"><i class="fas fa-eye"></i></button>
+                    ${r.hasFile ? `<button class="btn btn-sm btn-secondary" onclick="Construction.downloadDocument('${r.id}')" title="Download" style="margin-left:4px"><i class="fas fa-download"></i></button>` : ''}
                 `
             }
         );
@@ -1017,9 +1587,78 @@ const Construction = {
                 <div><strong>Author:</strong> ${doc.author || 'N/A'}</div>
                 <div><strong>Assigned To:</strong> ${doc.assignedTo || 'N/A'}</div>
             </div>
-            ${doc.description ? `<div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:var(--radius);font-size:13px"><strong>Description:</strong><br>${doc.description}</div>` : ''}
+            ${doc.hasFile ? `
+            <div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:var(--radius);display:flex;align-items:center;gap:12px">
+                <i class="fas ${doc.fileType === 'application/pdf' ? 'fa-file-pdf' : 'fa-file-image'}" style="font-size:24px;color:${doc.fileType === 'application/pdf' ? '#e74c3c' : '#3498db'}"></i>
+                <div>
+                    <div style="font-weight:600">${doc.fileName || 'Attached File'}</div>
+                    <div style="font-size:11px;color:var(--text-muted)">${doc.fileType || ''} · ${doc.fileSize ? (doc.fileSize / 1024 / 1024).toFixed(2) + ' MB' : ''}</div>
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="Construction.downloadDocument('${doc.id}')" style="margin-left:auto"><i class="fas fa-download"></i> Download</button>
+            </div>` : '<div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:var(--radius);color:var(--text-muted);text-align:center"><i class="fas fa-file-alt" style="font-size:24px;margin-bottom:8px"></i><br>No file attached</div>'}
+            ${doc.description ? `<div style="margin-top:8px;padding:12px;background:var(--bg);border-radius:var(--radius);font-size:13px"><strong>Description:</strong><br>${doc.description}</div>` : ''}
             ${doc.notes ? `<div style="margin-top:8px;padding:12px;background:var(--bg);border-radius:var(--radius);font-size:13px"><strong>Notes:</strong><br>${doc.notes}</div>` : ''}
+        `, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
+            ${Auth.canEditDelete() ? `<button class="btn btn-primary" onclick="Construction.openEditDocumentStatus('${doc.id}')"><i class="fas fa-edit"></i> Update Status</button>` : ''}
         `);
+    },
+
+    openEditDocumentStatus(id) {
+        const doc = DataStore.documents.find(d => d.id === id);
+        if (!doc) return;
+        const html = `
+        <form>
+            <div class="form-group">
+                <label>Status</label>
+                <select class="form-control" id="editDocStatus">
+                    ${['pending','under-review','approved','rejected','superseded'].map(s => `<option value="${s}" ${doc.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1).replace('-', ' ')}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea class="form-control" id="editDocNotes" rows="3">${Utils.escapeHtml(doc.notes || '')}</textarea>
+            </div>
+        </form>`;
+        App.openModal('Update Document Status', html, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Construction.saveDocStatus('${id}')"><i class="fas fa-save"></i> Save</button>
+        `);
+    },
+
+    saveDocStatus(id) {
+        const doc = DataStore.documents.find(d => d.id === id);
+        if (!doc) return;
+        doc.status = document.getElementById('editDocStatus')?.value || doc.status;
+        doc.notes = document.getElementById('editDocNotes')?.value || '';
+        Database.save();
+        App.closeModal();
+        App.showToast('Document status updated', 'success');
+        this.renderDocuments(document.getElementById('contentArea'));
+    },
+
+    async downloadDocument(id) {
+        try {
+            const resp = await fetch(`http://localhost:3000/api/documents/${encodeURIComponent(id)}/download`);
+            if (!resp.ok) {
+                // Fallback: document may only be in localStorage
+                App.showToast('File not available for download from server', 'error');
+                return;
+            }
+            const blob = await resp.blob();
+            const doc = DataStore.documents.find(d => d.id === id);
+            const filename = doc?.fileName || 'document';
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            App.showToast('Download failed: ' + err.message, 'error');
+        }
     },
 
     openAddDocument() {
@@ -1061,21 +1700,56 @@ const Construction = {
                 <div class="form-group"><label>Assigned To</label><input type="text" class="form-control" id="newDocAssigned"></div>
             </div>
             <div class="form-group"><label>Description</label><textarea class="form-control" id="newDocDesc" rows="3"></textarea></div>
+            <div class="form-group">
+                <label><i class="fas fa-cloud-upload-alt" style="margin-right:6px"></i>Attach File (PDF, Image — max 16 MB)</label>
+                <input type="file" class="form-control" id="newDocFile" accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp"
+                       style="padding:10px;border:2px dashed var(--border);border-radius:var(--radius);cursor:pointer">
+                <div id="newDocFileInfo" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
+            </div>
         </form>`;
 
         App.openModal('Add Document', html, `
             <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
             <button class="btn btn-primary" onclick="Construction.saveDocument()"><i class="fas fa-save"></i> Save</button>
         `);
+
+        // File info preview
+        setTimeout(() => {
+            const fileInput = document.getElementById('newDocFile');
+            if (fileInput) {
+                fileInput.addEventListener('change', () => {
+                    const file = fileInput.files[0];
+                    const info = document.getElementById('newDocFileInfo');
+                    if (file && info) {
+                        const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                        if (file.size > 16 * 1024 * 1024) {
+                            info.innerHTML = `<span style="color:var(--danger)"><i class="fas fa-exclamation-triangle"></i> File too large (${sizeMB} MB). Max 16 MB.</span>`;
+                        } else {
+                            info.innerHTML = `<i class="fas fa-check-circle" style="color:var(--success)"></i> ${file.name} (${sizeMB} MB)`;
+                        }
+                    }
+                });
+            }
+        }, 100);
     },
 
-    saveDocument() {
+    async saveDocument() {
         const title = document.getElementById('newDocTitle')?.value;
         if (!title) { App.showToast('Document title is required', 'error'); return; }
 
-        Database.addDocument({
+        const fileInput = document.getElementById('newDocFile');
+        const file = fileInput?.files?.[0];
+
+        // Validate file size
+        if (file && file.size > 16 * 1024 * 1024) {
+            App.showToast('File is too large. Maximum 16 MB allowed.', 'error');
+            return;
+        }
+
+        const company = document.getElementById('newDocCompany').value;
+        const docData = {
             title,
-            company: document.getElementById('newDocCompany').value,
+            company,
             category: document.getElementById('newDocCategory').value,
             projectId: document.getElementById('newDocProject')?.value || '',
             revision: document.getElementById('newDocRev')?.value || '0',
@@ -1083,11 +1757,50 @@ const Construction = {
             assignedTo: document.getElementById('newDocAssigned')?.value || '',
             description: document.getElementById('newDocDesc')?.value || '',
             status: 'pending',
-            notes: ''
-        });
+            notes: '',
+            hasFile: !!file,
+            fileName: file?.name || '',
+            fileType: file?.type || '',
+            fileSize: file?.size || 0
+        };
+
+        // Save metadata to DataStore (localStorage)
+        Database.addDocument(docData);
+
+        // If file attached, upload to backend
+        if (file) {
+            try {
+                const reader = new FileReader();
+                reader.onload = async function() {
+                    const base64 = reader.result.split(',')[1];
+                    try {
+                        await fetch('http://localhost:3000/api/documents', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                title: docData.title,
+                                company,
+                                projectId: docData.projectId,
+                                category: docData.category,
+                                fileName: file.name,
+                                fileType: file.type,
+                                fileSize: file.size,
+                                fileData: base64,
+                                uploadedBy: Auth.session?.username || 'system'
+                            })
+                        });
+                    } catch (uploadErr) {
+                        console.warn('Backend upload failed, file saved locally only:', uploadErr);
+                    }
+                };
+                reader.readAsDataURL(file);
+            } catch (err) {
+                console.warn('File read error:', err);
+            }
+        }
 
         App.closeModal();
-        App.showToast('Document added', 'success');
+        App.showToast('Document added' + (file ? ' with file attachment' : ''), 'success');
         this.renderDocuments(document.getElementById('contentArea'));
     },
 
