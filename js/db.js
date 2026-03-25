@@ -4,6 +4,19 @@
    Supports unified + standalone modes
    ======================================== */
 
+const API_BASE_URL = 'http://localhost:3000/api'; // Change to your backend URL
+
+async function apiRequest(endpoint, method = 'GET', body = null) {
+    const options = {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+    };
+    if (body) options.body = JSON.stringify(body);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+}
+
 const Database = {
     DB_KEY: 'ubms_database',
     USERS_KEY: 'ubms_users',
@@ -350,146 +363,73 @@ const Database = {
     },
 
     // ---- Get all users ----
-    getUsers() {
+
+    async getUsers() {
         try {
-            const data = localStorage.getItem(this.USERS_KEY);
-            return data ? JSON.parse(data) : [];
+            return await apiRequest('/users');
         } catch { return []; }
     },
 
     // ---- Save users ----
-    saveUsers(users) {
-        localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+
+    async saveUsers(users) {
+        // Not needed with REST API; handled by add/update/delete
     },
 
     // ---- Find user by username ----
-    findUser(username) {
-        return this.getUsers().find(u => u.username === username);
+
+    async findUser(username) {
+        try {
+            return await apiRequest(`/users/username/${encodeURIComponent(username)}`);
+        } catch { return null; }
     },
 
     // ---- Find user by email ----
-    findUserByEmail(email) {
-        return this.getUsers().find(u => u.email === email);
+
+    async findUserByEmail(email) {
+        try {
+            return await apiRequest(`/users/email/${encodeURIComponent(email)}`);
+        } catch { return null; }
     },
 
     // ---- Authenticate user ----
-    authenticate(username, password, company) {
-        const user = this.findUser(username);
-        if (!user) return { success: false, error: 'User not found' };
-        if (user.password !== password) return { success: false, error: 'Invalid password' };
-        if (user.status !== 'active') return { success: false, error: 'Account is deactivated' };
 
-        // Check company access
-        if (!user.companies.includes('all') && company !== 'all' && !user.companies.includes(company)) {
-            return { success: false, error: 'No access to this company' };
+    async authenticate(username, password, company) {
+        try {
+            return await apiRequest('/auth/login', 'POST', { username, password, company });
+        } catch (e) {
+            return { success: false, error: e.message };
         }
-
-        // Update last login
-        const users = this.getUsers();
-        const idx = users.findIndex(u => u.id === user.id);
-        if (idx >= 0) {
-            users[idx].lastLogin = new Date().toISOString();
-            this.saveUsers(users);
-        }
-
-        return {
-            success: true,
-            user: {
-                id: user.id,
-                username: user.username,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                companies: user.companies,
-                modules: user.modules,
-                company: user.companies.includes('all') ? (company || 'all') : user.companies[0],
-                isSuperAdmin: user.isSuperAdmin || false,
-                avatar: user.avatar
-            }
-        };
     },
 
     // ---- Authenticate Super Admin by code ----
-    authenticateSuperAdmin(code) {
-        if (code !== this.getSuperAdminCode()) {
-            return { success: false, error: 'Invalid Super Admin code' };
-        }
-        const user = this.getUsers().find(u => u.isSuperAdmin);
-        if (!user) return { success: false, error: 'Super Admin account not found' };
 
-        // Update last login
-        const users = this.getUsers();
-        const idx = users.findIndex(u => u.isSuperAdmin);
-        if (idx >= 0) {
-            users[idx].lastLogin = new Date().toISOString();
-            this.saveUsers(users);
+    async authenticateSuperAdmin(code) {
+        try {
+            return await apiRequest('/auth/superadmin', 'POST', { code });
+        } catch (e) {
+            return { success: false, error: e.message };
         }
-
-        return {
-            success: true,
-            user: {
-                id: user.id,
-                username: user.username,
-                name: user.name,
-                email: user.email,
-                role: 'superadmin',
-                companies: ['all'],
-                modules: ['all'],
-                company: 'all',
-                isSuperAdmin: true,
-                avatar: 'SA'
-            }
-        };
     },
 
     // ---- Add user ----
-    addUser(userData) {
-        const users = this.getUsers();
-        if (users.find(u => u.username === userData.username)) {
-            return { success: false, error: 'Username already exists' };
+
+    async addUser(userData) {
+        try {
+            return await apiRequest('/users', 'POST', userData);
+        } catch (e) {
+            return { success: false, error: e.message };
         }
-        if (users.find(u => u.email === userData.email)) {
-            return { success: false, error: 'Email already registered' };
-        }
-        const newUser = {
-            id: 'USR-' + Date.now().toString(36).toUpperCase(),
-            name: userData.name,
-            username: userData.username,
-            email: userData.email,
-            password: userData.password,
-            role: userData.role,
-            companies: userData.companies || [],
-            modules: userData.modules || [],
-            status: 'active',
-            mustChangePassword: userData.mustChangePassword !== undefined ? userData.mustChangePassword : true,
-            created: new Date().toISOString(),
-            lastLogin: null,
-            avatar: userData.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-        };
-        users.push(newUser);
-        this.saveUsers(users);
-        this.addAuditEntry('User Created', `Created user ${newUser.name} (${newUser.email}) with role: ${newUser.role}`);
-        return { success: true, user: newUser };
     },
 
     // ---- Update user ----
-    updateUser(userId, updates) {
-        const users = this.getUsers();
-        const idx = users.findIndex(u => u.id === userId);
-        if (idx < 0) return { success: false, error: 'User not found' };
 
-        // Don't allow changing Super Admin's core properties
-        if (users[idx].isSuperAdmin && (updates.role || updates.status === 'inactive')) {
-            return { success: false, error: 'Cannot modify Super Admin core settings' };
+    async updateUser(userId, updates) {
+        try {
+            return await apiRequest(`/users/${encodeURIComponent(userId)}`, 'PUT', updates);
+        } catch (e) {
+            return { success: false, error: e.message };
         }
-
-        Object.assign(users[idx], updates);
-        if (updates.name) {
-            users[idx].avatar = updates.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-        }
-        this.saveUsers(users);
-        this.addAuditEntry('User Updated', `Updated user ${users[idx].name}: ${Object.keys(updates).join(', ')}`);
-        return { success: true, user: users[idx] };
     },
 
     // ---- Deactivate user ----
@@ -503,15 +443,13 @@ const Database = {
     },
 
     // ---- Delete user ----
-    deleteUser(userId) {
-        const users = this.getUsers();
-        const user = users.find(u => u.id === userId);
-        if (!user) return { success: false, error: 'User not found' };
-        if (user.isSuperAdmin) return { success: false, error: 'Cannot delete Super Admin' };
-        const filtered = users.filter(u => u.id !== userId);
-        this.saveUsers(filtered);
-        this.addAuditEntry('User Deleted', `Deleted user ${user.name} (${user.email})`);
-        return { success: true };
+
+    async deleteUser(userId) {
+        try {
+            return await apiRequest(`/users/${encodeURIComponent(userId)}`, 'DELETE');
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
     },
 
     // ============================================================

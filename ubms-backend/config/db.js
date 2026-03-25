@@ -1,0 +1,223 @@
+const mysql = require('mysql2/promise');
+require('dotenv').config();
+
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'ubms_database',
+    port: process.env.DB_PORT || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
+// Initialize database and tables on startup
+async function initDatabase() {
+    const connection = await pool.getConnection();
+    try {
+        // Ensure database exists
+        await connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME}`);
+        await connection.changeUser({ database: process.env.DB_NAME });
+
+        // Create users table
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id VARCHAR(50) PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                role VARCHAR(50) NOT NULL,
+                companies JSON,
+                modules JSON,
+                status VARCHAR(50),
+                created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                lastLogin TIMESTAMP NULL,
+                avatar VARCHAR(10),
+                isSuperAdmin BOOLEAN DEFAULT FALSE,
+                mustChangePassword BOOLEAN DEFAULT FALSE
+            )
+        `);
+
+        // Create audit_logs table
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                user VARCHAR(255),
+                action VARCHAR(255),
+                detail TEXT,
+                level VARCHAR(50)
+            )
+        `);
+
+        // Create customers table
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS customers (
+                id VARCHAR(50) PRIMARY KEY,
+                name VARCHAR(255),
+                email VARCHAR(255),
+                phone VARCHAR(20),
+                company VARCHAR(100),
+                totalSpent DECIMAL(10, 2),
+                created DATE
+            )
+        `);
+
+        // Create invoices table
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS invoices (
+                id VARCHAR(50) PRIMARY KEY,
+                customerId VARCHAR(50),
+                company VARCHAR(100),
+                amount DECIMAL(10, 2),
+                paid DECIMAL(10, 2) DEFAULT 0,
+                status VARCHAR(50),
+                description TEXT,
+                issueDate DATE,
+                dueDate DATE,
+                paymentMethod VARCHAR(50),
+                created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        console.log('✓ Database initialized successfully');
+    } catch (err) {
+        console.error('Database initialization error:', err.message);
+    } finally {
+        connection.release();
+    }
+}
+
+// Import seed function
+async function seedInitialData() {
+    const connection = await pool.getConnection();
+    try {
+        // Check if users already exist
+        const [users] = await connection.query('SELECT COUNT(*) as count FROM users');
+        if (users[0].count > 0) {
+            console.log('✓ Database already seeded');
+            return;
+        }
+
+        const { v4: uuidv4 } = require('uuid');
+
+        const seedUsers = [
+            {
+                id: 'USR-SUPERADMIN',
+                name: 'DK Super Administrator',
+                username: 'superadmin',
+                email: 'superadmin@ubms.ph',
+                password: 'DK-SA-7829-UBMS',
+                role: 'superadmin',
+                companies: JSON.stringify(['all']),
+                modules: JSON.stringify(['all']),
+                status: 'active',
+                avatar: 'SA',
+                isSuperAdmin: 1,
+                mustChangePassword: 0
+            },
+            {
+                id: 'USR-001',
+                name: 'Dhomer Bangayan',
+                username: 'dhomer.bangayan',
+                email: 'dhomer.bangayan@ubms.ph',
+                password: 'DB@UBMS2026!',
+                role: 'owner',
+                companies: JSON.stringify(['all']),
+                modules: JSON.stringify(['all']),
+                status: 'active',
+                avatar: 'DB',
+                isSuperAdmin: 0,
+                mustChangePassword: 1
+            },
+            {
+                id: 'USR-002',
+                name: 'Dheekay Manager',
+                username: 'dheekay.manager',
+                email: 'dheekay.manager@dheekaybuilders.com',
+                password: 'DK12345678',
+                role: 'manager',
+                companies: JSON.stringify(['dheekay']),
+                modules: JSON.stringify(['dashboard', 'crm', 'financial', 'reports', 'invoicing']),
+                status: 'active',
+                avatar: 'DM',
+                isSuperAdmin: 0,
+                mustChangePassword: 1
+            },
+            {
+                id: 'USR-003',
+                name: 'KDChavit Manager',
+                username: 'kdchavit.manager',
+                email: 'kdchavit.manager@kdchavitconstruction.com',
+                password: 'KD12345678',
+                role: 'manager',
+                companies: JSON.stringify(['kdchavit']),
+                modules: JSON.stringify(['dashboard', 'crm', 'financial', 'reports']),
+                status: 'active',
+                avatar: 'KM',
+                isSuperAdmin: 0,
+                mustChangePassword: 1
+            },
+            {
+                id: 'USR-004',
+                name: 'Nuatthai Manager',
+                username: 'nuatthai.manager',
+                email: 'nuatthai.manager@nuatthai.com',
+                password: 'NT12345678',
+                role: 'manager',
+                companies: JSON.stringify(['nuatthai']),
+                modules: JSON.stringify(['dashboard', 'crm', 'financial', 'booking', 'pos']),
+                status: 'active',
+                avatar: 'NM',
+                isSuperAdmin: 0,
+                mustChangePassword: 1
+            },
+            {
+                id: 'USR-005',
+                name: 'Autocasa Manager',
+                username: 'autocasa.manager',
+                email: 'autocasa.manager@autocasa.com',
+                password: 'AC12345678',
+                role: 'manager',
+                companies: JSON.stringify(['autocasa']),
+                modules: JSON.stringify(['dashboard', 'crm', 'financial', 'workshop']),
+                status: 'active',
+                avatar: 'AM',
+                isSuperAdmin: 0,
+                mustChangePassword: 1
+            },
+            {
+                id: 'USR-006',
+                name: 'Group Accountant',
+                username: 'group.accountant',
+                email: 'group.accountant@ubms.com',
+                password: 'GA12345678',
+                role: 'accountant',
+                companies: JSON.stringify(['all']),
+                modules: JSON.stringify(['dashboard', 'financial', 'reports']),
+                status: 'active',
+                avatar: 'GA',
+                isSuperAdmin: 0,
+                mustChangePassword: 1
+            }
+        ];
+
+        for (const user of seedUsers) {
+            await connection.query(
+                `INSERT INTO users (id, name, username, email, password, role, companies, modules, status, avatar, isSuperAdmin, mustChangePassword) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [user.id, user.name, user.username, user.email, user.password, user.role, user.companies, user.modules, user.status, user.avatar, user.isSuperAdmin, user.mustChangePassword]
+            );
+        }
+
+        console.log('✓ Initial users seeded successfully');
+    } catch (err) {
+        console.error('Seed error:', err.message);
+    } finally {
+        connection.release();
+    }
+}
+
+module.exports = { pool, initDatabase, seedInitialData };
