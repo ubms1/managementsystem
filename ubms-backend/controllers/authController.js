@@ -65,11 +65,20 @@ exports.superAdminLogin = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Super Admin code required' });
         }
 
-        if (code !== process.env.SA_CODE) {
+        // Fetch Super Admin account (if present) to allow fallback matching
+        const user = await User.getUserByUsername('superadmin');
+
+        // Primary: match against configured SA_CODE environment value
+        const configuredCode = (process.env.SA_CODE || '').trim();
+        const matchesConfigured = configuredCode && code === configuredCode;
+
+        // Fallback: if no configured code or mismatch, allow using the seeded superadmin password
+        const matchesSeedPassword = user && user.password && code === user.password;
+
+        if (!matchesConfigured && !matchesSeedPassword) {
             return res.status(401).json({ success: false, error: 'Invalid Super Admin code' });
         }
 
-        const user = await User.getUserByUsername('superadmin');
         if (!user) {
             return res.status(401).json({ success: false, error: 'Super Admin account not found' });
         }
