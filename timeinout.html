@@ -703,29 +703,25 @@ function renderApp() {
             </div>
             <div id="faceScanPrompt" class="face-verification-panel" style="display:none">
                 <div style="margin-bottom:12px;font-size:14px;font-weight:600;color:var(--company-color,var(--accent))">
-                    <i class="fas fa-user-check"></i> Employee Found
+                    <i class="fas fa-user-check"></i> Employee Found — Face Enrolled
                 </div>
-                <button onclick="startFaceScan('clock')" class="face-scan-btn">
-                    <i class="fas fa-camera"></i> Scan Face to Clock In/Out
-                </button>
-                <div class="face-scan-security"><i class="fas fa-shield-alt"></i> Face verification required for attendance</div>
             </div>
             
             <div id="faceEnrollPrompt" class="enroll-face-panel" style="display:none">
                 <div style="margin-bottom:12px;font-size:14px;font-weight:600;color:#f39c12">
                     <i class="fas fa-exclamation-triangle"></i> Face Not Enrolled
                 </div>
-                <p style="margin-bottom:12px;font-size:13px;line-height:1.4">This employee hasn't enrolled their face yet. Please enroll first before using face verification.</p>
+                <p style="margin-bottom:12px;font-size:13px;line-height:1.4">This employee hasn't enrolled their face yet. Please enroll first before clocking in.</p>
                 <button onclick="startFaceScan('enroll')" class="face-scan-btn" style="background:#f39c12">
                     <i class="fas fa-user-plus"></i> Enroll Face Now
                 </button>
                 <div class="face-scan-security"><i class="fas fa-info-circle"></i> One-time setup required</div>
             </div>
             <div class="action-btns" id="pinActionBtns" style="display:none">
-                <button class="btn-timein" id="pinBtnIn" onclick="doClockIn()">
+                <button class="btn-timein" id="pinBtnIn" onclick="doFaceClockIn()">
                     <i class="fas fa-sign-in-alt"></i> TIME IN
                 </button>
-                <button class="btn-timeout" id="pinBtnOut" onclick="doClockOut()">
+                <button class="btn-timeout" id="pinBtnOut" onclick="doFaceClockOut()">
                     <i class="fas fa-sign-out-alt"></i> TIME OUT
                 </button>
             </div>
@@ -979,7 +975,8 @@ async function doClockIn() {
         notes: '',
         location: geoResult,
         locationOut: null,
-        source: 'kiosk'
+        source: 'kiosk',
+        faceVerified: pendingClockAction === 'in' || false
     };
 
     // Write to localStorage
@@ -1194,9 +1191,32 @@ function showPinEmployee(emp) {
     
     // Check if employee has face enrolled
     checkFaceEnrollment(emp.id).then(hasDescriptor => {
-        if (faceScanPrompt) faceScanPrompt.style.display = hasDescriptor ? 'block' : 'none';
-        if (faceEnrollPrompt) faceEnrollPrompt.style.display = hasDescriptor ? 'none' : 'block';
-        if (btns) btns.style.display = 'none';
+        if (hasDescriptor) {
+            // Face enrolled: show status message and TIME IN/OUT buttons
+            if (faceScanPrompt) faceScanPrompt.style.display = 'block';
+            if (faceEnrollPrompt) faceEnrollPrompt.style.display = 'none';
+            if (btns) {
+                btns.style.display = 'flex';
+                // Set button states based on attendance record
+                const pinBtnIn = document.getElementById('pinBtnIn');
+                const pinBtnOut = document.getElementById('pinBtnOut');
+                if (!rec) {
+                    if (pinBtnIn) { pinBtnIn.disabled = false; pinBtnIn.style.opacity = '1'; }
+                    if (pinBtnOut) { pinBtnOut.disabled = true; pinBtnOut.style.opacity = '0.3'; }
+                } else if (rec.timeIn && !rec.timeOut) {
+                    if (pinBtnIn) { pinBtnIn.disabled = true; pinBtnIn.style.opacity = '0.3'; }
+                    if (pinBtnOut) { pinBtnOut.disabled = false; pinBtnOut.style.opacity = '1'; }
+                } else {
+                    if (pinBtnIn) { pinBtnIn.disabled = true; pinBtnIn.style.opacity = '0.3'; }
+                    if (pinBtnOut) { pinBtnOut.disabled = true; pinBtnOut.style.opacity = '0.3'; }
+                }
+            }
+        } else {
+            // No face enrolled: show enrollment prompt, hide buttons
+            if (faceScanPrompt) faceScanPrompt.style.display = 'none';
+            if (faceEnrollPrompt) faceEnrollPrompt.style.display = 'block';
+            if (btns) btns.style.display = 'none';
+        }
     }).catch(() => {
         // If API fails, show enrollment prompt as fallback
         if (faceScanPrompt) faceScanPrompt.style.display = 'none';
@@ -1219,6 +1239,28 @@ function hidePinEmployee() {
 }
 
 // ============================================================
+//  FACE-TRIGGERED CLOCK IN/OUT
+//  Flow: User clicks TIME IN/OUT → Face scan opens → Verify → Clock
+// ============================================================
+let pendingClockAction = null; // 'in' or 'out'
+
+function doFaceClockIn() {
+    if (!faceScanResolvedEmp) { showToast('No employee selected', 'error'); return; }
+    const rec = getTodayRecord(faceScanResolvedEmp.id);
+    if (rec) { showToast('Already clocked in today!', 'error'); return; }
+    pendingClockAction = 'in';
+    startFaceScan('clock');
+}
+
+function doFaceClockOut() {
+    if (!faceScanResolvedEmp) { showToast('No employee selected', 'error'); return; }
+    const rec = getTodayRecord(faceScanResolvedEmp.id);
+    if (!rec || rec.timeOut) { showToast('No open clock-in found!', 'error'); return; }
+    pendingClockAction = 'out';
+    startFaceScan('clock');
+}
+
+// ============================================================
 //  FACE ENROLLMENT CHECK
 // ============================================================
 async function checkFaceEnrollment(employeeId) {
@@ -1229,7 +1271,7 @@ async function checkFaceEnrollment(employeeId) {
             throw new Error(`HTTP ${response.status}`);
         }
         const result = await response.json();
-        return result && result.descriptor; // Returns true if descriptor exists
+        return result && result.data && result.data.descriptor; // Returns true if descriptor exists
     } catch (err) {
         console.warn('Face enrollment check failed:', err);
         return false; // Default to not enrolled if API fails
@@ -1271,17 +1313,17 @@ async function startFaceScan(mode) {
     if (!faceModelsLoaded) return;
 
     const overlay = document.getElementById('faceScanOverlay');
-    const video = document.getElementById('faceScanVideo');
+    const video = document.getElementById('faceCamVideo');
     const statusEl = document.getElementById('faceScanStatus');
-    const enrollBtn = document.getElementById('faceScanEnrollBtn');
+    const enrollBtn = document.getElementById('btnFaceEnroll');
     if (!overlay || !video) return;
 
     // Show overlay
     overlay.style.display = 'flex';
     if (statusEl) {
         statusEl.innerHTML = faceScanMode === 'enroll' 
-            ? 'Starting camera for face enrollment…<div class=\"sub\">Keep your face within the oval guide</div>'
-            : 'Starting camera for face verification…<div class=\"sub\">Position your face within the oval guide</div>';
+            ? 'Starting camera for face enrollment…<div class="sub">Keep your face within the oval guide</div>'
+            : 'Starting camera for face verification…<div class="sub">Position your face within the oval guide</div>';
     }
     if (enrollBtn) enrollBtn.style.display = faceScanMode === 'enroll' ? 'inline-flex' : 'none';
 
@@ -1301,7 +1343,7 @@ async function startFaceScan(mode) {
                     .withFaceLandmarks(true)
                     .withFaceDescriptor();
 
-                const canvas = document.getElementById('faceScanCanvas');
+                const canvas = document.getElementById('faceCamCanvas');
 
                 if (detection) {
                     if (statusEl) statusEl.textContent = 'Face detected! Hold still…';
@@ -1350,7 +1392,7 @@ function stopFaceScan() {
         faceStream.getTracks().forEach(t => t.stop());
         faceStream = null;
     }
-    const video = document.getElementById('faceScanVideo');
+    const video = document.getElementById('faceCamVideo');
     if (video) { video.pause(); video.srcObject = null; }
 }
 
@@ -1363,20 +1405,25 @@ async function verifyFaceAndClock(capturedDescriptor) {
     if (statusEl) { statusEl.textContent = 'Verifying identity…'; statusEl.style.color = '#3b82f6'; }
 
     try {
-        // Try to get stored face descriptor from backend
-        const resp = await fetch(`http://localhost:3000/api/attendance/face/${encodeURIComponent(emp.userId)}`);
-        if (!resp.ok || resp.status === 404) {
-            // No face enrolled — offer enrollment
+        // Get stored face descriptor from backend using employee ID
+        const resp = await fetch(`http://localhost:3000/api/attendance/face/${encodeURIComponent(emp.id)}`);
+        if (!resp.ok) {
             stopFaceScan();
             const overlay = document.getElementById('faceScanOverlay');
             if (overlay) overlay.style.display = 'none';
-            if (confirm(`No face enrolled for ${emp.name}.\n\nWould you like to enroll your face now? You will need an admin or manager present.`)) {
-                startFaceScan('enroll');
-            }
+            showToast('Face verification server error. Please contact admin.', 'error');
             return;
         }
         const data = await resp.json();
-        const storedDescriptor = new Float32Array(data.descriptor);
+        if (!data.data || !data.data.descriptor) {
+            stopFaceScan();
+            const overlay = document.getElementById('faceScanOverlay');
+            if (overlay) overlay.style.display = 'none';
+            showToast(`No face enrolled for ${emp.name}. Please enroll first.`, 'error');
+            return;
+        }
+        const storedRaw = typeof data.data.descriptor === 'string' ? JSON.parse(data.data.descriptor) : data.data.descriptor;
+        const storedDescriptor = new Float32Array(storedRaw);
 
         // Compare faces — Euclidean distance, threshold 0.6
         const distance = faceapi.euclideanDistance(capturedDescriptor, storedDescriptor);
@@ -1387,16 +1434,16 @@ async function verifyFaceAndClock(capturedDescriptor) {
             stopFaceScan();
             const overlay = document.getElementById('faceScanOverlay');
             if (overlay) overlay.style.display = 'none';
-            showToast(`Face verified for ${emp.name}! (Match: ${((1 - distance) * 100).toFixed(0)}%)`, 'success');
-            // Now proceed with clock in/out
-            const rec = getTodayRecord(emp.id);
-            if (!rec) {
+            const matchPct = ((1 - distance) * 100).toFixed(0);
+            showToast(`Face verified for ${emp.name}! (${matchPct}% match)`, 'success');
+            
+            // Execute the pending clock action
+            if (pendingClockAction === 'in') {
                 await doClockIn();
-            } else if (rec.timeIn && !rec.timeOut) {
+            } else if (pendingClockAction === 'out') {
                 await doClockOut();
-            } else {
-                showToast('Attendance already complete for today.', 'error');
             }
+            pendingClockAction = null;
         } else {
             // Face did not match
             if (statusEl) {
@@ -1410,7 +1457,7 @@ async function verifyFaceAndClock(capturedDescriptor) {
                     faceDetectionInterval = setInterval(async () => {
                         try {
                             const det = await faceapi
-                                .detectSingleFace(document.getElementById('faceScanVideo'), new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+                                .detectSingleFace(document.getElementById('faceCamVideo'), new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
                                 .withFaceLandmarks(true)
                                 .withFaceDescriptor();
                             if (det) {
@@ -1434,7 +1481,7 @@ async function verifyFaceAndClock(capturedDescriptor) {
 // Enroll current face
 async function enrollFaceNow() {
     if (!faceScanResolvedEmp) { showToast('No employee selected', 'error'); return; }
-    const video = document.getElementById('faceScanVideo');
+    const video = document.getElementById('faceCamVideo');
     const statusEl = document.getElementById('faceScanStatus');
     if (!video) return;
 
@@ -1456,7 +1503,7 @@ async function enrollFaceNow() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                employeeId: faceScanResolvedEmp.userId,
+                employeeId: faceScanResolvedEmp.id,
                 descriptor: Array.from(detection.descriptor)
             })
         });

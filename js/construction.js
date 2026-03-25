@@ -380,9 +380,14 @@ const Construction = {
         const name = document.getElementById('newProjName')?.value;
         if (!name) { App.showToast('Project name is required', 'error'); return; }
 
+        const projectId = Utils.generateId('PRJ');
+        const company = document.getElementById('newProjCompany').value;
+        const startDate = document.getElementById('newProjStart')?.value || '';
+        const endDate = document.getElementById('newProjEnd')?.value || '';
+
         DataStore.projects.push({
-            id: Utils.generateId('PRJ'),
-            company: document.getElementById('newProjCompany').value,
+            id: projectId,
+            company,
             name,
             description: document.getElementById('newProjDesc')?.value || '',
             client: document.getElementById('newProjClient').value,
@@ -390,16 +395,95 @@ const Construction = {
             budget: parseFloat(document.getElementById('newProjBudget')?.value || 0),
             actualCost: 0,
             location: document.getElementById('newProjLocation')?.value || '',
-            startDate: document.getElementById('newProjStart')?.value || '',
-            endDate: document.getElementById('newProjEnd')?.value || '',
+            startDate,
+            endDate,
             status: 'pending',
             priority: document.getElementById('newProjPriority').value,
             progress: 0,
             phases: []
         });
 
+        // Auto-create default milestones (telecom/construction template)
+        if (!DataStore.projectMilestones) DataStore.projectMilestones = [];
+        const defaultMilestones = [
+            { name: 'Site Survey Completed', category: 'Site Survey', offsetDays: 7 },
+            { name: 'TSSR Approved', category: 'Approved TSSR', offsetDays: 14 },
+            { name: 'Building Permit Secured', category: 'BP Secured', offsetDays: 21 },
+            { name: 'Permit & Regulatory Clearance', category: 'Permit', offsetDays: 25 },
+            { name: 'Foundation Works', category: 'Foundation', offsetDays: 35 },
+            { name: 'Construction Started', category: 'Construction Started', offsetDays: 30 },
+            { name: 'Structural Works Completed', category: 'Structural', offsetDays: 50 },
+            { name: 'Electrical Works Completed', category: 'Electrical', offsetDays: 60 },
+            { name: 'Plumbing Works Completed', category: 'Plumbing', offsetDays: 55 },
+            { name: 'Finishing Works', category: 'Finishing', offsetDays: 70 },
+            { name: 'Construction Completed', category: 'Construction Completed', offsetDays: 75 },
+            { name: 'Post-Construction Inspection', category: 'Post-Construction', offsetDays: 80 },
+            { name: 'COOP Surveyed', category: 'COOP Surveyed', offsetDays: 82 },
+            { name: 'PQ/PO Documents Submitted', category: 'PQ/PO Tracking', offsetDays: 85 },
+            { name: 'Energization', category: 'Energization', offsetDays: 88 },
+            { name: 'Grid Connection', category: 'Grid Connection', offsetDays: 90 },
+            { name: 'Final Inspection & Handover', category: 'Inspection', offsetDays: 95 },
+            { name: 'Project Handover', category: 'Handover', offsetDays: 100 }
+        ];
+
+        const baseDate = startDate ? new Date(startDate) : new Date();
+        defaultMilestones.forEach(ms => {
+            const targetDate = new Date(baseDate);
+            targetDate.setDate(targetDate.getDate() + ms.offsetDays);
+            DataStore.projectMilestones.push({
+                id: Utils.generateId('MS'),
+                projectId,
+                milestoneName: ms.name,
+                category: ms.category,
+                targetDate: targetDate.toISOString().split('T')[0],
+                completedDate: '',
+                status: 'pending',
+                agingDays: 0,
+                issues: '',
+                remarks: ''
+            });
+        });
+
+        // Auto-create required project documents
+        const requiredDocs = [
+            { title: 'Project Contract', category: 'Contract' },
+            { title: 'Site Survey Report', category: 'Report' },
+            { title: 'TSSR Document', category: 'Submittal' },
+            { title: 'Building Permit', category: 'Permit' },
+            { title: 'Construction Drawings', category: 'Drawing' },
+            { title: 'Electrical Layout Plan', category: 'Drawing' },
+            { title: 'Structural Design Specification', category: 'Specification' },
+            { title: 'Safety Compliance Certificate', category: 'Permit' },
+            { title: 'Environmental Clearance', category: 'Permit' },
+            { title: 'As-Built Drawings', category: 'Drawing' },
+            { title: 'Inspection Report', category: 'Report' },
+            { title: 'Handover Certificate', category: 'Submittal' }
+        ];
+
+        requiredDocs.forEach(doc => {
+            const docData = {
+                title: `${doc.title} — ${name}`,
+                company,
+                category: doc.category,
+                projectId,
+                revision: '0',
+                author: '',
+                assignedTo: '',
+                description: `Required document for project: ${name}`,
+                status: 'pending',
+                notes: '',
+                hasFile: false,
+                fileName: '',
+                fileType: '',
+                fileSize: 0,
+                required: true
+            };
+            Database.addDocument(docData);
+        });
+
+        Database.save();
         App.closeModal();
-        App.showToast(`Project "${name}" created successfully`, 'success');
+        App.showToast(`Project "${name}" created with ${defaultMilestones.length} milestones and ${requiredDocs.length} required documents`, 'success');
         this.render(document.getElementById('contentArea'));
     },
 
@@ -936,33 +1020,53 @@ const Construction = {
             App.activeCompany === 'all' || projects.some(p => p.id === m.projectId)
         );
 
+        // Recalculate aging for all active milestones
+        milestones.forEach(m => {
+            if (m.status === 'completed') {
+                m.agingDays = 0;
+            } else if (m.targetDate) {
+                const diff = Math.floor((Date.now() - new Date(m.targetDate).getTime()) / (1000*60*60*24));
+                m.agingDays = Math.max(0, diff);
+            }
+        });
+
+        // Document metrics
+        const allDocs = (DataStore.documents || []).filter(d =>
+            projects.some(p => p.id === d.projectId)
+        );
+        const pendingDocs = allDocs.filter(d => d.status === 'pending');
+        const approvedDocs = allDocs.filter(d => d.status === 'approved');
+        const requiredDocs = allDocs.filter(d => d.required);
+        const submittedRequired = requiredDocs.filter(d => d.hasFile || d.status === 'approved');
+
         const now = new Date();
         const totalAging = milestones.reduce((s, m) => s + (m.agingDays || 0), 0);
         const avgAging = milestones.length > 0 ? Math.round(totalAging / milestones.length) : 0;
         const delayed = milestones.filter(m => m.status !== 'completed' && m.agingDays > 0);
         const critical = milestones.filter(m => m.status !== 'completed' && m.agingDays > 30);
+        const completedMs = milestones.filter(m => m.status === 'completed');
 
         container.innerHTML = `
         <div class="grid-4 mb-3">
             <div class="stat-card">
                 <div class="stat-header"><div class="stat-icon teal"><i class="fas fa-tasks"></i></div></div>
-                <div class="stat-value">${milestones.length}</div>
-                <div class="stat-label">Total Milestones</div>
+                <div class="stat-value">${completedMs.length}/${milestones.length}</div>
+                <div class="stat-label">Milestones Completed</div>
             </div>
             <div class="stat-card">
                 <div class="stat-header"><div class="stat-icon orange"><i class="fas fa-hourglass-half"></i></div></div>
                 <div class="stat-value">${delayed.length}</div>
-                <div class="stat-label">Delayed</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-header"><div class="stat-icon red"><i class="fas fa-exclamation-triangle"></i></div></div>
-                <div class="stat-value">${critical.length}</div>
-                <div class="stat-label">Critical (&gt;30 days)</div>
+                <div class="stat-label">Delayed (${critical.length} Critical)</div>
             </div>
             <div class="stat-card">
                 <div class="stat-header"><div class="stat-icon blue"><i class="fas fa-calendar-day"></i></div></div>
                 <div class="stat-value">${avgAging}d</div>
                 <div class="stat-label">Avg Aging Days</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header"><div class="stat-icon ${pendingDocs.length > 0 ? 'red' : 'green'}"><i class="fas fa-file-alt"></i></div></div>
+                <div class="stat-value">${approvedDocs.length}/${allDocs.length}</div>
+                <div class="stat-label">Docs Approved (${pendingDocs.length} Pending)</div>
             </div>
         </div>
 
@@ -975,6 +1079,9 @@ const Construction = {
             </button>
             <button class="tab-btn" onclick="Construction.switchMonitorTab('aging',this)">
                 <i class="fas fa-clock" style="margin-right:5px"></i>Aging Report
+            </button>
+            <button class="tab-btn" onclick="Construction.switchMonitorTab('documents',this)">
+                <i class="fas fa-folder-open" style="margin-right:5px"></i>Document Status
             </button>
             <button class="tab-btn" onclick="Construction.switchMonitorTab('issues',this)">
                 <i class="fas fa-bug" style="margin-right:5px"></i>Issues & Delays
@@ -998,6 +1105,7 @@ const Construction = {
             case 'overview':    el.innerHTML = this.renderMonitorOverview(projects, milestones); break;
             case 'milestones':  el.innerHTML = this.renderMilestoneTracker(projects, milestones); break;
             case 'aging':       el.innerHTML = this.renderProjectAgingReport(projects, milestones); break;
+            case 'documents':   el.innerHTML = this.renderDocumentStatusByProject(projects); break;
             case 'issues':      el.innerHTML = this.renderIssuesPanel(projects, milestones); break;
         }
     },
@@ -1017,6 +1125,13 @@ const Construction = {
             const endDate = p.endDate ? new Date(p.endDate) : null;
             const daysLeft = endDate ? Math.floor((endDate - now) / (1000*60*60*24)) : null;
 
+            // Auto-update project progress from milestones
+            if (total > 0 && p.progress !== pctComplete) {
+                p.progress = pctComplete;
+                if (pctComplete === 100 && p.status !== 'completed') p.status = 'completed';
+                else if (pctComplete > 0 && p.status === 'pending') p.status = 'in-progress';
+            }
+
             const agingColor = maxAging === 0 ? 'var(--success)' : maxAging <= 15 ? 'var(--warning)' : 'var(--danger)';
             const daysLeftColor = daysLeft === null ? 'var(--text-muted)' : daysLeft < 0 ? 'var(--danger)' : daysLeft <= 14 ? 'var(--warning)' : 'var(--success)';
 
@@ -1032,6 +1147,10 @@ const Construction = {
             const docs = (DataStore.documents || []).filter(d => d.projectId === p.id);
             const docsApproved = docs.filter(d => d.status === 'approved').length;
             const docsPending = docs.filter(d => d.status === 'pending').length;
+            const docsRequired = docs.filter(d => d.required);
+            const docsRequiredSubmitted = docsRequired.filter(d => d.hasFile || d.status === 'approved' || d.status === 'under-review').length;
+            const docCompliancePct = docsRequired.length > 0 ? Math.round((docsRequiredSubmitted / docsRequired.length) * 100) : (docs.length > 0 ? 100 : 0);
+            const docBarColor = docCompliancePct === 100 ? 'green' : docCompliancePct >= 50 ? 'blue' : 'orange';
 
             return `
             <div class="card mb-2">
@@ -1061,7 +1180,8 @@ const Construction = {
                         </div>
                         <div style="text-align:center;padding:10px;background:var(--bg);border-radius:var(--radius-sm)">
                             <div style="font-size:20px;font-weight:700">${docsApproved}/${docs.length}</div>
-                            <div style="font-size:11px;color:var(--text-muted)">Docs Approved</div>
+                            <div style="font-size:11px;color:var(--text-muted)">Docs (${docsPending} pending)</div>
+                            <div class="progress-bar" style="height:4px;margin-top:6px"><div class="progress-fill ${docBarColor}" style="width:${docCompliancePct}%"></div></div>
                         </div>
                     </div>
 
@@ -1265,6 +1385,111 @@ const Construction = {
                 </div>
             </div>`;
         }).join('')}`;
+    },
+
+    // Document Status by Project (monitoring tab)
+    renderDocumentStatusByProject(projects) {
+        if (projects.length === 0) {
+            return '<div class="empty-state"><i class="fas fa-folder-open"></i><h3>No Projects</h3><p>Create projects to track document requirements.</p></div>';
+        }
+
+        return `
+        <div class="section-header mb-2">
+            <h3>Document Compliance by Project</h3>
+            <span style="font-size:13px;color:var(--text-secondary)">Tracking required vs submitted documents</span>
+        </div>
+        ${projects.map(p => {
+            const docs = (DataStore.documents || []).filter(d => d.projectId === p.id);
+            const required = docs.filter(d => d.required);
+            const submitted = required.filter(d => d.hasFile || d.status === 'approved' || d.status === 'under-review');
+            const approved = docs.filter(d => d.status === 'approved');
+            const pending = docs.filter(d => d.status === 'pending');
+            const pct = required.length > 0 ? Math.round((submitted.length / required.length) * 100) : (docs.length > 0 ? 100 : 0);
+            const barColor = pct === 100 ? 'green' : pct >= 50 ? 'blue' : 'orange';
+            const statusColor = pct === 100 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)';
+
+            return `
+            <div class="card mb-2">
+                <div class="card-header" style="border-left:4px solid ${statusColor}">
+                    <div>
+                        <h3 style="font-size:15px">${p.name}</h3>
+                        <span style="font-size:11px;color:var(--text-muted)">${p.id} · ${docs.length} total docs · ${required.length} required</span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <span style="font-size:14px;font-weight:700;color:${statusColor}">${pct}% Complete</span>
+                        ${pending.length > 0 ? `<span class="badge-tag badge-warning">${pending.length} pending</span>` : ''}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="progress-bar" style="margin-bottom:14px;height:8px">
+                        <div class="progress-fill ${barColor}" style="width:${pct}%"></div>
+                    </div>
+
+                    <div class="grid-4" style="gap:8px;margin-bottom:14px;font-size:12px">
+                        <div style="text-align:center;padding:8px;background:var(--bg);border-radius:var(--radius-sm)">
+                            <div style="font-size:18px;font-weight:700;color:var(--success)">${approved.length}</div>
+                            <div style="color:var(--text-muted)">Approved</div>
+                        </div>
+                        <div style="text-align:center;padding:8px;background:var(--bg);border-radius:var(--radius-sm)">
+                            <div style="font-size:18px;font-weight:700;color:var(--warning)">${pending.length}</div>
+                            <div style="color:var(--text-muted)">Pending</div>
+                        </div>
+                        <div style="text-align:center;padding:8px;background:var(--bg);border-radius:var(--radius-sm)">
+                            <div style="font-size:18px;font-weight:700">${submitted.length}/${required.length}</div>
+                            <div style="color:var(--text-muted)">Required Submitted</div>
+                        </div>
+                        <div style="text-align:center;padding:8px;background:var(--bg);border-radius:var(--radius-sm)">
+                            <div style="font-size:18px;font-weight:700">${docs.filter(d => d.hasFile).length}</div>
+                            <div style="color:var(--text-muted)">Files Attached</div>
+                        </div>
+                    </div>
+
+                    ${required.length > 0 ? `
+                    <div style="font-size:12px;margin-bottom:8px;font-weight:600;color:var(--text-secondary)">Required Documents:</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+                        ${required.map(d => {
+                            const icon = d.status === 'approved' ? 'fa-check-circle' : d.hasFile ? 'fa-clock' : 'fa-times-circle';
+                            const color = d.status === 'approved' ? 'var(--success)' : d.hasFile || d.status === 'under-review' ? 'var(--warning)' : 'var(--danger)';
+                            return `<div style="padding:4px 10px;background:var(--bg);border-radius:6px;font-size:11px;border-left:3px solid ${color};display:flex;align-items:center;gap:4px" title="${Utils.escapeHtml(d.title)}">
+                                <i class="fas ${icon}" style="color:${color};font-size:10px"></i>
+                                <span>${d.title.replace(/ — .*$/, '')}</span>
+                            </div>`;
+                        }).join('')}
+                    </div>` : ''}
+
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-sm btn-primary" onclick="Construction.openAddDocument('${p.id}')"><i class="fas fa-plus"></i> Upload Document</button>
+                        <button class="btn btn-sm btn-secondary" onclick="Construction.viewProjectDocuments('${p.id}')"><i class="fas fa-list"></i> View All</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('')}`;
+    },
+
+    viewProjectDocuments(projectId) {
+        const p = DataStore.projects.find(pr => pr.id === projectId);
+        const docs = (DataStore.documents || []).filter(d => d.projectId === projectId);
+        let html = `<h3 style="margin-bottom:16px">${p?.name || projectId} — Documents</h3>`;
+        if (docs.length === 0) {
+            html += '<div style="text-align:center;padding:24px;color:var(--text-muted)">No documents yet</div>';
+        } else {
+            html += '<table class="data-table" style="font-size:12px"><thead><tr><th>Document</th><th>Category</th><th>Status</th><th>File</th><th>Required</th></tr></thead><tbody>';
+            docs.forEach(d => {
+                const statusCls = d.status === 'approved' ? 'badge-success' : d.status === 'pending' ? 'badge-warning' : d.status === 'rejected' ? 'badge-danger' : 'badge-neutral';
+                html += `<tr>
+                    <td><strong>${d.title}</strong><div style="font-size:10px;color:var(--text-muted)">${d.id}</div></td>
+                    <td><span class="badge-tag badge-neutral">${d.category || ''}</span></td>
+                    <td><span class="badge-tag ${statusCls}">${d.status}</span></td>
+                    <td>${d.hasFile ? '<span style="color:var(--success)"><i class="fas fa-paperclip"></i> Attached</span>' : '<span style="color:var(--text-muted)">—</span>'}</td>
+                    <td>${d.required ? '<span class="badge-tag badge-info">Required</span>' : ''}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+        }
+        App.openModal('Project Documents', html, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
+            <button class="btn btn-primary" onclick="App.closeModal(); Construction.openAddDocument('${projectId}')"><i class="fas fa-plus"></i> Add Document</button>
+        `, true);
     },
 
     // Milestone CRUD operations
@@ -1661,7 +1886,7 @@ const Construction = {
         }
     },
 
-    openAddDocument() {
+    openAddDocument(preselectedProjectId) {
         const projects = App.activeCompany === 'all' ? DataStore.projects : DataStore.projects.filter(p => p.company === App.activeCompany);
         const html = `
         <form>
@@ -1690,7 +1915,7 @@ const Construction = {
                 <div class="form-group"><label>Project</label>
                     <select class="form-control" id="newDocProject">
                         <option value="">General</option>
-                        ${projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                        ${projects.map(p => `<option value="${p.id}" ${preselectedProjectId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
                     </select>
                 </div>
                 <div class="form-group"><label>Revision</label><input type="text" class="form-control" id="newDocRev" value="0"></div>

@@ -149,7 +149,8 @@ const Database = {
                     'posTransactions', 'journalEntries', 'isoDocuments', 'isoAudits', 'isoNcrs', 'isoCpars',
                     'inventoryItems', 'inventoryTransactions',
                     'inspections', 'bankReconciliations', 'biometricLogs',
-                    'performanceReviews', 'timesheets', 'incidentReports'
+                    'performanceReviews', 'timesheets', 'incidentReports',
+                    'projectMilestones'
                 ];
                 mutableKeys.forEach(key => {
                     if (data[key] !== undefined) {
@@ -209,6 +210,7 @@ const Database = {
                 performanceReviews: DataStore.performanceReviews || [],
                 timesheets: DataStore.timesheets || [],
                 incidentReports: DataStore.incidentReports || [],
+                projectMilestones: DataStore.projectMilestones || [],
                 _lastSaved: new Date().toISOString()
             };
             localStorage.setItem(this.DB_KEY, JSON.stringify(data));
