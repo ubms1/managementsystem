@@ -75,9 +75,12 @@ const Construction = {
                 <div class="card-header" style="border-bottom:3px solid ${co?.color || 'var(--secondary)'}">
                     <div>
                         <h3>${p.name}</h3>
-                        <span style="font-size:11px;color:var(--text-muted)">${p.id} • ${co?.name || p.company}</span>
+                        <span style="font-size:11px;color:var(--text-muted)">${p.ftapSiteId || p.id} • ${co?.name || p.company}</span>
                     </div>
-                    <span class="badge-tag ${Utils.getStatusClass(p.status)}">${p.status}</span>
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                        ${p.pmoMilestone ? `<span class="badge-tag" style="font-size:10px">${p.pmoMilestone}</span>` : ''}
+                        <span class="badge-tag ${Utils.getStatusClass(p.status)}">${p.status}</span>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div style="margin-bottom:16px">
@@ -118,6 +121,7 @@ const Construction = {
                     </div>
 
                     ${overBudget ? `<div style="margin-top:12px;padding:8px 12px;background:rgba(239,68,68,0.08);border-radius:6px;font-size:12px;color:var(--danger)"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i>Near/Over budget alert</div>` : ''}
+                    ${p.gridVendor || p.territory ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${p.gridVendor ? `<span class="badge-tag badge-neutral" style="font-size:10px"><i class="fas fa-truck" style="margin-right:3px"></i>${p.gridVendor}</span>` : ''}${p.territory ? `<span class="badge-tag badge-neutral" style="font-size:10px"><i class="fas fa-map-pin" style="margin-right:3px"></i>${p.territory}</span>` : ''}</div>` : ''}
                 </div>
             </div>`;
         }).join('')}</div>`;
@@ -168,11 +172,66 @@ const Construction = {
         <div class="grid-2 mb-2" style="font-size:13px;gap:8px">
             <div><strong>Client:</strong> ${client?.name || 'N/A'}</div>
             <div><strong>Manager:</strong> ${p.manager}</div>
-            <div><strong>Location:</strong> ${p.location}</div>
+            <div><strong>Location:</strong> ${p.location || 'N/A'}</div>
             <div><strong>Company:</strong> <span class="badge-tag badge-${p.company}">${p.company}</span></div>
             <div><strong>Start:</strong> ${Utils.formatDate(p.startDate)}</div>
             <div><strong>End:</strong> ${Utils.formatDate(p.endDate)}</div>
-        </div>`;
+            ${p.pmoMilestone ? `<div><strong>PMO Milestone:</strong> <span class="badge-tag">${p.pmoMilestone}</span></div>` : ''}
+            ${p.priority ? `<div><strong>Priority:</strong> <span class="badge-tag badge-${p.priority}">${p.priority}</span></div>` : ''}
+        </div>
+
+        ${(p.ftapSiteId || p.mnoSiteId || p.territory || p.gridVendor) ? `
+        <h4 style="margin:18px 0 10px;font-size:13px;color:var(--secondary);text-transform:uppercase;letter-spacing:1px"><i class="fas fa-broadcast-tower" style="margin-right:6px"></i>Site / Telecom Identity</h4>
+        <div class="grid-2 mb-2" style="font-size:13px;gap:8px">
+            ${p.ftapSiteId ? `<div><strong>FTAP Site ID:</strong> ${p.ftapSiteId}</div>` : ''}
+            ${p.mnoSiteId ? `<div><strong>MNO Site ID:</strong> ${p.mnoSiteId}</div>` : ''}
+            ${p.poc ? `<div><strong>POC:</strong> ${p.poc}</div>` : ''}
+            ${p.coopAbbr ? `<div><strong>COOP:</strong> ${p.coopAbbr}</div>` : ''}
+            ${p.territory ? `<div><strong>Territory:</strong> ${p.territory}</div>` : ''}
+            ${p.gridVendor ? `<div><strong>Grid Vendor:</strong> ${p.gridVendor}</div>` : ''}
+            ${p.vendorAllocatedDate ? `<div><strong>Vendor Allocated:</strong> ${Utils.formatDate(p.vendorAllocatedDate)}</div>` : ''}
+        </div>` : ''}
+
+        ${(p.region || p.province || p.municipality || p.lat) ? `
+        <h4 style="margin:18px 0 10px;font-size:13px;color:var(--secondary);text-transform:uppercase;letter-spacing:1px"><i class="fas fa-map-marker-alt" style="margin-right:6px"></i>Location Details</h4>
+        <div class="grid-2 mb-2" style="font-size:13px;gap:8px">
+            ${p.region ? `<div><strong>Region:</strong> ${p.region}</div>` : ''}
+            ${p.province ? `<div><strong>Province:</strong> ${p.province}</div>` : ''}
+            ${p.municipality ? `<div><strong>Municipality:</strong> ${p.municipality}</div>` : ''}
+            ${(p.lat && p.lng) ? `<div><strong>Coordinates:</strong> ${p.lat}, ${p.lng}</div>` : ''}
+        </div>` : ''}
+
+        ${(p.tempoPqRaised || p.tempoEnergized || p.permanentBoqSubmitted || p.permanentEnergized) ? `
+        <h4 style="margin:18px 0 10px;font-size:13px;color:var(--secondary);text-transform:uppercase;letter-spacing:1px"><i class="fas fa-bolt" style="margin-right:6px"></i>Power Tracking</h4>
+        <div class="grid-2 mb-2" style="font-size:13px;gap:6px">
+            <div style="background:var(--bg);padding:12px;border-radius:var(--radius-sm);border-left:3px solid #f59e0b">
+                <div style="font-weight:600;margin-bottom:6px"><i class="fas fa-bolt" style="color:#f59e0b;margin-right:4px"></i>Tempo Power</div>
+                ${p.tempoPqRaised ? `<div>PQ Raised: ${Utils.formatDate(p.tempoPqRaised)}</div>` : ''}
+                ${p.tempoPoIssued ? `<div>PO Issued: ${Utils.formatDate(p.tempoPoIssued)}</div>` : ''}
+                ${p.tempoPermitReleased ? `<div>Permit Released: ${Utils.formatDate(p.tempoPermitReleased)}</div>` : ''}
+                ${p.tempoEnergized ? `<div style="color:var(--success);font-weight:600">Energized: ${Utils.formatDate(p.tempoEnergized)}</div>` : '<div style="color:var(--warning)">Not yet energized</div>'}
+                ${p.tempoAgingDays ? `<div>Aging: ${p.tempoAgingDays} days</div>` : ''}
+            </div>
+            <div style="background:var(--bg);padding:12px;border-radius:var(--radius-sm);border-left:3px solid #8b5cf6">
+                <div style="font-weight:600;margin-bottom:6px"><i class="fas fa-plug" style="color:#8b5cf6;margin-right:4px"></i>Permanent Power</div>
+                ${p.permanentBoqSubmitted ? `<div>BoQ Submitted: ${Utils.formatDate(p.permanentBoqSubmitted)}</div>` : ''}
+                ${p.permanentBoqApproved ? `<div>BoQ Approved: ${Utils.formatDate(p.permanentBoqApproved)}</div>` : ''}
+                ${p.permanentPqRaised ? `<div>PQ Raised: ${Utils.formatDate(p.permanentPqRaised)}</div>` : ''}
+                ${p.permanentPoIssued ? `<div>PO Issued: ${Utils.formatDate(p.permanentPoIssued)}</div>` : ''}
+                ${p.lineConstructionStarted ? `<div>Line Started: ${Utils.formatDate(p.lineConstructionStarted)}</div>` : ''}
+                ${p.lineConstructionCompleted ? `<div>Line Completed: ${Utils.formatDate(p.lineConstructionCompleted)}</div>` : ''}
+                ${p.billDepositPaid ? `<div>Bill Deposit Paid: ${Utils.formatDate(p.billDepositPaid)}</div>` : ''}
+                ${p.permanentEnergized ? `<div style="color:var(--success);font-weight:600">Energized: ${Utils.formatDate(p.permanentEnergized)}</div>` : '<div style="color:var(--warning)">Not yet energized</div>'}
+                ${p.permanentAgingDays ? `<div>Aging: ${p.permanentAgingDays} days</div>` : ''}
+            </div>
+        </div>` : ''}
+
+        ${(p.delayIssues || p.remarks) ? `
+        <h4 style="margin:18px 0 10px;font-size:13px;color:var(--secondary);text-transform:uppercase;letter-spacing:1px"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i>Issues & Remarks</h4>
+        <div style="font-size:13px;gap:8px">
+            ${p.delayIssues ? `<div style="margin-bottom:6px"><strong>Delay Issues:</strong> ${Utils.escapeHtml(p.delayIssues)}</div>` : ''}
+            ${p.remarks ? `<div><strong>Remarks:</strong> ${Utils.escapeHtml(p.remarks)}</div>` : ''}
+        </div>` : ''}`;
 
         // Phases
         if (p.phases && p.phases.length > 0) {
@@ -224,13 +283,15 @@ const Construction = {
         if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can edit records', 'error'); return; }
         const p = DataStore.projects.find(pr => pr.id === id);
         if (!p) return;
+        const existingVendors = [...new Set(DataStore.projects.map(pr => pr.gridVendor).filter(Boolean))];
         const html = `
         <form>
+            <h4 style="margin:0 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-building" style="margin-right:6px"></i>Basic Information</h4>
             <div class="form-row">
                 <div class="form-group">
                     <label>Status</label>
                     <select class="form-control" id="editProjStatus">
-                        ${['pending','active','on-hold','completed','cancelled'].map(s => `<option value="${s}" ${p.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('')}
+                        ${['pending','in-progress','on-hold','completed','cancelled','returned'].map(s => `<option value="${s}" ${p.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('')}
                     </select>
                 </div>
                 <div class="form-group">
@@ -254,10 +315,72 @@ const Construction = {
                     <input type="text" class="form-control" id="editProjManager" value="${Utils.escapeHtml(p.manager || '')}">
                 </div>
                 <div class="form-group">
-                    <label>Location</label>
-                    <input type="text" class="form-control" id="editProjLocation" value="${Utils.escapeHtml(p.location || '')}">
+                    <label>PMO Milestone</label>
+                    <select class="form-control" id="editProjPmoMilestone">
+                        <option value="">— Select —</option>
+                        ${['Candidate','Pre-Construction','Under Construction','Tempo Energized','Permanent Energized','Completed','Returned'].map(s => `<option value="${s}" ${p.pmoMilestone === s ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
                 </div>
             </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-broadcast-tower" style="margin-right:6px"></i>Site / Telecom Identity</h4>
+            <div class="form-row">
+                <div class="form-group"><label>FTAP Site ID</label><input type="text" class="form-control" id="editProjFtapId" value="${Utils.escapeHtml(p.ftapSiteId || '')}"></div>
+                <div class="form-group"><label>MNO Site ID</label><input type="text" class="form-control" id="editProjMnoId" value="${Utils.escapeHtml(p.mnoSiteId || '')}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>POC</label><input type="text" class="form-control" id="editProjPoc" value="${Utils.escapeHtml(p.poc || '')}"></div>
+                <div class="form-group"><label>COOP Abbreviation</label><input type="text" class="form-control" id="editProjCoop" value="${Utils.escapeHtml(p.coopAbbr || '')}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Territory</label><input type="text" class="form-control" id="editProjTerritory" value="${Utils.escapeHtml(p.territory || '')}"></div>
+                <div class="form-group"><label>Grid Vendor</label><input type="text" class="form-control" id="editProjVendor" list="vendorListEdit" value="${Utils.escapeHtml(p.gridVendor || '')}"><datalist id="vendorListEdit">${existingVendors.map(v => `<option value="${v}">`).join('')}</datalist></div>
+            </div>
+            <div class="form-group"><label>Vendor Allocated Date</label><input type="date" class="form-control" id="editProjVendorDate" value="${p.vendorAllocatedDate || ''}"></div>
+
+            <h4 style="margin:20px 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-map-marker-alt" style="margin-right:6px"></i>Location</h4>
+            <div class="form-row">
+                <div class="form-group"><label>Region</label><input type="text" class="form-control" id="editProjRegion" value="${Utils.escapeHtml(p.region || '')}"></div>
+                <div class="form-group"><label>Province</label><input type="text" class="form-control" id="editProjProvince" value="${Utils.escapeHtml(p.province || '')}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Municipality</label><input type="text" class="form-control" id="editProjMunicipality" value="${Utils.escapeHtml(p.municipality || '')}"></div>
+                <div class="form-group"><label>Address</label><input type="text" class="form-control" id="editProjLocation" value="${Utils.escapeHtml(p.location || '')}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Latitude</label><input type="number" class="form-control" id="editProjLat" step="0.000001" value="${p.lat || ''}"></div>
+                <div class="form-group"><label>Longitude</label><input type="number" class="form-control" id="editProjLng" step="0.000001" value="${p.lng || ''}"></div>
+            </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-bolt" style="margin-right:6px"></i>Tempo Power Tracking</h4>
+            <div class="form-row">
+                <div class="form-group"><label>Tempo PQ Raised</label><input type="date" class="form-control" id="editProjTempoPq" value="${p.tempoPqRaised || ''}"></div>
+                <div class="form-group"><label>Tempo PO Issued</label><input type="date" class="form-control" id="editProjTempoPo" value="${p.tempoPoIssued || ''}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Tempo Permit Released</label><input type="date" class="form-control" id="editProjTempoPermit" value="${p.tempoPermitReleased || ''}"></div>
+                <div class="form-group"><label>Tempo Energized</label><input type="date" class="form-control" id="editProjTempoEnergized" value="${p.tempoEnergized || ''}"></div>
+            </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-plug" style="margin-right:6px"></i>Permanent Power Tracking</h4>
+            <div class="form-row">
+                <div class="form-group"><label>Perm BoQ Submitted</label><input type="date" class="form-control" id="editProjPermBoqSub" value="${p.permanentBoqSubmitted || ''}"></div>
+                <div class="form-group"><label>Perm BoQ Approved</label><input type="date" class="form-control" id="editProjPermBoqApp" value="${p.permanentBoqApproved || ''}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Perm PQ Raised</label><input type="date" class="form-control" id="editProjPermPq" value="${p.permanentPqRaised || ''}"></div>
+                <div class="form-group"><label>Perm PO Issued</label><input type="date" class="form-control" id="editProjPermPo" value="${p.permanentPoIssued || ''}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Line Construction Started</label><input type="date" class="form-control" id="editProjLineStart" value="${p.lineConstructionStarted || ''}"></div>
+                <div class="form-group"><label>Line Construction Completed</label><input type="date" class="form-control" id="editProjLineEnd" value="${p.lineConstructionCompleted || ''}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Bill Deposit Paid</label><input type="date" class="form-control" id="editProjBillDeposit" value="${p.billDepositPaid || ''}"></div>
+                <div class="form-group"><label>Permanent Energized</label><input type="date" class="form-control" id="editProjPermEnergized" value="${p.permanentEnergized || ''}"></div>
+            </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-peso-sign" style="margin-right:6px"></i>Budget & Schedule</h4>
             <div class="form-row">
                 <div class="form-group">
                     <label>Budget (₱)</label>
@@ -278,6 +401,10 @@ const Construction = {
                     <input type="date" class="form-control" id="editProjEnd" value="${p.endDate || ''}">
                 </div>
             </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i>Issues & Remarks</h4>
+            <div class="form-group"><label>Delay Issues</label><textarea class="form-control" id="editProjDelayIssues" rows="2">${Utils.escapeHtml(p.delayIssues || '')}</textarea></div>
+            <div class="form-group"><label>Remarks</label><textarea class="form-control" id="editProjRemarks" rows="2">${Utils.escapeHtml(p.remarks || '')}</textarea></div>
         </form>`;
         App.openModal('Edit Project', html, `
             <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
@@ -301,6 +428,39 @@ const Construction = {
         p.progress = Math.min(100, Math.max(0, parseInt(document.getElementById('editProjProgress')?.value || p.progress)));
         p.startDate = document.getElementById('editProjStart')?.value || p.startDate;
         p.endDate = document.getElementById('editProjEnd')?.value || p.endDate;
+        // Telecom fields
+        p.pmoMilestone = document.getElementById('editProjPmoMilestone')?.value || '';
+        p.ftapSiteId = document.getElementById('editProjFtapId')?.value || '';
+        p.mnoSiteId = document.getElementById('editProjMnoId')?.value || '';
+        p.poc = document.getElementById('editProjPoc')?.value || '';
+        p.coopAbbr = document.getElementById('editProjCoop')?.value || '';
+        p.territory = document.getElementById('editProjTerritory')?.value || '';
+        p.gridVendor = document.getElementById('editProjVendor')?.value || '';
+        p.vendorAllocatedDate = document.getElementById('editProjVendorDate')?.value || '';
+        p.region = document.getElementById('editProjRegion')?.value || '';
+        p.province = document.getElementById('editProjProvince')?.value || '';
+        p.municipality = document.getElementById('editProjMunicipality')?.value || '';
+        p.lat = parseFloat(document.getElementById('editProjLat')?.value) || null;
+        p.lng = parseFloat(document.getElementById('editProjLng')?.value) || null;
+        // Tempo power
+        p.tempoPqRaised = document.getElementById('editProjTempoPq')?.value || '';
+        p.tempoPoIssued = document.getElementById('editProjTempoPo')?.value || '';
+        p.tempoPermitReleased = document.getElementById('editProjTempoPermit')?.value || '';
+        p.tempoEnergized = document.getElementById('editProjTempoEnergized')?.value || '';
+        // Permanent power
+        p.permanentBoqSubmitted = document.getElementById('editProjPermBoqSub')?.value || '';
+        p.permanentBoqApproved = document.getElementById('editProjPermBoqApp')?.value || '';
+        p.permanentPqRaised = document.getElementById('editProjPermPq')?.value || '';
+        p.permanentPoIssued = document.getElementById('editProjPermPo')?.value || '';
+        p.lineConstructionStarted = document.getElementById('editProjLineStart')?.value || '';
+        p.lineConstructionCompleted = document.getElementById('editProjLineEnd')?.value || '';
+        p.billDepositPaid = document.getElementById('editProjBillDeposit')?.value || '';
+        p.permanentEnergized = document.getElementById('editProjPermEnergized')?.value || '';
+        // Issues
+        p.delayIssues = document.getElementById('editProjDelayIssues')?.value || '';
+        p.remarks = document.getElementById('editProjRemarks')?.value || '';
+        // Auto-calculate aging
+        Construction.recalcProjectAging(p);
         Database.save();
         App.closeModal();
         App.showToast(`Project "${name}" updated`, 'success');
@@ -308,9 +468,31 @@ const Construction = {
         Construction.render(document.getElementById('contentArea'));
     },
 
+    recalcProjectAging(p) {
+        const now = new Date();
+        // Tempo aging: days from PQ raised (or vendor allocated) until energized
+        if (p.tempoEnergized) {
+            p.tempoAgingDays = 0;
+        } else if (p.tempoPqRaised) {
+            p.tempoAgingDays = Math.max(0, Math.floor((now - new Date(p.tempoPqRaised)) / (1000*60*60*24)));
+        } else if (p.vendorAllocatedDate) {
+            p.tempoAgingDays = Math.max(0, Math.floor((now - new Date(p.vendorAllocatedDate)) / (1000*60*60*24)));
+        }
+        // Permanent aging: days from BoQ submitted until permanent energized
+        if (p.permanentEnergized) {
+            p.permanentAgingDays = 0;
+        } else if (p.permanentBoqSubmitted) {
+            p.permanentAgingDays = Math.max(0, Math.floor((now - new Date(p.permanentBoqSubmitted)) / (1000*60*60*24)));
+        } else if (p.permanentPqRaised) {
+            p.permanentAgingDays = Math.max(0, Math.floor((now - new Date(p.permanentPqRaised)) / (1000*60*60*24)));
+        }
+    },
+
     openNewProject() {
+        const existingVendors = [...new Set(DataStore.projects.map(p => p.gridVendor).filter(Boolean))];
         const html = `
         <form>
+            <h4 style="margin:0 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-building" style="margin-right:6px"></i>Basic Information</h4>
             <div class="form-row">
                 <div class="form-group">
                     <label>Company <span class="required">*</span></label>
@@ -340,6 +522,7 @@ const Construction = {
                 <div class="form-group">
                     <label>Client</label>
                     <select class="form-control" id="newProjClient">
+                        <option value="">— Select —</option>
                         ${DataStore.customers.filter(c => c.tags?.includes('construction-client')).map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
                     </select>
                 </div>
@@ -348,14 +531,90 @@ const Construction = {
                     <input type="text" class="form-control" id="newProjManager" placeholder="Engr. ...">
                 </div>
             </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-broadcast-tower" style="margin-right:6px"></i>Site / Telecom Identity</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>FTAP Site ID</label>
+                    <input type="text" class="form-control" id="newProjFtapId" placeholder="e.g., FTAP-2026-001">
+                </div>
+                <div class="form-group">
+                    <label>MNO Site ID</label>
+                    <input type="text" class="form-control" id="newProjMnoId" placeholder="e.g., MNO-XYZ-001">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>POC (Point of Contact)</label>
+                    <input type="text" class="form-control" id="newProjPoc" placeholder="Contact person name">
+                </div>
+                <div class="form-group">
+                    <label>COOP Abbreviation</label>
+                    <input type="text" class="form-control" id="newProjCoop" placeholder="e.g., CAGELCO II">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Territory</label>
+                    <input type="text" class="form-control" id="newProjTerritory" placeholder="e.g., North Luzon">
+                </div>
+                <div class="form-group">
+                    <label>Grid Vendor</label>
+                    <input type="text" class="form-control" id="newProjVendor" list="vendorList" placeholder="e.g., Vendor A">
+                    <datalist id="vendorList">${existingVendors.map(v => `<option value="${v}">`).join('')}</datalist>
+                </div>
+            </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-map-marker-alt" style="margin-right:6px"></i>Location</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Region</label>
+                    <input type="text" class="form-control" id="newProjRegion" placeholder="e.g., Region II">
+                </div>
+                <div class="form-group">
+                    <label>Province</label>
+                    <input type="text" class="form-control" id="newProjProvince" placeholder="e.g., Cagayan">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Municipality / City</label>
+                    <input type="text" class="form-control" id="newProjMunicipality" placeholder="e.g., Tuguegarao City">
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <input type="text" class="form-control" id="newProjLocation">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Latitude</label>
+                    <input type="number" class="form-control" id="newProjLat" step="0.000001" placeholder="e.g., 17.6131">
+                </div>
+                <div class="form-group">
+                    <label>Longitude</label>
+                    <input type="number" class="form-control" id="newProjLng" step="0.000001" placeholder="e.g., 121.7269">
+                </div>
+            </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--secondary);font-size:13px;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-peso-sign" style="margin-right:6px"></i>Budget & Schedule</h4>
             <div class="form-row">
                 <div class="form-group">
                     <label>Budget (₱)</label>
                     <input type="number" class="form-control" id="newProjBudget" min="0">
                 </div>
                 <div class="form-group">
-                    <label>Location</label>
-                    <input type="text" class="form-control" id="newProjLocation">
+                    <label>PMO Milestone</label>
+                    <select class="form-control" id="newProjPmoMilestone">
+                        <option value="">— Select —</option>
+                        <option value="Candidate">Candidate</option>
+                        <option value="Pre-Construction">Pre-Construction</option>
+                        <option value="Under Construction">Under Construction</option>
+                        <option value="Tempo Energized">Tempo Energized</option>
+                        <option value="Permanent Energized">Permanent Energized</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Returned">Returned</option>
+                    </select>
                 </div>
             </div>
             <div class="form-row">
@@ -400,7 +659,44 @@ const Construction = {
             status: 'pending',
             priority: document.getElementById('newProjPriority').value,
             progress: 0,
-            phases: []
+            phases: [],
+            // Telecom / Site Identity
+            ftapSiteId: document.getElementById('newProjFtapId')?.value || '',
+            mnoSiteId: document.getElementById('newProjMnoId')?.value || '',
+            poc: document.getElementById('newProjPoc')?.value || '',
+            coopAbbr: document.getElementById('newProjCoop')?.value || '',
+            territory: document.getElementById('newProjTerritory')?.value || '',
+            gridVendor: document.getElementById('newProjVendor')?.value || '',
+            vendorAllocatedDate: '',
+            pmoMilestone: document.getElementById('newProjPmoMilestone')?.value || '',
+            cmeMilestone: '',
+            // Location details
+            region: document.getElementById('newProjRegion')?.value || '',
+            province: document.getElementById('newProjProvince')?.value || '',
+            municipality: document.getElementById('newProjMunicipality')?.value || '',
+            lat: parseFloat(document.getElementById('newProjLat')?.value) || null,
+            lng: parseFloat(document.getElementById('newProjLng')?.value) || null,
+            // Tempo power tracking
+            tempoStatus: '',
+            tempoPqRaised: '',
+            tempoPoIssued: '',
+            tempoPermitReleased: '',
+            tempoEnergized: '',
+            tempoAgingDays: 0,
+            // Permanent power tracking
+            permanentStatus: '',
+            permanentBoqSubmitted: '',
+            permanentBoqApproved: '',
+            permanentPqRaised: '',
+            permanentPoIssued: '',
+            lineConstructionStarted: '',
+            lineConstructionCompleted: '',
+            billDepositPaid: '',
+            permanentEnergized: '',
+            permanentAgingDays: 0,
+            // Issues
+            delayIssues: '',
+            remarks: ''
         });
 
         // Auto-create default milestones (telecom/construction template)
@@ -1086,6 +1382,15 @@ const Construction = {
             <button class="tab-btn" onclick="Construction.switchMonitorTab('issues',this)">
                 <i class="fas fa-bug" style="margin-right:5px"></i>Issues & Delays
             </button>
+            <button class="tab-btn" onclick="Construction.switchMonitorTab('vendor',this)">
+                <i class="fas fa-truck" style="margin-right:5px"></i>Vendor Performance
+            </button>
+            <button class="tab-btn" onclick="Construction.switchMonitorTab('delays',this)">
+                <i class="fas fa-exclamation-triangle" style="margin-right:5px"></i>Delay Analysis
+            </button>
+            <button class="tab-btn" onclick="Construction.switchMonitorTab('geospatial',this)">
+                <i class="fas fa-map-marked-alt" style="margin-right:5px"></i>Geospatial
+            </button>
         </div>
 
         <div id="monitorTabContent">${this.renderMonitorOverview(projects, milestones)}</div>`;
@@ -1107,6 +1412,9 @@ const Construction = {
             case 'aging':       el.innerHTML = this.renderProjectAgingReport(projects, milestones); break;
             case 'documents':   el.innerHTML = this.renderDocumentStatusByProject(projects); break;
             case 'issues':      el.innerHTML = this.renderIssuesPanel(projects, milestones); break;
+            case 'vendor':      el.innerHTML = this.renderVendorPerformance(projects); break;
+            case 'delays':      el.innerHTML = this.renderDelayAnalysis(projects, milestones); break;
+            case 'geospatial':  el.innerHTML = this.renderGeospatialDashboard(projects); break;
         }
     },
 
@@ -1114,6 +1422,9 @@ const Construction = {
         if (projects.length === 0) {
             return '<div class="empty-state"><i class="fas fa-project-diagram"></i><h3>No Projects</h3><p>Create projects first to start monitoring.</p></div>';
         }
+
+        // Recalculate power aging for all projects
+        projects.forEach(p => this.recalcProjectAging(p));
 
         return projects.map(p => {
             const pMilestones = milestones.filter(m => m.projectId === p.id);
@@ -1157,9 +1468,11 @@ const Construction = {
                 <div class="card-header" style="border-left:4px solid ${agingColor}">
                     <div>
                         <h3 style="font-size:15px">${p.name}</h3>
-                        <span style="font-size:11px;color:var(--text-muted)">${p.id} · ${p.manager || 'No Manager'} · ${p.location || ''}</span>
+                        <span style="font-size:11px;color:var(--text-muted)">${p.ftapSiteId || p.id} · ${p.manager || 'No Manager'} · ${p.territory || p.location || ''}</span>
+                        ${p.gridVendor ? `<span style="font-size:10px;margin-left:6px" class="badge-tag badge-neutral">${p.gridVendor}</span>` : ''}
                     </div>
-                    <div style="display:flex;gap:8px;align-items:center">
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        ${p.pmoMilestone ? `<span class="badge-tag" style="font-size:11px">${p.pmoMilestone}</span>` : ''}
                         <span class="badge-tag ${Utils.getStatusClass(p.status)}">${p.status}</span>
                         ${maxAging > 0 ? `<span class="badge-tag badge-danger" style="font-size:11px"><i class="fas fa-clock"></i> ${maxAging}d aging</span>` : ''}
                     </div>
@@ -1184,6 +1497,22 @@ const Construction = {
                             <div class="progress-bar" style="height:4px;margin-top:6px"><div class="progress-fill ${docBarColor}" style="width:${docCompliancePct}%"></div></div>
                         </div>
                     </div>
+
+                    ${(p.tempoPqRaised || p.tempoEnergized || p.permanentBoqSubmitted || p.permanentEnergized) ? `
+                    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                        <div style="padding:6px 12px;background:var(--bg);border-radius:6px;font-size:11px;border-left:3px solid ${p.tempoEnergized ? 'var(--success)' : p.tempoPqRaised ? 'var(--warning)' : '#94a3b8'};display:flex;align-items:center;gap:6px">
+                            <i class="fas fa-bolt" style="color:#f59e0b"></i>
+                            <span style="font-weight:600">Tempo:</span>
+                            ${p.tempoEnergized ? '<span style="color:var(--success)">Energized</span>' : p.tempoPermitReleased ? '<span style="color:var(--info)">Permit Released</span>' : p.tempoPoIssued ? '<span style="color:var(--warning)">PO Issued</span>' : p.tempoPqRaised ? '<span style="color:var(--warning)">PQ Raised</span>' : '<span style="color:var(--text-muted)">Not Started</span>'}
+                            ${(p.tempoAgingDays || 0) > 0 ? `<span class="badge-tag badge-warning" style="font-size:10px">${p.tempoAgingDays}d</span>` : ''}
+                        </div>
+                        <div style="padding:6px 12px;background:var(--bg);border-radius:6px;font-size:11px;border-left:3px solid ${p.permanentEnergized ? 'var(--success)' : p.permanentBoqSubmitted ? 'var(--warning)' : '#94a3b8'};display:flex;align-items:center;gap:6px">
+                            <i class="fas fa-plug" style="color:#8b5cf6"></i>
+                            <span style="font-weight:600">Perm:</span>
+                            ${p.permanentEnergized ? '<span style="color:var(--success)">Energized</span>' : p.lineConstructionCompleted ? '<span style="color:var(--info)">Line Done</span>' : p.lineConstructionStarted ? '<span style="color:var(--warning)">Line Started</span>' : p.permanentPoIssued ? '<span style="color:var(--warning)">PO Issued</span>' : p.permanentBoqSubmitted ? '<span style="color:var(--warning)">BoQ Submitted</span>' : '<span style="color:var(--text-muted)">Not Started</span>'}
+                            ${(p.permanentAgingDays || 0) > 0 ? `<span class="badge-tag badge-warning" style="font-size:10px">${p.permanentAgingDays}d</span>` : ''}
+                        </div>
+                    </div>` : ''}
 
                     ${Object.keys(categories).length > 0 ? `
                     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
@@ -1349,7 +1678,55 @@ const Construction = {
         ${renderBucket(buckets.d60, '31–60 Days Delayed', 'badge-danger', 'var(--danger)')}
         ${renderBucket(buckets.d90, '61+ Days Delayed', 'badge-danger', '#7f1d1d')}
 
-        ${activeMilestones.length === 0 ? '<div class="empty-state"><i class="fas fa-check-circle" style="color:var(--success)"></i><h3>All Clear</h3><p>No active milestones to track.</p></div>' : ''}`;
+        ${activeMilestones.length === 0 ? '<div class="empty-state"><i class="fas fa-check-circle" style="color:var(--success)"></i><h3>All Clear</h3><p>No active milestones to track.</p></div>' : ''}
+
+        ${this.renderPowerAgingSection(projects)}`;
+    },
+
+    renderPowerAgingSection(projects) {
+        const tempoPending = projects.filter(p => p.tempoPqRaised && !p.tempoEnergized);
+        const permPending = projects.filter(p => p.permanentBoqSubmitted && !p.permanentEnergized);
+
+        if (tempoPending.length === 0 && permPending.length === 0) return '';
+
+        const renderPowerTable = (items, type) => {
+            if (items.length === 0) return '<div style="padding:16px;text-align:center;color:var(--text-muted)">No pending items</div>';
+            const sorted = [...items].sort((a, b) => ((type === 'tempo' ? b.tempoAgingDays : b.permanentAgingDays) || 0) - ((type === 'tempo' ? a.tempoAgingDays : a.permanentAgingDays) || 0));
+            return `<table class="data-table" style="font-size:12px">
+                <thead><tr><th>Project</th><th>FTAP ID</th><th>Vendor</th><th>Current Step</th><th>Aging Days</th><th>Status</th></tr></thead>
+                <tbody>${sorted.map(p => {
+                    const aging = type === 'tempo' ? (p.tempoAgingDays || 0) : (p.permanentAgingDays || 0);
+                    const agingColor = aging > 60 ? 'var(--danger)' : aging > 30 ? 'var(--warning)' : 'var(--success)';
+                    let step = '—';
+                    if (type === 'tempo') {
+                        if (p.tempoPermitReleased) step = 'Awaiting Energization';
+                        else if (p.tempoPoIssued) step = 'Awaiting Permit';
+                        else if (p.tempoPqRaised) step = 'Awaiting PO';
+                    } else {
+                        if (p.lineConstructionCompleted) step = 'Awaiting Energization';
+                        else if (p.lineConstructionStarted) step = 'Line Construction';
+                        else if (p.permanentPoIssued) step = 'Awaiting Line Start';
+                        else if (p.permanentPqRaised) step = 'Awaiting PO';
+                        else if (p.permanentBoqApproved) step = 'Awaiting PQ';
+                        else if (p.permanentBoqSubmitted) step = 'Awaiting BoQ Approval';
+                    }
+                    return `<tr>
+                        <td><strong>${Utils.escapeHtml(p.name)}</strong></td>
+                        <td>${p.ftapSiteId || '—'}</td>
+                        <td>${p.gridVendor || '—'}</td>
+                        <td>${step}</td>
+                        <td><span style="color:${agingColor};font-weight:700">${aging}d</span></td>
+                        <td><span class="badge-tag ${Utils.getStatusClass(p.status)}">${p.status}</span></td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>`;
+        };
+
+        return `
+        <h3 style="margin:24px 0 12px"><i class="fas fa-bolt" style="color:#f59e0b;margin-right:6px"></i>Tempo Power Aging</h3>
+        <div class="card mb-2"><div class="card-body no-padding">${renderPowerTable(tempoPending, 'tempo')}</div></div>
+        <h3 style="margin:24px 0 12px"><i class="fas fa-plug" style="color:#8b5cf6;margin-right:6px"></i>Permanent Power Aging</h3>
+        <div class="card mb-2"><div class="card-body no-padding">${renderPowerTable(permPending, 'permanent')}</div></div>`;
     },
 
     renderIssuesPanel(projects, milestones) {
@@ -1464,6 +1841,404 @@ const Construction = {
                 </div>
             </div>`;
         }).join('')}`;
+    },
+
+    // ============================================================
+    //  VENDOR PERFORMANCE TAB
+    // ============================================================
+    renderVendorPerformance(projects) {
+        const vendorMap = {};
+        projects.forEach(p => {
+            const vendor = p.gridVendor || 'Unassigned';
+            if (!vendorMap[vendor]) vendorMap[vendor] = { projects: [], totalAging: 0, delays: 0, completed: 0, totalDays: 0 };
+            vendorMap[vendor].projects.push(p);
+            if (p.status === 'completed') {
+                vendorMap[vendor].completed++;
+                if (p.vendorAllocatedDate && p.endDate) {
+                    const days = Math.floor((new Date(p.endDate) - new Date(p.vendorAllocatedDate)) / (1000*60*60*24));
+                    vendorMap[vendor].totalDays += Math.max(0, days);
+                }
+            }
+            const aging = (p.tempoAgingDays || 0) + (p.permanentAgingDays || 0);
+            vendorMap[vendor].totalAging += aging;
+            if (aging > 0 || p.delayIssues) vendorMap[vendor].delays++;
+        });
+
+        const vendors = Object.entries(vendorMap).sort((a, b) => b[1].projects.length - a[1].projects.length);
+
+        if (vendors.length === 0) {
+            return '<div class="empty-state"><i class="fas fa-truck"></i><h3>No Vendor Data</h3><p>Assign grid vendors to projects to see performance metrics.</p></div>';
+        }
+
+        let html = `
+        <div class="section-header mb-2">
+            <h3>Vendor Performance Dashboard</h3>
+            <span style="font-size:13px;color:var(--text-secondary)">${vendors.length} vendor(s) across ${projects.length} projects</span>
+        </div>
+        <div class="grid-4 mb-3" style="gap:12px">
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><i class="fas fa-truck"></i></div></div><div class="stat-value">${vendors.length}</div><div class="stat-label">Total Vendors</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div></div><div class="stat-value">${vendors.reduce((s, [,v]) => s + v.completed, 0)}</div><div class="stat-label">Completed Projects</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon orange"><i class="fas fa-exclamation-circle"></i></div></div><div class="stat-value">${vendors.reduce((s, [,v]) => s + v.delays, 0)}</div><div class="stat-label">Projects with Delays</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon teal"><i class="fas fa-hourglass-half"></i></div></div><div class="stat-value">${Math.round(vendors.reduce((s, [,v]) => s + v.totalAging, 0) / Math.max(projects.length, 1))}d</div><div class="stat-label">Avg Power Aging</div></div>
+        </div>`;
+
+        html += `<div class="card"><div class="card-body no-padding">
+        <table class="data-table" style="font-size:12px">
+            <thead><tr>
+                <th>Vendor</th>
+                <th>Projects</th>
+                <th>Completed</th>
+                <th>Delayed</th>
+                <th>Avg Power Aging</th>
+                <th>Avg Completion (days)</th>
+                <th>Performance</th>
+            </tr></thead>
+            <tbody>`;
+
+        vendors.forEach(([name, v]) => {
+            const avgAging = v.projects.length > 0 ? Math.round(v.totalAging / v.projects.length) : 0;
+            const avgCompletion = v.completed > 0 ? Math.round(v.totalDays / v.completed) : 0;
+            const delayPct = v.projects.length > 0 ? Math.round((v.delays / v.projects.length) * 100) : 0;
+            const perfColor = delayPct <= 20 ? 'var(--success)' : delayPct <= 50 ? 'var(--warning)' : 'var(--danger)';
+            const perfLabel = delayPct <= 20 ? 'Excellent' : delayPct <= 50 ? 'Fair' : 'Poor';
+
+            html += `<tr>
+                <td><strong>${Utils.escapeHtml(name)}</strong></td>
+                <td>${v.projects.length}</td>
+                <td>${v.completed}</td>
+                <td>${v.delays > 0 ? `<span style="color:var(--danger)">${v.delays}</span>` : '0'}</td>
+                <td>${avgAging > 0 ? `<span style="color:${avgAging > 30 ? 'var(--danger)' : 'var(--warning)'}">${avgAging}d</span>` : '<span style="color:var(--success)">0d</span>'}</td>
+                <td>${avgCompletion > 0 ? avgCompletion + 'd' : 'N/A'}</td>
+                <td><span style="color:${perfColor};font-weight:600">${perfLabel}</span><div class="progress-bar" style="height:4px;margin-top:4px;width:80px"><div class="progress-fill ${delayPct <= 20 ? 'green' : delayPct <= 50 ? 'orange' : 'red'}" style="width:${100 - delayPct}%"></div></div></td>
+            </tr>`;
+        });
+
+        html += '</tbody></table></div></div>';
+
+        // Vendor project breakdown
+        html += '<h4 style="margin:20px 0 12px">Vendor Project Breakdown</h4>';
+        vendors.forEach(([name, v]) => {
+            html += `<div class="card mb-2"><div class="card-header"><h3 style="font-size:14px"><i class="fas fa-truck" style="margin-right:6px;color:var(--secondary)"></i>${Utils.escapeHtml(name)}</h3><span class="badge-tag">${v.projects.length} project(s)</span></div><div class="card-body no-padding">
+            <table class="data-table" style="font-size:12px"><thead><tr><th>Project</th><th>PMO Milestone</th><th>Status</th><th>Tempo Aging</th><th>Perm Aging</th><th>Issues</th></tr></thead><tbody>`;
+            v.projects.forEach(p => {
+                html += `<tr>
+                    <td><strong>${Utils.escapeHtml(p.name)}</strong><div style="font-size:10px;color:var(--text-muted)">${p.ftapSiteId || p.id}</div></td>
+                    <td>${p.pmoMilestone ? `<span class="badge-tag">${p.pmoMilestone}</span>` : '—'}</td>
+                    <td><span class="badge-tag ${Utils.getStatusClass(p.status)}">${p.status}</span></td>
+                    <td>${(p.tempoAgingDays || 0) > 0 ? `<span style="color:var(--warning)">${p.tempoAgingDays}d</span>` : '<span style="color:var(--success)">0d</span>'}</td>
+                    <td>${(p.permanentAgingDays || 0) > 0 ? `<span style="color:var(--warning)">${p.permanentAgingDays}d</span>` : '<span style="color:var(--success)">0d</span>'}</td>
+                    <td>${p.delayIssues ? `<span style="color:var(--danger);font-size:11px">${Utils.escapeHtml(p.delayIssues).substring(0, 60)}${p.delayIssues.length > 60 ? '...' : ''}</span>` : '—'}</td>
+                </tr>`;
+            });
+            html += '</tbody></table></div></div>';
+        });
+
+        return html;
+    },
+
+    // ============================================================
+    //  DELAY ANALYSIS & ROOT CAUSE TAB
+    // ============================================================
+    renderDelayAnalysis(projects, milestones) {
+        // Gather delay data from projects and milestones
+        const delayedProjects = projects.filter(p => p.delayIssues || (p.tempoAgingDays || 0) > 0 || (p.permanentAgingDays || 0) > 0);
+        const delayedMilestones = milestones.filter(m => m.status === 'delayed' || m.status === 'blocked' || (m.agingDays || 0) > 0);
+
+        // Categorize delays
+        const categories = {
+            'Permit/Regulatory': { count: 0, totalDays: 0, projects: [] },
+            'Vendor/Supplier': { count: 0, totalDays: 0, projects: [] },
+            'Weather/Force Majeure': { count: 0, totalDays: 0, projects: [] },
+            'Financial/Budget': { count: 0, totalDays: 0, projects: [] },
+            'Resource/Manpower': { count: 0, totalDays: 0, projects: [] },
+            'Technical/Design': { count: 0, totalDays: 0, projects: [] },
+            'Utility Company': { count: 0, totalDays: 0, projects: [] },
+            'Other/Uncategorized': { count: 0, totalDays: 0, projects: [] }
+        };
+
+        delayedProjects.forEach(p => {
+            const issue = (p.delayIssues || '').toLowerCase();
+            const aging = (p.tempoAgingDays || 0) + (p.permanentAgingDays || 0);
+            let matched = false;
+            if (issue.match(/permit|regul|govern|lgu|barangay|right.of.way/)) { categories['Permit/Regulatory'].count++; categories['Permit/Regulatory'].totalDays += aging; categories['Permit/Regulatory'].projects.push(p); matched = true; }
+            if (issue.match(/vendor|supplier|material|deliver/)) { categories['Vendor/Supplier'].count++; categories['Vendor/Supplier'].totalDays += aging; categories['Vendor/Supplier'].projects.push(p); matched = true; }
+            if (issue.match(/weather|rain|typhoon|flood|force majeure/)) { categories['Weather/Force Majeure'].count++; categories['Weather/Force Majeure'].totalDays += aging; categories['Weather/Force Majeure'].projects.push(p); matched = true; }
+            if (issue.match(/budget|fund|financ|payment|cash/)) { categories['Financial/Budget'].count++; categories['Financial/Budget'].totalDays += aging; categories['Financial/Budget'].projects.push(p); matched = true; }
+            if (issue.match(/resource|manpower|labor|crew|staff/)) { categories['Resource/Manpower'].count++; categories['Resource/Manpower'].totalDays += aging; categories['Resource/Manpower'].projects.push(p); matched = true; }
+            if (issue.match(/technic|design|engineer|revision|change order/)) { categories['Technical/Design'].count++; categories['Technical/Design'].totalDays += aging; categories['Technical/Design'].projects.push(p); matched = true; }
+            if (issue.match(/utility|meralco|power|electric|energy/)) { categories['Utility Company'].count++; categories['Utility Company'].totalDays += aging; categories['Utility Company'].projects.push(p); matched = true; }
+            if (!matched && (issue || aging > 0)) { categories['Other/Uncategorized'].count++; categories['Other/Uncategorized'].totalDays += aging; categories['Other/Uncategorized'].projects.push(p); }
+        });
+
+        // Aging bucket distribution
+        const buckets = { '0 (On Time)': 0, '1-30 days': 0, '31-60 days': 0, '61-90 days': 0, '90+ days': 0 };
+        delayedMilestones.forEach(m => {
+            const d = m.agingDays || 0;
+            if (d === 0) buckets['0 (On Time)']++;
+            else if (d <= 30) buckets['1-30 days']++;
+            else if (d <= 60) buckets['31-60 days']++;
+            else if (d <= 90) buckets['61-90 days']++;
+            else buckets['90+ days']++;
+        });
+
+        // PMO Milestone phase delays
+        const phaseDelays = {};
+        delayedProjects.forEach(p => {
+            const phase = p.pmoMilestone || 'Unknown';
+            if (!phaseDelays[phase]) phaseDelays[phase] = { count: 0, totalAging: 0 };
+            phaseDelays[phase].count++;
+            phaseDelays[phase].totalAging += (p.tempoAgingDays || 0) + (p.permanentAgingDays || 0);
+        });
+
+        let html = `
+        <div class="section-header mb-2">
+            <h3>Delay Analysis & Root Cause</h3>
+            <span style="font-size:13px;color:var(--text-secondary)">${delayedProjects.length} project(s) with delays, ${delayedMilestones.length} delayed milestone(s)</span>
+        </div>
+
+        <div class="grid-4 mb-3" style="gap:12px">
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon red"><i class="fas fa-exclamation-triangle"></i></div></div><div class="stat-value">${delayedProjects.length}</div><div class="stat-label">Delayed Projects</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon orange"><i class="fas fa-clock"></i></div></div><div class="stat-value">${delayedMilestones.length}</div><div class="stat-label">Delayed Milestones</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><i class="fas fa-calendar-times"></i></div></div><div class="stat-value">${delayedProjects.length > 0 ? Math.round(delayedProjects.reduce((s, p) => s + (p.tempoAgingDays || 0) + (p.permanentAgingDays || 0), 0) / delayedProjects.length) : 0}d</div><div class="stat-label">Avg Power Aging</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon teal"><i class="fas fa-bolt"></i></div></div><div class="stat-value">${projects.filter(p => (p.tempoAgingDays || 0) > 60 || (p.permanentAgingDays || 0) > 60).length}</div><div class="stat-label">Critical (60+ days)</div></div>
+        </div>`;
+
+        // Delay Categories Chart (horizontal bars)
+        const activeCategories = Object.entries(categories).filter(([, v]) => v.count > 0).sort((a, b) => b[1].count - a[1].count);
+        const maxCount = activeCategories.length > 0 ? activeCategories[0][1].count : 1;
+
+        html += `<div class="grid-2 mb-3" style="gap:16px">
+        <div class="card"><div class="card-header"><h3 style="font-size:14px"><i class="fas fa-chart-bar" style="margin-right:6px"></i>Delay Root Cause Distribution</h3></div>
+        <div class="card-body">`;
+
+        if (activeCategories.length === 0) {
+            html += '<div style="text-align:center;padding:20px;color:var(--text-muted)">No delay data available</div>';
+        } else {
+            const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#6366f1', '#94a3b8'];
+            activeCategories.forEach(([cat, v], i) => {
+                const pct = Math.round((v.count / maxCount) * 100);
+                html += `<div style="margin-bottom:12px">
+                    <div class="flex-between" style="font-size:12px;margin-bottom:4px">
+                        <span style="font-weight:600">${cat}</span>
+                        <span>${v.count} project(s) · avg ${v.count > 0 ? Math.round(v.totalDays / v.count) : 0}d</span>
+                    </div>
+                    <div class="progress-bar" style="height:8px"><div style="width:${pct}%;height:100%;background:${colors[i % colors.length]};border-radius:4px;transition:width 0.3s"></div></div>
+                </div>`;
+            });
+        }
+        html += '</div></div>';
+
+        // Aging Bucket Distribution
+        html += `<div class="card"><div class="card-header"><h3 style="font-size:14px"><i class="fas fa-layer-group" style="margin-right:6px"></i>Milestone Aging Buckets</h3></div>
+        <div class="card-body">`;
+        const bucketColors = { '0 (On Time)': '#10b981', '1-30 days': '#f59e0b', '31-60 days': '#f97316', '61-90 days': '#ef4444', '90+ days': '#991b1b' };
+        const maxBucket = Math.max(...Object.values(buckets), 1);
+        Object.entries(buckets).forEach(([label, count]) => {
+            const pct = Math.round((count / maxBucket) * 100);
+            html += `<div style="margin-bottom:12px">
+                <div class="flex-between" style="font-size:12px;margin-bottom:4px">
+                    <span style="font-weight:600">${label}</span><span>${count} milestone(s)</span>
+                </div>
+                <div class="progress-bar" style="height:8px"><div style="width:${pct}%;height:100%;background:${bucketColors[label]};border-radius:4px;transition:width 0.3s"></div></div>
+            </div>`;
+        });
+        html += '</div></div></div>';
+
+        // Phase-based delays
+        const phases = Object.entries(phaseDelays).sort((a, b) => b[1].count - a[1].count);
+        if (phases.length > 0) {
+            html += `<h4 style="margin:16px 0 10px">Delays by PMO Milestone Phase</h4><div class="card"><div class="card-body no-padding">
+            <table class="data-table" style="font-size:12px"><thead><tr><th>Phase</th><th>Delayed Projects</th><th>Total Aging Days</th><th>Avg Aging</th></tr></thead><tbody>`;
+            phases.forEach(([phase, data]) => {
+                html += `<tr><td><strong>${phase}</strong></td><td>${data.count}</td><td>${data.totalAging}d</td><td>${Math.round(data.totalAging / data.count)}d</td></tr>`;
+            });
+            html += '</tbody></table></div></div>';
+        }
+
+        // Detailed delay log
+        html += `<h4 style="margin:16px 0 10px">Detailed Delay Log</h4>`;
+        if (delayedProjects.length === 0) {
+            html += '<div style="text-align:center;padding:20px;color:var(--text-muted)">No delays recorded</div>';
+        } else {
+            delayedProjects.forEach(p => {
+                const tempoAging = p.tempoAgingDays || 0;
+                const permAging = p.permanentAgingDays || 0;
+                const borderColor = (tempoAging + permAging) > 60 ? 'var(--danger)' : (tempoAging + permAging) > 30 ? 'var(--warning)' : '#f59e0b';
+                html += `<div class="card mb-2" style="border-left:4px solid ${borderColor}">
+                    <div class="card-body">
+                        <div class="flex-between mb-1">
+                            <div>
+                                <strong>${Utils.escapeHtml(p.name)}</strong>
+                                <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${p.ftapSiteId || p.id} · ${p.gridVendor || 'No vendor'}</span>
+                            </div>
+                            <div style="display:flex;gap:6px">
+                                ${p.pmoMilestone ? `<span class="badge-tag">${p.pmoMilestone}</span>` : ''}
+                                ${tempoAging > 0 ? `<span class="badge-tag badge-warning">Tempo: ${tempoAging}d</span>` : ''}
+                                ${permAging > 0 ? `<span class="badge-tag badge-danger">Perm: ${permAging}d</span>` : ''}
+                            </div>
+                        </div>
+                        ${p.delayIssues ? `<div style="padding:8px 12px;background:rgba(239,68,68,0.06);border-radius:6px;font-size:13px;margin-top:6px"><i class="fas fa-exclamation-circle" style="color:var(--danger);margin-right:6px"></i>${Utils.escapeHtml(p.delayIssues)}</div>` : ''}
+                        ${p.remarks ? `<div style="padding:8px 12px;background:var(--bg);border-radius:6px;font-size:13px;margin-top:6px"><i class="fas fa-sticky-note" style="color:var(--warning);margin-right:6px"></i>${Utils.escapeHtml(p.remarks)}</div>` : ''}
+                    </div>
+                </div>`;
+            });
+        }
+
+        return html;
+    },
+
+    // ============================================================
+    //  GEOSPATIAL DASHBOARD TAB
+    // ============================================================
+    renderGeospatialDashboard(projects) {
+        const geoProjects = projects.filter(p => p.lat && p.lng);
+        const noGeoProjects = projects.filter(p => !p.lat || !p.lng);
+
+        // Group by region/province
+        const regionMap = {};
+        projects.forEach(p => {
+            const region = p.region || 'Unspecified';
+            if (!regionMap[region]) regionMap[region] = [];
+            regionMap[region].push(p);
+        });
+
+        // Status summary for map legend
+        const statusCounts = {};
+        projects.forEach(p => {
+            statusCounts[p.status] = (statusCounts[p.status] || 0) + 1;
+        });
+
+        const statusColors = {
+            'pending': '#94a3b8', 'in-progress': '#3b82f6', 'on-hold': '#f59e0b',
+            'completed': '#10b981', 'cancelled': '#ef4444', 'returned': '#8b5cf6'
+        };
+
+        let html = `
+        <div class="section-header mb-2">
+            <h3>Geospatial Dashboard</h3>
+            <span style="font-size:13px;color:var(--text-secondary)">${geoProjects.length} project(s) with coordinates · ${noGeoProjects.length} without</span>
+        </div>
+
+        <div class="grid-4 mb-3" style="gap:12px">
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><i class="fas fa-map-pin"></i></div></div><div class="stat-value">${geoProjects.length}</div><div class="stat-label">Mapped Projects</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon teal"><i class="fas fa-globe-asia"></i></div></div><div class="stat-value">${Object.keys(regionMap).length}</div><div class="stat-label">Regions</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div></div><div class="stat-value">${projects.filter(p => p.status === 'completed').length}</div><div class="stat-label">Completed</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon orange"><i class="fas fa-clock"></i></div></div><div class="stat-value">${projects.filter(p => p.status === 'in-progress').length}</div><div class="stat-label">In Progress</div></div>
+        </div>`;
+
+        // Map container with Leaflet
+        if (geoProjects.length > 0) {
+            html += `
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h3 style="font-size:14px"><i class="fas fa-map-marked-alt" style="margin-right:6px"></i>Project Map</h3>
+                    <div style="display:flex;gap:8px;font-size:11px;flex-wrap:wrap">
+                        ${Object.entries(statusColors).filter(([s]) => statusCounts[s]).map(([s, c]) => `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block"></span>${s} (${statusCounts[s] || 0})</span>`).join('')}
+                    </div>
+                </div>
+                <div class="card-body" style="padding:0">
+                    <div id="geoMapContainer" style="width:100%;height:420px;background:var(--bg);position:relative;overflow:hidden;border-radius:0 0 var(--radius) var(--radius)"></div>
+                </div>
+            </div>`;
+        }
+
+        // Region breakdown table
+        html += `<h4 style="margin:16px 0 10px">Projects by Region</h4>`;
+        const regions = Object.entries(regionMap).sort((a, b) => b[1].length - a[1].length);
+        regions.forEach(([region, projs]) => {
+            const completed = projs.filter(p => p.status === 'completed').length;
+            const inProgress = projs.filter(p => p.status === 'in-progress').length;
+            html += `<div class="card mb-2">
+                <div class="card-header">
+                    <div><h3 style="font-size:14px"><i class="fas fa-map" style="margin-right:6px;color:var(--secondary)"></i>${Utils.escapeHtml(region)}</h3></div>
+                    <div style="display:flex;gap:8px">
+                        <span class="badge-tag">${projs.length} project(s)</span>
+                        <span class="badge-tag badge-success">${completed} done</span>
+                        <span class="badge-tag badge-info">${inProgress} active</span>
+                    </div>
+                </div>
+                <div class="card-body no-padding">
+                    <table class="data-table" style="font-size:12px">
+                        <thead><tr><th>Project</th><th>FTAP ID</th><th>Province</th><th>Municipality</th><th>Vendor</th><th>PMO Phase</th><th>Status</th><th>Coordinates</th></tr></thead>
+                        <tbody>
+                        ${projs.map(p => `<tr>
+                            <td><strong>${Utils.escapeHtml(p.name)}</strong></td>
+                            <td>${p.ftapSiteId || '—'}</td>
+                            <td>${p.province || '—'}</td>
+                            <td>${p.municipality || '—'}</td>
+                            <td>${p.gridVendor || '—'}</td>
+                            <td>${p.pmoMilestone ? `<span class="badge-tag">${p.pmoMilestone}</span>` : '—'}</td>
+                            <td><span class="badge-tag ${Utils.getStatusClass(p.status)}">${p.status}</span></td>
+                            <td>${(p.lat && p.lng) ? `<span style="font-size:11px">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
+                        </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+        });
+
+        // After rendering, initialize the map if coordinates exist
+        if (geoProjects.length > 0) {
+            setTimeout(() => this.initGeospatialMap(geoProjects, statusColors), 100);
+        }
+
+        return html;
+    },
+
+    initGeospatialMap(geoProjects, statusColors) {
+        const container = document.getElementById('geoMapContainer');
+        if (!container) return;
+
+        // Check if Leaflet is available
+        if (typeof L !== 'undefined') {
+            const map = L.map(container).setView([12.8797, 121.7740], 6); // Philippines center
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+
+            geoProjects.forEach(p => {
+                const color = statusColors[p.status] || '#3b82f6';
+                const marker = L.circleMarker([p.lat, p.lng], {
+                    radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.85
+                }).addTo(map);
+                marker.bindPopup(`
+                    <div style="font-size:13px;min-width:200px">
+                        <strong>${Utils.escapeHtml(p.name)}</strong><br>
+                        <span style="font-size:11px;color:#666">${p.ftapSiteId || p.id}</span><br>
+                        <hr style="margin:6px 0">
+                        <div>Status: <span style="color:${color};font-weight:600">${p.status}</span></div>
+                        ${p.pmoMilestone ? `<div>Phase: ${p.pmoMilestone}</div>` : ''}
+                        ${p.gridVendor ? `<div>Vendor: ${p.gridVendor}</div>` : ''}
+                        ${p.territory ? `<div>Territory: ${p.territory}</div>` : ''}
+                        ${p.municipality ? `<div>Location: ${p.municipality}, ${p.province || ''}</div>` : ''}
+                    </div>
+                `);
+            });
+
+            // Fit bounds to markers
+            if (geoProjects.length > 1) {
+                const bounds = L.latLngBounds(geoProjects.map(p => [p.lat, p.lng]));
+                map.fitBounds(bounds, { padding: [30, 30] });
+            }
+        } else {
+            // Fallback: simple coordinate grid if Leaflet not loaded
+            container.innerHTML = `
+            <div style="padding:20px;text-align:center">
+                <p style="color:var(--text-muted);margin-bottom:12px"><i class="fas fa-map-marked-alt" style="font-size:36px;color:var(--secondary)"></i></p>
+                <p style="font-weight:600;margin-bottom:8px">Interactive Map</p>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">Add Leaflet library for interactive maps. Project coordinates are listed in the table below.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+                    ${geoProjects.map(p => {
+                        const color = statusColors[p.status] || '#3b82f6';
+                        return `<div style="padding:8px 12px;background:var(--surface);border-radius:8px;border-left:3px solid ${color};font-size:11px;text-align:left">
+                            <div style="font-weight:600">${Utils.escapeHtml(p.name)}</div>
+                            <div style="color:var(--text-muted)">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+        }
     },
 
     viewProjectDocuments(projectId) {

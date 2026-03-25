@@ -190,7 +190,8 @@ const Payroll = {
         const kioskLinksHtml = targetLinks.map(co => {
             const c = DataStore.companies[co];
             if (!c) return '';
-            const url = `${urlPrefix}timeinout.html?company=${co}`;
+            const urlMgr = `${urlPrefix}timeinout.html?company=${co}&role=manager`;
+            const urlEmp = `${urlPrefix}timeinout.html?company=${co}&role=employee`;
             return `
             <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
                 <div style="width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid ${c.color}40;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -198,11 +199,13 @@ const Payroll = {
                 </div>
                 <div style="flex:1;min-width:0">
                     <div style="font-weight:700;font-size:13px">${c.name}</div>
-                    <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${url}</div>
+                    <div style="font-size:11px;color:var(--text-muted)">Manager & Employee kiosk links</div>
                 </div>
-                <div style="display:flex;gap:6px;flex-shrink:0">
-                    <a href="${url}" target="_blank" class="btn btn-sm btn-primary" title="Open Kiosk"><i class="fas fa-external-link-alt"></i></a>
-                    <button class="btn btn-sm btn-secondary" onclick="Payroll.copyKioskLink('${url}')" title="Copy Link"><i class="fas fa-copy"></i></button>
+                <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+                    <a href="${urlMgr}" target="_blank" class="btn btn-sm btn-primary" title="Manager Kiosk"><i class="fas fa-user-shield"></i> Manager</a>
+                    <a href="${urlEmp}" target="_blank" class="btn btn-sm btn-secondary" title="Employee Kiosk"><i class="fas fa-user"></i> Employee</a>
+                    <button class="btn btn-sm btn-secondary" onclick="Payroll.copyKioskLink('${urlMgr}')" title="Copy Manager Link"><i class="fas fa-copy"></i> Mgr</button>
+                    <button class="btn btn-sm btn-secondary" onclick="Payroll.copyKioskLink('${urlEmp}')" title="Copy Employee Link"><i class="fas fa-copy"></i> Emp</button>
                 </div>
             </div>`;
         }).join('');
@@ -808,9 +811,10 @@ const Payroll = {
     //  EMPLOYEE MANAGEMENT
     // ============================================================
     openAddEmployee() {
+        const allCompanyOpts = Object.values(DataStore.companies).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
         const companies = App.activeCompany === 'all'
-            ? Object.values(DataStore.companies).map(c => `<option value="${c.id}">${c.name}</option>`).join('')
-            : `<option value="${App.activeCompany}" selected>${DataStore.companies[App.activeCompany]?.name}</option>`;
+            ? `<option value="all">All Companies</option>` + allCompanyOpts
+            : `<option value="all">All Companies</option><option value="${App.activeCompany}" selected>${DataStore.companies[App.activeCompany]?.name}</option>` + Object.values(DataStore.companies).filter(c => c.id !== App.activeCompany).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
         // Figure out next auto userId
         const existingIds = DataStore.employees.map(e => parseInt(e.userId, 10)).filter(n => !isNaN(n));

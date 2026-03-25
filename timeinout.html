@@ -349,6 +349,77 @@
             display: flex; align-items: center; justify-content: center;
             font-size: 18px; font-weight: 900;
         }
+        /* ---- User ID Input ---- */
+        .user-id-input {
+            width: 100%;
+            padding: 14px 18px;
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 4px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: #f8fafc;
+            outline: none;
+            transition: border-color 0.2s;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+        }
+        .user-id-input:focus {
+            border-color: var(--company-color, var(--accent));
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        .user-id-input::placeholder {
+            letter-spacing: 1px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+        /* ---- Face Verification Panel ---- */
+        .face-verification-panel {
+            background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+            border: 2px solid #86efac;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        /* ---- Enroll Face Panel ---- */
+        .enroll-face-panel {
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border: 2px solid #fbbf24;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        /* ---- Face Scan Button ---- */
+        .face-scan-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            background: var(--company-color, var(--accent));
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .face-scan-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .face-scan-btn:active { transform: translateY(0); }
+        /* ---- Face Scan Security Note ---- */
+        .face-scan-security {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
         /* ---- Biometric Import Panel ---- */
         .bio-panel { display: none; }
         .bio-panel.visible { display: block; }
@@ -942,6 +1013,11 @@ async function doClockIn() {
     showSpinner('Getting your location…');
     const geoResult = await getLocation();
     hideSpinner();
+
+    if (!geoResult) {
+        showToast('Geolocation is required to Time In. Please enable location services and try again.', 'error');
+        return;
+    }
 
     const timeInStr = timeStr(now());
 
@@ -1679,12 +1755,25 @@ function processBioQueue() {
 (function init() {
     const params = new URLSearchParams(window.location.search);
     const company = (params.get('company') || params.get('co') || '').toLowerCase().trim();
+    const role = (params.get('role') || '').toLowerCase().trim(); // 'manager' or 'employee'
     const meta = COMPANY_META[company] || null;
     state.company = company || null;
     state.meta = meta;
+    state.role = role;
 
     loadState();
     renderApp();
+
+    // After render, enforce role-based tab visibility
+    if (role === 'employee') {
+        // Employees only see User ID + Face tab
+        const tabBrowse = document.getElementById('tabBrowse');
+        const tabBio = document.getElementById('tabBio');
+        if (tabBrowse) tabBrowse.style.display = 'none';
+        if (tabBio) tabBio.style.display = 'none';
+        // Auto-switch to User ID + Face mode
+        switchMode('pin');
+    }
 })();
 </script>
 </body>
