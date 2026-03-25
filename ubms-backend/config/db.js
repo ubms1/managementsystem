@@ -1,11 +1,14 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+const dbName = process.env.DB_NAME || 'ubms_database';
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'ubms_database',
+    database: dbName,
     port: process.env.DB_PORT || 3306,
     waitForConnections: true,
     connectionLimit: 10,
@@ -14,11 +17,22 @@ const pool = mysql.createPool({
 
 // Initialize database and tables on startup
 async function initDatabase() {
+    // First create the database using a connection without a database selected
+    const tempConn = await mysql.createConnection({
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || '',
+        port: process.env.DB_PORT || 3306,
+    });
+    try {
+        await tempConn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
+    } finally {
+        await tempConn.end();
+    }
+
+    // Now the pool can connect to the existing database
     const connection = await pool.getConnection();
     try {
-        // Ensure database exists
-        await connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME}`);
-        await connection.changeUser({ database: process.env.DB_NAME });
 
         // Create users table
         await connection.query(`

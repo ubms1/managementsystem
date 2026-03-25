@@ -1,51 +1,45 @@
 const { pool } = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 
+function parseJSON(val, fallback) {
+    if (Array.isArray(val) || (val && typeof val === 'object')) return val;
+    try { return JSON.parse(val); } catch { return fallback; }
+}
+
+function formatUser(user) {
+    return {
+        ...user,
+        companies: parseJSON(user.companies, []),
+        modules: parseJSON(user.modules, [])
+    };
+}
+
 class User {
     // Get all users
     static async getAllUsers() {
         const [rows] = await pool.query('SELECT * FROM users WHERE isSuperAdmin = FALSE');
-        return rows.map(user => ({
-            ...user,
-            companies: JSON.parse(user.companies || '[]'),
-            modules: JSON.parse(user.modules || '[]')
-        }));
+        return rows.map(formatUser);
     }
 
     // Get user by ID
     static async getUserById(userId) {
         const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
         if (rows.length === 0) return null;
-        const user = rows[0];
-        return {
-            ...user,
-            companies: JSON.parse(user.companies || '[]'),
-            modules: JSON.parse(user.modules || '[]')
-        };
+        return formatUser(rows[0]);
     }
 
     // Get user by username
     static async getUserByUsername(username) {
         const [rows] = await pool.query('SELECT * FROM users WHERE username = ?', [username]);
         if (rows.length === 0) return null;
-        const user = rows[0];
-        return {
-            ...user,
-            companies: JSON.parse(user.companies || '[]'),
-            modules: JSON.parse(user.modules || '[]')
-        };
+        return formatUser(rows[0]);
     }
 
     // Get user by email
     static async getUserByEmail(email) {
         const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
         if (rows.length === 0) return null;
-        const user = rows[0];
-        return {
-            ...user,
-            companies: JSON.parse(user.companies || '[]'),
-            modules: JSON.parse(user.modules || '[]')
-        };
+        return formatUser(rows[0]);
     }
 
     // Create new user
