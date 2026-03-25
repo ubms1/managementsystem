@@ -484,13 +484,13 @@
         <div class="sub">Position your face within the oval guide</div>
     </div>
     <div class="face-scan-container">
-        <video id="faceCamVideo" autoplay playsinline muted></video>
+        <video id="faceCamVideo" autoplay muted webkit-playsinline></video>
         <canvas id="faceCamCanvas"></canvas>
         <div class="face-scan-guide"><div class="oval"></div></div>
     </div>
     <div class="face-scan-btns">
         <button class="btn-face-cancel" onclick="cancelFaceScan()"><i class="fas fa-times"></i> Cancel</button>
-        <button class="btn-face-enroll" id="btnFaceEnroll" style="display:none" onclick="enrollFaceNow()"><i class="fas fa-user-plus"></i> Enroll Face</button>
+        <button class="btn-face-enroll" id="btnFaceEnroll" onclick="enrollFaceNow()"><i class="fas fa-user-plus"></i> Enroll Face</button>
     </div>
 </div>
 
@@ -691,8 +691,7 @@ function renderApp() {
         <!-- ====== PIN / USER ID MODE ====== -->
         <div class="pin-panel" id="modePin">
             <div class="section-label"><i class="fas fa-id-card" style="margin-right:6px"></i>Enter Your Alphanumeric User ID</div>
-            <input type="text" id="pinInput" class="form-control" placeholder="e.g., DK-EMP-A1B2" maxlength="20"
-                   style="font-size:18px;font-weight:700;letter-spacing:2px;text-align:center;padding:14px;margin-bottom:14px;border:2px solid var(--border);border-radius:12px;text-transform:uppercase"
+            <input type="text" id="pinInput" class="form-control user-id-input" placeholder="e.g., DK-EMP-A1B2" maxlength="20"
                    oninput="onUserIdInput(this.value)" autocomplete="off">
             <div class="pin-emp-card" id="pinEmpCard">
                 <div class="pin-emp-avatar" id="pinEmpAvatar"></div>
@@ -702,11 +701,25 @@ function renderApp() {
                     <div id="pinEmpStatus" style="font-size:12px;margin-top:4px"></div>
                 </div>
             </div>
-            <div id="faceScanPrompt" style="display:none;text-align:center;margin-bottom:14px">
-                <button onclick="startFaceScan('clock')" style="padding:14px 28px;border:none;border-radius:12px;background:var(--company-color,var(--accent));color:white;font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:10px">
+            <div id="faceScanPrompt" class="face-verification-panel" style="display:none">
+                <div style="margin-bottom:12px;font-size:14px;font-weight:600;color:var(--company-color,var(--accent))">
+                    <i class="fas fa-user-check"></i> Employee Found
+                </div>
+                <button onclick="startFaceScan('clock')" class="face-scan-btn">
                     <i class="fas fa-camera"></i> Scan Face to Clock In/Out
                 </button>
-                <div style="font-size:12px;color:var(--text-muted);margin-top:8px"><i class="fas fa-shield-alt"></i> Face verification required for attendance</div>
+                <div class="face-scan-security"><i class="fas fa-shield-alt"></i> Face verification required for attendance</div>
+            </div>
+            
+            <div id="faceEnrollPrompt" class="enroll-face-panel" style="display:none">
+                <div style="margin-bottom:12px;font-size:14px;font-weight:600;color:#f39c12">
+                    <i class="fas fa-exclamation-triangle"></i> Face Not Enrolled
+                </div>
+                <p style="margin-bottom:12px;font-size:13px;line-height:1.4">This employee hasn't enrolled their face yet. Please enroll first before using face verification.</p>
+                <button onclick="startFaceScan('enroll')" class="face-scan-btn" style="background:#f39c12">
+                    <i class="fas fa-user-plus"></i> Enroll Face Now
+                </button>
+                <div class="face-scan-security"><i class="fas fa-info-circle"></i> One-time setup required</div>
             </div>
             <div class="action-btns" id="pinActionBtns" style="display:none">
                 <button class="btn-timein" id="pinBtnIn" onclick="doClockIn()">
@@ -1162,10 +1175,12 @@ function showPinEmployee(emp) {
     const pos = document.getElementById('pinEmpPos');
     const statusEl = document.getElementById('pinEmpStatus');
     const faceScanPrompt = document.getElementById('faceScanPrompt');
+    const faceEnrollPrompt = document.getElementById('faceEnrollPrompt');
     const btns = document.getElementById('pinActionBtns');
     if (!card) return;
     card.classList.add('visible');
     avatar.textContent = initials(emp.name);
+    avatar.style.background = state.meta.color;
     name.textContent = emp.name;
     pos.textContent = `${emp.position || 'Employee'} · ID: ${emp.userId}`;
     const rec = getTodayRecord(emp.id);
@@ -1176,9 +1191,18 @@ function showPinEmployee(emp) {
     } else {
         statusEl.innerHTML = `<span style="color:var(--success)"><i class="fas fa-check-circle" style="font-size:9px"></i> Attendance complete</span>`;
     }
-    // Show face scan button instead of direct clock in/out buttons
-    if (faceScanPrompt) faceScanPrompt.style.display = 'block';
-    if (btns) btns.style.display = 'none';
+    
+    // Check if employee has face enrolled
+    checkFaceEnrollment(emp.id).then(hasDescriptor => {
+        if (faceScanPrompt) faceScanPrompt.style.display = hasDescriptor ? 'block' : 'none';
+        if (faceEnrollPrompt) faceEnrollPrompt.style.display = hasDescriptor ? 'none' : 'block';
+        if (btns) btns.style.display = 'none';
+    }).catch(() => {
+        // If API fails, show enrollment prompt as fallback
+        if (faceScanPrompt) faceScanPrompt.style.display = 'none';
+        if (faceEnrollPrompt) faceEnrollPrompt.style.display = 'block';
+        if (btns) btns.style.display = 'none';
+    });
 }
 
 function hidePinEmployee() {
@@ -1187,9 +1211,29 @@ function hidePinEmployee() {
     const card = document.getElementById('pinEmpCard');
     const btns = document.getElementById('pinActionBtns');
     const faceScanPrompt = document.getElementById('faceScanPrompt');
+    const faceEnrollPrompt = document.getElementById('faceEnrollPrompt');
     if (card) card.classList.remove('visible');
     if (btns) btns.style.display = 'none';
     if (faceScanPrompt) faceScanPrompt.style.display = 'none';
+    if (faceEnrollPrompt) faceEnrollPrompt.style.display = 'none';
+}
+
+// ============================================================
+//  FACE ENROLLMENT CHECK
+// ============================================================
+async function checkFaceEnrollment(employeeId) {
+    try {
+        const response = await fetch(`http://localhost:3000/api/attendance/face/${encodeURIComponent(employeeId)}`);
+        if (!response.ok) {
+            if (response.status === 404) return false; // No face descriptor found
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const result = await response.json();
+        return result && result.descriptor; // Returns true if descriptor exists
+    } catch (err) {
+        console.warn('Face enrollment check failed:', err);
+        return false; // Default to not enrolled if API fails
+    }
 }
 
 // ============================================================
@@ -1234,7 +1278,11 @@ async function startFaceScan(mode) {
 
     // Show overlay
     overlay.style.display = 'flex';
-    if (statusEl) statusEl.textContent = 'Starting camera…';
+    if (statusEl) {
+        statusEl.innerHTML = faceScanMode === 'enroll' 
+            ? 'Starting camera for face enrollment…<div class=\"sub\">Keep your face within the oval guide</div>'
+            : 'Starting camera for face verification…<div class=\"sub\">Position your face within the oval guide</div>';
+    }
     if (enrollBtn) enrollBtn.style.display = faceScanMode === 'enroll' ? 'inline-flex' : 'none';
 
     try {
