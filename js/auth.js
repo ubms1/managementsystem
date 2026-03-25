@@ -89,8 +89,8 @@ const Auth = {
     },
 
     // ---- Database-backed login ----
-    login(username, password, company) {
-        const result = Database.authenticate(username, password, company);
+    async login(username, password, company) {
+        const result = await Database.authenticate(username, password, company);
         if (!result.success) return result;
 
         const session = {
@@ -109,14 +109,12 @@ const Auth = {
         };
         localStorage.setItem('ubms_session', JSON.stringify(session));
         Database.addAuditEntry('Login', `${result.user.name} logged in as ${result.user.role}`, 'success');
-        // Flag if user must change password on first login
-        const rawUser = Database.getUsers().find(u => u.id === result.user.id);
-        return { success: true, mustChangePassword: rawUser?.mustChangePassword === true };
+        return { success: true, mustChangePassword: result.user.mustChangePassword === true };
     },
 
     // ---- Super Admin Login with unique code ----
-    loginSuperAdmin(code) {
-        const result = Database.authenticateSuperAdmin(code);
+    async loginSuperAdmin(code) {
+        const result = await Database.authenticateSuperAdmin(code);
         if (!result.success) return result;
 
         const session = {

@@ -45,8 +45,8 @@ const Database = {
     },
 
     // ---- Reset password via forgot-password (username + email verification) ----
-    resetPassword(username, email, newPassword, company) {
-        const user = this.findUser(username);
+    async resetPassword(username, email, newPassword, company) {
+        const user = await this.findUser(username);
         if (!user) return { success: false, error: 'No account found with that username.' };
         if (user.email !== email) return { success: false, error: 'Username and email do not match.' };
         if (user.status !== 'active') return { success: false, error: 'This account is deactivated.' };
@@ -56,7 +56,7 @@ const Database = {
             return { success: false, error: 'This account does not have access to this business.' };
         }
         if (!newPassword || newPassword.length < 8) return { success: false, error: 'Password must be at least 8 characters.' };
-        this.updateUser(user.id, { password: newPassword, mustChangePassword: false });
+        await this.updateUser(user.id, { password: newPassword, mustChangePassword: false });
         this.addAuditEntry('Password Reset', `Password reset via forgot-password for ${username}`, 'warning');
         return { success: true };
     },

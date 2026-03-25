@@ -91,13 +91,13 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => { Database.init(); });
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
             const u = document.getElementById('username').value.trim();
             const p = document.getElementById('password').value;
             const err = document.getElementById('errorMsg');
             err.style.display = 'none';
-            const result = Auth.login(u, p, 'autocasa');
+            const result = await Auth.login(u, p, 'autocasa');
             if (result.success) {
                 if (result.mustChangePassword) {
                     showChangePwModal(u, 'index.html');
@@ -124,14 +124,14 @@
             document.body.appendChild(ov);
         }
 
-        function doChangePw(username, dest) {
+        async function doChangePw(username, dest) {
             const p1 = document.getElementById('cp1').value;
             const p2 = document.getElementById('cp2').value;
             const err = document.getElementById('cpErr');
             if (p1.length < 8) { err.textContent='Min 8 characters.'; err.style.display='block'; return; }
             if (p1 !== p2)     { err.textContent='Passwords do not match.'; err.style.display='block'; return; }
-            const user = Database.findUser(username);
-            if (user) Database.updateUser(user.id, { password: p1, mustChangePassword: false });
+            const user = await Database.findUser(username);
+            if (user) await Database.updateUser(user.id, { password: p1, mustChangePassword: false });
             window.location.href = dest;
         }
 
@@ -163,13 +163,13 @@
         }
 
         let fpVerifiedUser = null;
-        function verifyForgotPw() {
+        async function verifyForgotPw() {
             const username = document.getElementById('fpUser').value.trim();
             const email = document.getElementById('fpEmail').value.trim();
             const err = document.getElementById('fpErr');
             err.style.display = 'none';
             if (!username || !email) { err.textContent = 'Please enter both username and email.'; err.style.display = 'block'; return; }
-            const user = Database.findUser(username);
+            const user = await Database.findUser(username);
             if (!user || user.email !== email || user.isSuperAdmin) { err.textContent = 'Username and email do not match any account.'; err.style.display = 'block'; return; }
             if (user.status !== 'active') { err.textContent = 'This account is deactivated. Contact your administrator.'; err.style.display = 'block'; return; }
             if (!user.companies.includes('all') && !user.companies.includes('autocasa')) { err.textContent = 'This account does not have access to this business.'; err.style.display = 'block'; return; }
@@ -178,7 +178,7 @@
             document.getElementById('fpStep2').style.display = 'block';
         }
 
-        function submitForgotPw() {
+        async function submitForgotPw() {
             const pw1 = document.getElementById('fpNewPw').value;
             const pw2 = document.getElementById('fpConfirmPw').value;
             const err = document.getElementById('fpErr');
@@ -186,7 +186,7 @@
             err.style.display = 'none';
             if (pw1.length < 8) { err.textContent = 'Password must be at least 8 characters.'; err.style.display = 'block'; return; }
             if (pw1 !== pw2) { err.textContent = 'Passwords do not match.'; err.style.display = 'block'; return; }
-            const result = Database.resetPassword(fpVerifiedUser, document.getElementById('fpEmail').value.trim(), pw1, 'autocasa');
+            const result = await Database.resetPassword(fpVerifiedUser, document.getElementById('fpEmail').value.trim(), pw1, 'autocasa');
             if (!result.success) { err.textContent = result.error; err.style.display = 'block'; return; }
             document.getElementById('fpStep2').style.display = 'none';
             suc.textContent = 'Password reset successfully! You can now sign in with your new password.';

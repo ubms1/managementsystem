@@ -47,7 +47,8 @@ exports.login = async (req, res) => {
                 modules: user.modules,
                 company: user.companies.includes('all') ? (company || 'all') : user.companies[0],
                 isSuperAdmin: user.isSuperAdmin,
-                avatar: user.avatar
+                avatar: user.avatar,
+                mustChangePassword: user.mustChangePassword ? true : false
             }
         });
     } catch (err) {
