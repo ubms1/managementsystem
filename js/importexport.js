@@ -221,12 +221,12 @@ const ImportExport = {
     IMPORT_SCHEMAS: {
         employees: {
             label: 'Employees',
-            requiredCols: ['name', 'company'],
+            requiredCols: ['userId', 'name'],
             save(row) {
                 Database.addEmployee({
-                    name: row.name || row['Full Name'],
+                    name: row.name || row['Full Name'] || row['Name'],
                     position: row.position || row['Position'] || '',
-                    company: row.company || row['Company'],
+                    company: row.company || row['Company'] || (typeof App !== 'undefined' ? App.activeCompany : 'dheekay') || 'dheekay',
                     payFrequency: row.payFrequency || row['Pay Frequency'] || 'monthly',
                     monthlyRate: parseFloat(row.monthlyRate || row['Monthly Rate'] || 0),
                     dailyRate: parseFloat(row.dailyRate || row['Daily Rate'] || 0),
@@ -234,8 +234,8 @@ const ImportExport = {
                     philhealthNo: row.philhealthNo || row['PhilHealth No'] || '',
                     pagibigNo: row.pagibigNo || row['Pag-IBIG No'] || '',
                     tin: row.tin || row['TIN'] || '',
-                    userId: row.userId || row['User ID'] || undefined,
-                    status: row.status || 'active'
+                    userId: row.userId || row['User ID'] || row['UserID'] || row['user_id'],
+                    status: row.status || row['Status'] || 'active'
                 });
             }
         },
@@ -244,11 +244,11 @@ const ImportExport = {
             requiredCols: ['name'],
             save(row) {
                 Database.addCustomer({
-                    name: row.name || row['Name'],
+                    name: row.name || row['Name'] || row['Full Name'],
                     email: row.email || row['Email'] || '',
                     phone: row.phone || row['Phone'] || '',
                     type: row.type || row['Type'] || 'individual',
-                    companies: row.companies ? (typeof row.companies === 'string' ? row.companies.split(',').map(s => s.trim()) : row.companies) : [row.company || row['Company'] || 'dheekay'],
+                    companies: row.companies ? (typeof row.companies === 'string' ? row.companies.split(',').map(s => s.trim()) : row.companies) : [row.company || row['Company'] || (typeof App !== 'undefined' ? App.activeCompany : 'dheekay') || 'dheekay'],
                     address: row.address || row['Address'] || '',
                     contactPerson: row.contactPerson || row['Contact Person'] || '',
                     notes: row.notes || row['Notes'] || '',
@@ -258,10 +258,10 @@ const ImportExport = {
         },
         expenses: {
             label: 'Expenses',
-            requiredCols: ['description', 'amount', 'company'],
+            requiredCols: ['description', 'amount'],
             save(row) {
                 Database.addExpense({
-                    company: row.company || row['Company'],
+                    company: row.company || row['Company'] || (typeof App !== 'undefined' ? App.activeCompany : 'dheekay') || 'dheekay',
                     category: row.category || row['Category'] || 'Operating',
                     description: row.description || row['Description'],
                     amount: parseFloat(row.amount || row['Amount'] || 0),
@@ -272,15 +272,15 @@ const ImportExport = {
         },
         inventory: {
             label: 'Inventory Items',
-            requiredCols: ['name', 'company'],
+            requiredCols: ['name'],
             save(row) {
                 Database.addInventoryItem({
-                    name: row.name || row['Item Name'],
+                    name: row.name || row['Item Name'] || row['Name'],
                     category: row.category || row['Category'] || 'General',
                     unit: row.unit || row['Unit'] || 'pcs',
-                    quantity: parseInt(row.quantity || row['Quantity'] || 0),
-                    unitCost: parseFloat(row.unitCost || row['Unit Cost'] || 0),
-                    company: row.company || row['Company'],
+                    quantity: parseInt(row.quantity || row['Quantity'] || row['Qty'] || 0),
+                    unitCost: parseFloat(row.unitCost || row['Unit Cost'] || row['Cost'] || 0),
+                    company: row.company || row['Company'] || (typeof App !== 'undefined' ? App.activeCompany : 'dheekay') || 'dheekay',
                     location: row.location || row['Location'] || '',
                     minStock: parseInt(row.minStock || row['Min Stock'] || 0)
                 });
@@ -288,11 +288,11 @@ const ImportExport = {
         },
         projects: {
             label: 'Projects',
-            requiredCols: ['name', 'company'],
+            requiredCols: ['name'],
             save(row) {
                 Database.addProject({
-                    name: row.name || row['Project Name'],
-                    company: row.company || row['Company'],
+                    name: row.name || row['Project Name'] || row['Name'],
+                    company: row.company || row['Company'] || (typeof App !== 'undefined' ? App.activeCompany : 'dheekay') || 'dheekay',
                     client: row.client || row['Client ID'] || '',
                     status: row.status || row['Status'] || 'pending',
                     priority: row.priority || row['Priority'] || 'medium',
@@ -308,15 +308,15 @@ const ImportExport = {
         },
         bookings: {
             label: 'Bookings',
-            requiredCols: ['customer', 'date'],
+            requiredCols: ['customer'],
             save(row) {
                 Database.addBooking({
-                    company: row.company || row['Company'] || 'nuatthai',
-                    customer: row.customer || row['Customer ID'],
-                    therapist: row.therapist || row['Therapist ID'] || '',
-                    service: row.service || row['Service ID'] || '',
+                    company: row.company || row['Company'] || (typeof App !== 'undefined' ? App.activeCompany : 'nuatthai') || 'nuatthai',
+                    customer: row.customer || row['Customer'] || row['Customer ID'],
+                    therapist: row.therapist || row['Therapist'] || row['Therapist ID'] || '',
+                    service: row.service || row['Service'] || row['Service ID'] || '',
                     branch: row.branch || row['Branch'] || '',
-                    date: row.date || row['Date'],
+                    date: row.date || row['Date'] || new Date().toISOString().split('T')[0],
                     time: row.time || row['Time'] || '10:00',
                     status: row.status || row['Status'] || 'scheduled',
                     amount: parseFloat(row.amount || row['Amount'] || 0),
@@ -355,11 +355,11 @@ const ImportExport = {
         },
         invoices: {
             label: 'Invoices',
-            requiredCols: ['company', 'amount'],
+            requiredCols: ['amount'],
             save(row) {
                 Database.addInvoice({
-                    company: row.company || row['Company'],
-                    customer: row.customer || row['Customer ID'] || '',
+                    company: row.company || row['Company'] || (typeof App !== 'undefined' ? App.activeCompany : 'dheekay') || 'dheekay',
+                    customer: row.customer || row['Customer'] || row['Customer ID'] || '',
                     description: row.description || row['Description'] || '',
                     amount: parseFloat(row.amount || row['Amount'] || 0),
                     paid: parseFloat(row.paid || row['Paid'] || 0),

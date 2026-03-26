@@ -593,13 +593,15 @@ const ATTENDANCE_API = API_BASE + '/attendance';
 
 // ---- Capture snapshot from video element as base64 JPEG ----
 function captureVideoSnapshot(videoEl) {
-    if (!videoEl || !videoEl.videoWidth) return null;
-    const canvas = document.createElement('canvas');
-    canvas.width = videoEl.videoWidth;
-    canvas.height = videoEl.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(videoEl, 0, 0);
-    return canvas.toDataURL('image/jpeg', 0.85);  // base64 JPEG at 85% quality
+    try {
+        if (!videoEl || !videoEl.videoWidth || videoEl.videoWidth === 0) return null;
+        const canvas = document.createElement('canvas');
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoEl, 0, 0);
+        return canvas.toDataURL('image/jpeg', 0.85);
+    } catch (e) { return null; }
 }
 
 // ---- Upload face snapshot image to server ----
@@ -740,7 +742,7 @@ function startClock() {
     setInterval(() => { tick(); refreshTodayPanel(); }, 1000);
 }
 
-// ---- Load state from DB ----
+// ---- Load state from DB + server sync ----
 function loadState() {
     const db = loadDB();
     if (!db) return;
@@ -751,6 +753,76 @@ function loadState() {
         const emp = (db.employees || []).find(e => e.id === r.employeeId);
         return emp && emp.company === state.company;
     });
+    // Pull latest data from server to align across all devices
+    syncFromServer();
+}
+
+async function syncFromServer() {
+    try {
+        // Pull employees from server
+        const empResp = await fetch(`${API_BASE}/data/employees?_limit=5000`, { signal: AbortSignal.timeout(8000) });
+        if (empResp.ok) {
+            const empResult = await empResp.json();
+            if (empResult.success && Array.isArray(empResult.data) && empResult.data.length > 0) {
+                const db = loadDB();
+                if (db) {
+                    const localById = new Map((db.employees || []).map(e => [e.id, e]));
+                    for (const serverEmp of empResult.data) {
+                        if (!serverEmp || !serverEmp.id) continue;
+                        const { _createdBy, _business, _createdAt, _updatedAt, ...clean } = serverEmp;
+                        if (localById.has(serverEmp.id)) {
+                            Object.assign(localById.get(serverEmp.id), clean);
+                        } else {
+                            localById.set(serverEmp.id, clean);
+                        }
+                    }
+                    db.employees = Array.from(localById.values());
+                    saveDB(db);
+                    state.employees = (db.employees || []).filter(e => e.company === state.company);
+                }
+            }
+        }
+        // Pull today's attendance from server
+        const attResp = await fetch(`${ATTENDANCE_API}?company=${encodeURIComponent(state.company)}&date=${todayStr()}`, { signal: AbortSignal.timeout(8000) });
+        if (attResp.ok) {
+            const attResult = await attResp.json();
+            if (attResult.success && Array.isArray(attResult.data)) {
+                const db = loadDB();
+                if (db) {
+                    if (!db.attendanceRecords) db.attendanceRecords = [];
+                    const localById = new Map(db.attendanceRecords.filter(r => r && r.id).map(r => [r.id, r]));
+                    for (const serverRec of attResult.data) {
+                        if (!serverRec || !serverRec.id) continue;
+                        // Parse location JSON if stringified
+                        if (typeof serverRec.location === 'string') {
+                            try { serverRec.location = JSON.parse(serverRec.location); } catch { }
+                        }
+                        if (typeof serverRec.locationOut === 'string') {
+                            try { serverRec.locationOut = JSON.parse(serverRec.locationOut); } catch { }
+                        }
+                        if (localById.has(serverRec.id)) {
+                            Object.assign(localById.get(serverRec.id), serverRec);
+                        } else {
+                            localById.set(serverRec.id, serverRec);
+                        }
+                    }
+                    db.attendanceRecords = Array.from(localById.values());
+                    saveDB(db);
+                    const today = todayStr();
+                    state.todayRecords = db.attendanceRecords.filter(r => {
+                        if (r.date !== today) return false;
+                        const emp = (db.employees || []).find(e => e.id === r.employeeId);
+                        return emp && emp.company === state.company;
+                    });
+                    renderTodayLog();
+                    refreshTodayPanel();
+                }
+            }
+        }
+    } catch (e) {
+        // Offline or server unreachable — use local data only
+        console.warn('Server sync failed (using local data):', e.message);
+    }
 }
 
 // ---- Get today record for employee ----
@@ -1378,38 +1450,45 @@ function showPinEmployee(emp) {
     }
     
     // Check if employee has face enrolled
+    function enableClockButtons(rec) {
+        if (btns) {
+            btns.style.display = 'flex';
+            const pinBtnIn = document.getElementById('pinBtnIn');
+            const pinBtnOut = document.getElementById('pinBtnOut');
+            if (!rec) {
+                if (pinBtnIn) { pinBtnIn.disabled = false; pinBtnIn.style.opacity = '1'; }
+                if (pinBtnOut) { pinBtnOut.disabled = true; pinBtnOut.style.opacity = '0.3'; }
+            } else if (rec.timeIn && !rec.timeOut) {
+                if (pinBtnIn) { pinBtnIn.disabled = true; pinBtnIn.style.opacity = '0.3'; }
+                if (pinBtnOut) { pinBtnOut.disabled = false; pinBtnOut.style.opacity = '1'; }
+            } else {
+                if (pinBtnIn) { pinBtnIn.disabled = true; pinBtnIn.style.opacity = '0.3'; }
+                if (pinBtnOut) { pinBtnOut.disabled = true; pinBtnOut.style.opacity = '0.3'; }
+            }
+        }
+    }
     checkFaceEnrollment(emp.id).then(hasDescriptor => {
-        if (hasDescriptor) {
+        if (hasDescriptor === true) {
             // Face enrolled: show status message and TIME IN/OUT buttons
             if (faceScanPrompt) faceScanPrompt.style.display = 'block';
             if (faceEnrollPrompt) faceEnrollPrompt.style.display = 'none';
-            if (btns) {
-                btns.style.display = 'flex';
-                // Set button states based on attendance record
-                const pinBtnIn = document.getElementById('pinBtnIn');
-                const pinBtnOut = document.getElementById('pinBtnOut');
-                if (!rec) {
-                    if (pinBtnIn) { pinBtnIn.disabled = false; pinBtnIn.style.opacity = '1'; }
-                    if (pinBtnOut) { pinBtnOut.disabled = true; pinBtnOut.style.opacity = '0.3'; }
-                } else if (rec.timeIn && !rec.timeOut) {
-                    if (pinBtnIn) { pinBtnIn.disabled = true; pinBtnIn.style.opacity = '0.3'; }
-                    if (pinBtnOut) { pinBtnOut.disabled = false; pinBtnOut.style.opacity = '1'; }
-                } else {
-                    if (pinBtnIn) { pinBtnIn.disabled = true; pinBtnIn.style.opacity = '0.3'; }
-                    if (pinBtnOut) { pinBtnOut.disabled = true; pinBtnOut.style.opacity = '0.3'; }
-                }
-            }
-        } else {
-            // No face enrolled: show enrollment prompt, hide buttons
+            enableClockButtons(rec);
+        } else if (hasDescriptor === false) {
+            // No face enrolled: show enrollment prompt, but ALSO show buttons
             if (faceScanPrompt) faceScanPrompt.style.display = 'none';
             if (faceEnrollPrompt) faceEnrollPrompt.style.display = 'block';
-            if (btns) btns.style.display = 'none';
+            enableClockButtons(rec);
+        } else {
+            // API unreachable (null): show both enroll prompt and buttons as fallback
+            if (faceScanPrompt) faceScanPrompt.style.display = 'block';
+            if (faceEnrollPrompt) faceEnrollPrompt.style.display = 'block';
+            enableClockButtons(rec);
         }
     }).catch(() => {
-        // If API fails, show enrollment prompt as fallback
-        if (faceScanPrompt) faceScanPrompt.style.display = 'none';
+        // If API fails, still show buttons so user can clock in
+        if (faceScanPrompt) faceScanPrompt.style.display = 'block';
         if (faceEnrollPrompt) faceEnrollPrompt.style.display = 'block';
-        if (btns) btns.style.display = 'none';
+        enableClockButtons(rec);
     });
 }
 
@@ -1439,7 +1518,16 @@ function doFaceClockIn() {
     const rec = getTodayRecord(faceScanResolvedEmp.id);
     if (rec) { showToast('Already clocked in today!', 'error'); return; }
     pendingClockAction = 'in';
-    startFaceScan('clock');
+    // Check if face enrolled — if not, clock in directly without face scan
+    checkFaceEnrollment(faceScanResolvedEmp.id).then(hasDescriptor => {
+        if (hasDescriptor) {
+            startFaceScan('clock');
+        } else {
+            // No face enrolled or API down — clock in without face scan
+            doClockIn();
+            pendingClockAction = null;
+        }
+    });
 }
 
 function doFaceClockOut() {
@@ -1447,7 +1535,15 @@ function doFaceClockOut() {
     const rec = getTodayRecord(faceScanResolvedEmp.id);
     if (!rec || rec.timeOut) { showToast('No open clock-in found!', 'error'); return; }
     pendingClockAction = 'out';
-    startFaceScan('clock');
+    // Check if face enrolled — if not, clock out directly without face scan
+    checkFaceEnrollment(faceScanResolvedEmp.id).then(hasDescriptor => {
+        if (hasDescriptor) {
+            startFaceScan('clock');
+        } else {
+            doClockOut();
+            pendingClockAction = null;
+        }
+    });
 }
 
 // ============================================================
@@ -1455,16 +1551,19 @@ function doFaceClockOut() {
 // ============================================================
 async function checkFaceEnrollment(employeeId) {
     try {
-        const response = await fetch(`${ATTENDANCE_API}/face/${encodeURIComponent(employeeId)}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch(`${ATTENDANCE_API}/face/${encodeURIComponent(employeeId)}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (!response.ok) {
-            if (response.status === 404) return false; // No face descriptor found
+            if (response.status === 404) return false;
             throw new Error(`HTTP ${response.status}`);
         }
         const result = await response.json();
-        return result && result.data && result.data.descriptor; // Returns true if descriptor exists
+        return result && result.data && result.data.descriptor;
     } catch (err) {
         console.warn('Face enrollment check failed:', err);
-        return false; // Default to not enrolled if API fails
+        return null; // null = unknown (API down), false = definitely not enrolled
     }
 }
 
@@ -1495,6 +1594,8 @@ async function loadFaceModels() {
     }
 }
 
+let faceDetectionTimeout = null;
+
 async function startFaceScan(mode) {
     faceScanMode = mode || 'clock';
     showSpinner('Loading face recognition models…');
@@ -1518,12 +1619,17 @@ async function startFaceScan(mode) {
     if (enrollBtn) enrollBtn.style.display = faceScanMode === 'enroll' ? 'inline-flex' : 'none';
 
     try {
+        // Check secure context (HTTPS required for camera on most browsers)
+        const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error('Camera API not available. Use HTTPS or a supported browser.');
+            throw new Error(isSecure
+                ? 'Camera API not available in this browser.'
+                : 'Camera requires HTTPS. Please access this page via https:// (port 3443).');
         }
         // Try front camera first (user-facing), fall back to any camera for mobile compatibility
         const camConstraints = [
             { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } },
+            { video: { facingMode: { ideal: 'user' }, width: { ideal: 480 }, height: { ideal: 360 } } },
             { video: { facingMode: 'user' } },
             { video: true }
         ];
@@ -1538,12 +1644,35 @@ async function startFaceScan(mode) {
         video.srcObject = faceStream;
         video.setAttribute('playsinline', 'true');
         video.setAttribute('webkit-playsinline', 'true');
-        await video.play();
+
+        // Wait for video to be ready before starting detection
+        await new Promise((resolve, reject) => {
+            const readyTimeout = setTimeout(() => reject(new Error('Video stream timeout')), 10000);
+            video.onloadedmetadata = () => {
+                clearTimeout(readyTimeout);
+                video.play().then(resolve).catch(reject);
+            };
+            // If already has metadata (cached), fire immediately
+            if (video.readyState >= 1) {
+                clearTimeout(readyTimeout);
+                video.play().then(resolve).catch(reject);
+            }
+        });
         if (statusEl) statusEl.textContent = 'Position your face inside the oval…';
+
+        // Auto-timeout after 60s to save battery/resources
+        faceDetectionTimeout = setTimeout(() => {
+            if (faceDetectionInterval) {
+                if (statusEl) { statusEl.textContent = 'Face scan timed out. Please try again.'; statusEl.style.color = '#ef4444'; }
+                showToast('Face scan timed out after 60 seconds.', 'error');
+                setTimeout(() => cancelFaceScan(), 2000);
+            }
+        }, 60000);
 
         // Start detection loop
         faceDetectionInterval = setInterval(async () => {
             try {
+                if (!video.videoWidth || video.paused) return; // skip if video not ready
                 const detection = await faceapi
                     .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
                     .withFaceLandmarks(true)
@@ -1581,8 +1710,13 @@ async function startFaceScan(mode) {
             } catch (err) { /* detection frame error, continue */ }
         }, 500);
     } catch (err) {
-        if (statusEl) statusEl.textContent = 'Camera error: ' + err.message;
-        showToast('Camera access denied or unavailable. Please allow camera permissions.', 'error');
+        const msg = err.message || 'Unknown camera error';
+        if (statusEl) statusEl.textContent = 'Camera error: ' + msg;
+        if (msg.includes('HTTPS') || msg.includes('secure') || msg.includes('Permission') || msg.includes('NotAllowed')) {
+            showToast('Camera access requires HTTPS. Access via https:// (port 3443) or allow camera permissions.', 'error');
+        } else {
+            showToast('Camera error: ' + msg, 'error');
+        }
     }
 }
 
@@ -1594,6 +1728,7 @@ function cancelFaceScan() {
 
 function stopFaceScan() {
     if (faceDetectionInterval) { clearInterval(faceDetectionInterval); faceDetectionInterval = null; }
+    if (faceDetectionTimeout) { clearTimeout(faceDetectionTimeout); faceDetectionTimeout = null; }
     if (faceStream) {
         faceStream.getTracks().forEach(t => t.stop());
         faceStream = null;
@@ -1612,7 +1747,10 @@ async function verifyFaceAndClock(capturedDescriptor) {
 
     try {
         // Get stored face descriptor from backend using employee ID
-        const resp = await fetch(`${ATTENDANCE_API}/face/${encodeURIComponent(emp.id)}`);
+        const controller = new AbortController();
+        const fetchTimer = setTimeout(() => controller.abort(), 10000);
+        const resp = await fetch(`${ATTENDANCE_API}/face/${encodeURIComponent(emp.id)}`, { signal: controller.signal });
+        clearTimeout(fetchTimer);
         if (!resp.ok) {
             stopFaceScan();
             const overlay = document.getElementById('faceScanOverlay');
@@ -1628,7 +1766,23 @@ async function verifyFaceAndClock(capturedDescriptor) {
             showToast(`No face enrolled for ${emp.name}. Please enroll first.`, 'error');
             return;
         }
-        const storedRaw = typeof data.data.descriptor === 'string' ? JSON.parse(data.data.descriptor) : data.data.descriptor;
+        let storedRaw;
+        try {
+            storedRaw = typeof data.data.descriptor === 'string' ? JSON.parse(data.data.descriptor) : data.data.descriptor;
+        } catch (parseErr) {
+            stopFaceScan();
+            const overlay = document.getElementById('faceScanOverlay');
+            if (overlay) overlay.style.display = 'none';
+            showToast('Stored face data is corrupted. Please re-enroll.', 'error');
+            return;
+        }
+        if (!Array.isArray(storedRaw) || storedRaw.length !== 128) {
+            stopFaceScan();
+            const overlay = document.getElementById('faceScanOverlay');
+            if (overlay) overlay.style.display = 'none';
+            showToast('Invalid face descriptor. Please re-enroll.', 'error');
+            return;
+        }
         const storedDescriptor = new Float32Array(storedRaw);
 
         // Compare faces — Euclidean distance, threshold 0.6
