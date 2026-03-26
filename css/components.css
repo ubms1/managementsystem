@@ -4,6 +4,38 @@
    ======================================== */
 
 /* ========================================
+   SYNC STATUS INDICATOR
+   ======================================== */
+.sync-indicator {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+.sync-indicator.sync-online {
+    background: #10b981;
+    color: #fff;
+}
+.sync-indicator.sync-offline {
+    background: #ef4444;
+    color: #fff;
+    animation: pulse-offline 2s infinite;
+}
+@keyframes pulse-offline {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ========================================
    GRID LAYOUTS
    ======================================== */
 .grid-1 { display: grid; grid-template-columns: 1fr; gap: 20px; }

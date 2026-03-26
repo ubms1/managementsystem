@@ -154,6 +154,26 @@ async function initDatabase() {
             )
         `);
 
+        // Create uploaded_files table for filesystem-based file storage
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS uploaded_files (
+                id VARCHAR(50) PRIMARY KEY,
+                business VARCHAR(100) NOT NULL,
+                category VARCHAR(100),
+                originalName VARCHAR(255) NOT NULL,
+                storedName VARCHAR(255) NOT NULL,
+                filePath VARCHAR(500) NOT NULL,
+                fileType VARCHAR(100),
+                fileSize BIGINT DEFAULT 0,
+                context VARCHAR(100),
+                employeeId VARCHAR(100),
+                projectId VARCHAR(50),
+                description TEXT,
+                uploadDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Create project_milestones table for project monitoring
         await connection.query(`
             CREATE TABLE IF NOT EXISTS project_milestones (
@@ -170,6 +190,23 @@ async function initDatabase() {
                 remarks TEXT,
                 sortOrder INT DEFAULT 0,
                 created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create data_changes table for cross-user sync
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS data_changes (
+                id VARCHAR(100) PRIMARY KEY,
+                entityType VARCHAR(100) NOT NULL,
+                operation VARCHAR(20) NOT NULL,
+                entityId VARCHAR(100),
+                data JSON,
+                business VARCHAR(100) DEFAULT 'all',
+                userId VARCHAR(100) DEFAULT 'system',
+                timestamp TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+                INDEX idx_timestamp (timestamp),
+                INDEX idx_business (business),
+                INDEX idx_entityType (entityType)
             )
         `);
 

@@ -4,7 +4,21 @@
    Supports unified + standalone modes
    ======================================== */
 
-const API_BASE_URL = 'http://localhost:3000/api'; // Change to your backend URL
+const API_BASE_URL = (function() {
+    // Auto-detect the server URL based on where the page is loaded from
+    // This allows the system to work from any device on the network
+    const loc = window.location;
+    // If served from the backend (port 3000 or same origin), use same origin
+    if (loc.port === '3000' || loc.protocol === 'https:') {
+        return loc.origin + '/api';
+    }
+    // If opened as a file or different port, try the server on port 3000
+    if (loc.protocol === 'file:') {
+        return 'http://localhost:3000/api';
+    }
+    // Default: use same hostname but port 3000
+    return loc.protocol + '//' + loc.hostname + ':3000/api';
+})();
 let _apiAvailable = null; // null = unknown, true/false after first check
 
 async function apiRequest(endpoint, method = 'GET', body = null) {
