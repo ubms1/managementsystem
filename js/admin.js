@@ -77,14 +77,14 @@ const Admin = {
         <div id="adminContent">${this.renderUserManagement()}</div>`;
     },
 
-    switchTab(tab, btn) {
+    async switchTab(tab, btn) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const el = document.getElementById('adminContent');
         switch (tab) {
             case 'users': el.innerHTML = this.renderUserManagement(); break;
             case 'assignments': el.innerHTML = this.renderAssignments(); break;
-            case 'audit': el.innerHTML = this.renderAuditLog(); break;
+            case 'audit': el.innerHTML = await this.renderAuditLog(); break;
         }
     },
 
@@ -215,8 +215,8 @@ const Admin = {
     // ============================================================
     //  AUDIT LOG TAB
     // ============================================================
-    renderAuditLog() {
-        const logs = Database.getAuditLog();
+    async renderAuditLog() {
+        const logs = await Database.getServerAuditLog(200);
 
         let html = `
         <div class="section-header mb-2">
@@ -308,7 +308,7 @@ const Admin = {
         `, true);
     },
 
-    saveNewUser() {
+    async saveNewUser() {
         const name = document.getElementById('newUserName').value.trim();
         const username = document.getElementById('newUserUsername').value.trim();
         const email = document.getElementById('newUserEmail').value.trim();
@@ -338,7 +338,7 @@ const Admin = {
             return;
         }
 
-        const result = Database.addUser({ name, username, email, role, password, companies, modules, mustChangePassword: true });
+        const result = await Database.addUser({ name, username, email, role, password, companies, modules, mustChangePassword: true });
         if (result.success) {
             App.closeModal();
             App.showToast(`User ${name} created successfully`, 'success');
@@ -415,7 +415,7 @@ const Admin = {
         `, true);
     },
 
-    saveEditUser() {
+    async saveEditUser() {
         const userId = document.getElementById('editUserId').value;
         const updates = {
             name: document.getElementById('editUserName').value.trim(),
@@ -434,7 +434,7 @@ const Admin = {
             return;
         }
 
-        const result = Database.updateUser(userId, updates);
+        const result = await Database.updateUser(userId, updates);
         if (result.success) {
             App.closeModal();
             App.showToast('User updated successfully', 'success');
@@ -444,15 +444,15 @@ const Admin = {
         }
     },
 
-    toggleUserStatus(userId) {
+    async toggleUserStatus(userId) {
         if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can modify users', 'error'); return; }
         const users = Database.getUsers();
         const user = users.find(u => u.id === userId);
         if (!user) return;
 
         const result = user.status === 'active' ?
-            Database.deactivateUser(userId) :
-            Database.activateUser(userId);
+            await Database.deactivateUser(userId) :
+            await Database.activateUser(userId);
 
         if (result.success) {
             App.showToast(`User ${user.name} ${user.status === 'active' ? 'deactivated' : 'activated'}`, 'success');
@@ -477,9 +477,9 @@ const Admin = {
         `);
     },
 
-    deleteUser(userId) {
+    async deleteUser(userId) {
         if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can delete users', 'error'); return; }
-        const result = Database.deleteUser(userId);
+        const result = await Database.deleteUser(userId);
         if (result.success) {
             App.closeModal();
             App.showToast('User deleted', 'success');
@@ -490,7 +490,7 @@ const Admin = {
     },
 
     // ---- Toggle company access for user ----
-    toggleCompanyAccess(userId, company, checked) {
+    async toggleCompanyAccess(userId, company, checked) {
         const users = Database.getUsers();
         const user = users.find(u => u.id === userId);
         if (!user) return;
@@ -500,12 +500,12 @@ const Admin = {
         } else {
             user.companies = user.companies.filter(c => c !== company);
         }
-        Database.updateUser(userId, { companies: user.companies });
+        await Database.updateUser(userId, { companies: user.companies });
         App.showToast(`Updated ${user.name}'s business access`, 'info');
     },
 
     // ---- Toggle module access for user ----
-    toggleModuleAccess(userId, module, checked) {
+    async toggleModuleAccess(userId, module, checked) {
         const users = Database.getUsers();
         const user = users.find(u => u.id === userId);
         if (!user) return;
@@ -518,7 +518,7 @@ const Admin = {
         } else {
             user.modules = user.modules.filter(m => m !== module);
         }
-        Database.updateUser(userId, { modules: user.modules });
+        await Database.updateUser(userId, { modules: user.modules });
         App.showToast(`Updated ${user.name}'s module access`, 'info');
     },
 

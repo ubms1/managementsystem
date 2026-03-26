@@ -24,7 +24,7 @@ const Settings = {
         </div>`;
     },
 
-    switchTab(tab, btn) {
+    async switchTab(tab, btn) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const el = document.getElementById('settingsContent');
@@ -32,7 +32,7 @@ const Settings = {
             case 'users': el.innerHTML = this.renderUsers(); break;
             case 'roles': el.innerHTML = this.renderRoles(); break;
             case 'companies': el.innerHTML = this.renderCompanySettings(); break;
-            case 'audit': el.innerHTML = this.renderAuditLog(); break;
+            case 'audit': el.innerHTML = await this.renderAuditLog(); break;
             case 'myaccount': el.innerHTML = this.renderMyAccount(); break;
             case 'system': el.innerHTML = this.renderSystem(); break;
         }
@@ -285,7 +285,7 @@ const Settings = {
         App.showToast('Access code updated successfully', 'success');
     },
 
-    saveMyPassword() {
+    async saveMyPassword() {
         const curPw = document.getElementById('curPw').value.trim();
         const newPw = document.getElementById('newPw').value.trim();
         const confirmPw = document.getElementById('confirmPw').value.trim();
@@ -307,7 +307,7 @@ const Settings = {
         if (user.password !== curPw) { showMsg('Current password is incorrect.', 'danger'); return; }
         if (newPw === curPw) { showMsg('New password must differ from current password.', 'danger'); return; }
 
-        Database.updateUser(user.id, { password: newPw, mustChangePassword: false });
+        await Database.updateUser(user.id, { password: newPw, mustChangePassword: false });
         Database.addAuditEntry('Password Changed', `${username} changed their account password`, 'info');
 
         document.getElementById('curPw').value = '';
@@ -317,8 +317,8 @@ const Settings = {
         App.showToast('Password updated successfully', 'success');
     },
 
-    renderAuditLog() {
-        const logs = Database.getAuditLog().slice(0, 50);
+    async renderAuditLog() {
+        const logs = (await Database.getServerAuditLog(100)).slice(0, 50);
 
         return `
         <div class="section-header mb-2">
@@ -359,7 +359,7 @@ const Settings = {
         }, 0);
     },
 
-    _doSaveEditUser() {
+    async _doSaveEditUser() {
         const userId = document.getElementById('editUserId')?.value;
         if (!userId) return;
         const updates = {
@@ -373,7 +373,7 @@ const Settings = {
         const newPass = document.getElementById('editUserPass')?.value;
         if (newPass) updates.password = newPass;
         if (!updates.name || !updates.email) { App.showToast('Name and email are required', 'error'); return; }
-        const result = Database.updateUser(userId, updates);
+        const result = await Database.updateUser(userId, updates);
         if (result.success) {
             App.closeModal();
             App.showToast('User updated successfully', 'success');
@@ -384,11 +384,11 @@ const Settings = {
         }
     },
 
-    toggleUserStatus(userId) {
+    async toggleUserStatus(userId) {
         if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can modify users', 'error'); return; }
         const user = Database.getUsers().find(u => u.id === userId);
         if (!user) return;
-        const result = user.status === 'active' ? Database.deactivateUser(userId) : Database.activateUser(userId);
+        const result = user.status === 'active' ? await Database.deactivateUser(userId) : await Database.activateUser(userId);
         if (result.success) {
             App.showToast(`User ${user.name} ${user.status === 'active' ? 'deactivated' : 'activated'}`, 'success');
             const el = document.getElementById('settingsContent');

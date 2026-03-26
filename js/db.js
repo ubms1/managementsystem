@@ -140,6 +140,8 @@ const Database = {
             await this.syncAllToServer();
             // 2. Pull ALL data from server (includes data from other users/PCs)
             await this.loadFromServer();
+            // 3. Refresh users cache from server
+            await this.refreshUsersFromServer();
             console.log('✓ Full sync completed');
         } catch (e) {
             console.error('fullSync error:', e.message);
@@ -431,55 +433,59 @@ const Database = {
         localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
     },
 
-    // ---- Get all users ----
+    // ---- Get all users (synchronous from localStorage cache) ----
 
-    async getUsers() {
+    getUsers() {
         try {
-            return await apiRequest('/users');
-        } catch {
-            // Fallback to localStorage
-            try {
-                const data = localStorage.getItem(this.USERS_KEY);
-                return data ? JSON.parse(data).filter(u => !u.isSuperAdmin) : [];
-            } catch { return []; }
+            const data = localStorage.getItem(this.USERS_KEY);
+            return data ? JSON.parse(data) : [];
+        } catch { return []; }
+    },
+
+    // ---- Refresh users cache from server ----
+    async refreshUsersFromServer() {
+        try {
+            const serverUsers = await apiRequest('/users');
+            const localRaw = localStorage.getItem(this.USERS_KEY);
+            const localUsers = localRaw ? JSON.parse(localRaw) : [];
+            // Keep superadmin from local (API excludes superadmin)
+            const localSA = localUsers.filter(u => u.isSuperAdmin);
+            const byId = new Map(localSA.map(u => [u.id, u]));
+            for (const u of serverUsers) byId.set(u.id, u);
+            // Also preserve any local-only users not yet on server
+            for (const u of localUsers) {
+                if (!byId.has(u.id)) byId.set(u.id, u);
+            }
+            localStorage.setItem(this.USERS_KEY, JSON.stringify(Array.from(byId.values())));
+        } catch (e) {
+            console.log('refreshUsersFromServer:', e.message);
         }
     },
 
     // ---- Save users ----
 
-    async saveUsers(users) {
-        // Save to localStorage as fallback
+    saveUsers(users) {
         localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
     },
 
-    // ---- Find user by username ----
+    // ---- Find user by username (synchronous) ----
 
-    async findUser(username) {
+    findUser(username) {
         try {
-            return await apiRequest(`/users/username/${encodeURIComponent(username)}`);
-        } catch {
-            // Fallback to localStorage
-            try {
-                const data = localStorage.getItem(this.USERS_KEY);
-                const users = data ? JSON.parse(data) : [];
-                return users.find(u => u.username === username) || null;
-            } catch { return null; }
-        }
+            const data = localStorage.getItem(this.USERS_KEY);
+            const users = data ? JSON.parse(data) : [];
+            return users.find(u => u.username === username) || null;
+        } catch { return null; }
     },
 
-    // ---- Find user by email ----
+    // ---- Find user by email (synchronous) ----
 
-    async findUserByEmail(email) {
+    findUserByEmail(email) {
         try {
-            return await apiRequest(`/users/email/${encodeURIComponent(email)}`);
-        } catch {
-            // Fallback to localStorage
-            try {
-                const data = localStorage.getItem(this.USERS_KEY);
-                const users = data ? JSON.parse(data) : [];
-                return users.find(u => u.email === email) || null;
-            } catch { return null; }
-        }
+            const data = localStorage.getItem(this.USERS_KEY);
+            const users = data ? JSON.parse(data) : [];
+            return users.find(u => u.email === email) || null;
+        } catch { return null; }
     },
 
     // ---- Authenticate user ----
@@ -564,7 +570,15 @@ const Database = {
 
     async addUser(userData) {
         try {
-            return await apiRequest('/users', 'POST', userData);
+            const result = await apiRequest('/users', 'POST', userData);
+            // Sync new user to localStorage cache
+            if (result.success && result.user) {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                users.push(result.user);
+                localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+            }
+            return result;
         } catch (e) {
             // Fallback: add to localStorage
             try {
@@ -597,7 +611,19 @@ const Database = {
 
     async updateUser(userId, updates) {
         try {
-            return await apiRequest(`/users/${encodeURIComponent(userId)}`, 'PUT', updates);
+            const result = await apiRequest(`/users/${encodeURIComponent(userId)}`, 'PUT', updates);
+            // Sync update to localStorage cache
+            if (result.success) {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                const idx = users.findIndex(u => u.id === userId);
+                if (idx >= 0) {
+                    Object.assign(users[idx], updates);
+                    if (result.user) Object.assign(users[idx], result.user);
+                    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+                }
+            }
+            return result;
         } catch (e) {
             // Fallback: update in localStorage
             try {
@@ -617,27 +643,54 @@ const Database = {
     },
 
     // ---- Deactivate user ----
-    deactivateUser(userId) {
-        return this.updateUser(userId, { status: 'inactive' });
+    async deactivateUser(userId) {
+        try {
+            const result = await apiRequest(`/users/${encodeURIComponent(userId)}/deactivate`, 'PATCH');
+            if (result.success) {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                const idx = users.findIndex(u => u.id === userId);
+                if (idx >= 0) { users[idx].status = 'inactive'; localStorage.setItem(this.USERS_KEY, JSON.stringify(users)); }
+            }
+            return result;
+        } catch {
+            return await this.updateUser(userId, { status: 'inactive' });
+        }
     },
 
     // ---- Activate user ----
-    activateUser(userId) {
-        return this.updateUser(userId, { status: 'active' });
+    async activateUser(userId) {
+        try {
+            const result = await apiRequest(`/users/${encodeURIComponent(userId)}/activate`, 'PATCH');
+            if (result.success) {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                const idx = users.findIndex(u => u.id === userId);
+                if (idx >= 0) { users[idx].status = 'active'; localStorage.setItem(this.USERS_KEY, JSON.stringify(users)); }
+            }
+            return result;
+        } catch {
+            return await this.updateUser(userId, { status: 'active' });
+        }
     },
 
     // ---- Delete user ----
 
     async deleteUser(userId) {
         try {
-            return await apiRequest(`/users/${encodeURIComponent(userId)}`, 'DELETE');
+            const result = await apiRequest(`/users/${encodeURIComponent(userId)}`, 'DELETE');
+            if (result.success) {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                localStorage.setItem(this.USERS_KEY, JSON.stringify(users.filter(u => u.id !== userId)));
+            }
+            return result;
         } catch (e) {
             // Fallback: delete from localStorage
             try {
                 const data = localStorage.getItem(this.USERS_KEY);
                 const users = data ? JSON.parse(data) : [];
-                const filtered = users.filter(u => u.id !== userId);
-                localStorage.setItem(this.USERS_KEY, JSON.stringify(filtered));
+                localStorage.setItem(this.USERS_KEY, JSON.stringify(users.filter(u => u.id !== userId)));
                 return { success: true, message: 'User deleted' };
             } catch {
                 return { success: false, error: e.message };
@@ -652,19 +705,31 @@ const Database = {
         try {
             const logs = this.getAuditLog();
             const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
-            logs.unshift({
+            const entry = {
                 time: new Date().toISOString(),
                 user: session.username || 'system',
                 action,
                 detail,
                 level
-            });
+            };
+            logs.unshift(entry);
             // Keep last 500 entries
             if (logs.length > 500) logs.length = 500;
             localStorage.setItem(this.AUDIT_KEY, JSON.stringify(logs));
+            // Also push to server (fire-and-forget)
+            apiRequest('/unified/audit', 'POST', { user: entry.user, action, detail, level }).catch(() => {});
         } catch (e) {
             console.error('Audit log error:', e);
         }
+    },
+
+    // Fetch audit log from server (for managers/superadmin cross-device visibility)
+    async getServerAuditLog(limit = 200) {
+        try {
+            const result = await apiRequest(`/unified/audit?limit=${limit}`);
+            if (result.success && result.data) return result.data;
+        } catch {}
+        return this.getAuditLog();
     },
 
     getAuditLog() {
