@@ -851,8 +851,8 @@ const Payroll = {
                 </div>
                 <div style="display:flex;gap:4px">
                     <button class="btn btn-sm btn-info" onclick="Payroll.openGeneratePayslip('${e.id}')" title="Generate Payslip"><i class="fas fa-receipt"></i></button>
-                    ${Auth.canEditDelete() ? `<button class="btn btn-sm btn-secondary" onclick="Payroll.editEmployee('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>` : ''}
-                    ${Auth.canEditDelete() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deleteEmployee('${e.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
+                    ${Auth.canEdit() ? `<button class="btn btn-sm btn-secondary" onclick="Payroll.editEmployee('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>` : ''}
+                    ${Auth.canDelete() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deleteEmployee('${e.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
             </div>
         `).join('');
@@ -957,7 +957,7 @@ const Payroll = {
     },
 
     editEmployee(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can edit records', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to edit records', 'error'); return; }
         const emp = DataStore.employees.find(e => e.id === id);
         if (!emp) return;
 
@@ -1022,7 +1022,7 @@ const Payroll = {
     },
 
     deleteEmployee(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can delete records', 'error'); return; }
+        if (!Auth.canDelete()) { App.showToast('Only Super Admin can delete records', 'error'); return; }
         if (!confirm('Delete this employee?')) return;
         Database.deleteEmployee(id);
         App.showToast('Employee deleted', 'success');
@@ -1617,7 +1617,7 @@ const Payroll = {
                             <td>
                                 <div style="display:flex;gap:4px">
                                     <button class="btn btn-sm btn-secondary" onclick="Payroll.viewPerformanceReview('${r.id}')" title="View"><i class="fas fa-eye"></i></button>
-                                    ${Auth.canEditDelete() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deletePerformanceReview('${r.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
+                                    ${Auth.canDelete() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deletePerformanceReview('${r.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
                                 </div>
                             </td>
                         </tr>`;
@@ -1801,7 +1801,7 @@ const Payroll = {
     },
 
     deletePerformanceReview(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can delete records', 'error'); return; }
+        if (!Auth.canDelete()) { App.showToast('Only Super Admin can delete records', 'error'); return; }
         if (!confirm('Delete this performance review?')) return;
         Database.deletePerformanceReview(id);
         App.showToast('Performance review deleted', 'success');
@@ -1852,7 +1852,7 @@ const Payroll = {
                                 <div style="display:flex;gap:4px">
                                     <button class="btn btn-sm btn-secondary" onclick="Payroll.viewIncident('${inc.id}')" title="View"><i class="fas fa-eye"></i></button>
                                     ${inc.status !== 'closed' ? `<button class="btn btn-sm btn-primary" onclick="Payroll.updateIncidentStatus('${inc.id}')" title="Update Status"><i class="fas fa-edit"></i></button>` : ''}
-                                    ${Auth.canEditDelete() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deleteIncident('${inc.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
+                                    ${Auth.canDelete() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deleteIncident('${inc.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
                                 </div>
                             </td>
                         </tr>`;
@@ -2015,7 +2015,7 @@ const Payroll = {
     },
 
     deleteIncident(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can delete records', 'error'); return; }
+        if (!Auth.canDelete()) { App.showToast('Only Super Admin can delete records', 'error'); return; }
         if (!confirm('Delete this incident report? This cannot be undone.')) return;
         Database.deleteIncidentReport(id);
         App.showToast('Incident report deleted', 'success');

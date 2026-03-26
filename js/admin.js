@@ -497,7 +497,7 @@ const Admin = {
     },
 
     openEditUser(userId) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can edit users', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to edit users', 'error'); return; }
         const user = Database.getUsers().find(u => u.id === userId);
         if (!user) return;
 
@@ -593,7 +593,7 @@ const Admin = {
     },
 
     async toggleUserStatus(userId) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can modify users', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to modify users', 'error'); return; }
         const users = Database.getUsers();
         const user = users.find(u => u.id === userId);
         if (!user) return;
@@ -609,7 +609,7 @@ const Admin = {
     },
 
     confirmDeleteUser(userId) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can delete users', 'error'); return; }
+        if (!Auth.canDelete()) { App.showToast('Only Super Admin can delete users', 'error'); return; }
         const user = Database.getUsers().find(u => u.id === userId);
         if (!user) return;
 
@@ -626,7 +626,7 @@ const Admin = {
     },
 
     async deleteUser(userId) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can delete users', 'error'); return; }
+        if (!Auth.canDelete()) { App.showToast('Only Super Admin can delete users', 'error'); return; }
         const result = await Database.deleteUser(userId);
         if (result.success) {
             App.closeModal();

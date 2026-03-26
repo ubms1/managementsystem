@@ -276,7 +276,7 @@ const Construction = {
         App.openModal('Project Details', html, `
             <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
             <button class="btn btn-info" onclick="Construction.viewProjectMaterials('${p.id}')"><i class="fas fa-boxes-stacked"></i> Materials</button>
-            ${Auth.canEditDelete() ? `<button class="btn btn-primary" onclick="Construction.openEditProject('${p.id}')"><i class="fas fa-edit"></i> Edit Project</button>` : ''}
+            ${Auth.canEdit() ? `<button class="btn btn-primary" onclick="Construction.openEditProject('${p.id}')"><i class="fas fa-edit"></i> Edit Project</button>` : ''}
         `, true);
     },
 
@@ -377,7 +377,7 @@ const Construction = {
     },
 
     openEditProject(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can edit records', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to edit records', 'error'); return; }
         const p = DataStore.projects.find(pr => pr.id === id);
         if (!p) return;
         const existingVendors = [...new Set(DataStore.projects.map(pr => pr.gridVendor).filter(Boolean))];
@@ -1710,7 +1710,7 @@ const Construction = {
             {
                 actions: r => `
                     <button class="btn btn-sm btn-secondary" onclick="Construction.openEditMilestone('${r.id}')" title="Edit"><i class="fas fa-edit"></i></button>
-                    ${Auth.canEditDelete() ? `<button class="btn btn-sm btn-danger" onclick="Construction.deleteMilestone('${r.id}')" title="Delete" style="margin-left:4px"><i class="fas fa-trash"></i></button>` : ''}
+                    ${Auth.canDelete() ? `<button class="btn btn-sm btn-danger" onclick="Construction.deleteMilestone('${r.id}')" title="Delete" style="margin-left:4px"><i class="fas fa-trash"></i></button>` : ''}
                 `
             }
         );
@@ -2729,7 +2729,7 @@ const Construction = {
     },
 
     deleteMilestone(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can delete', 'error'); return; }
+        if (!Auth.canDelete()) { App.showToast('Only Super Admin can delete', 'error'); return; }
         if (!confirm('Delete this milestone?')) return;
         DataStore.projectMilestones = (DataStore.projectMilestones || []).filter(m => m.id !== id);
         Database.save();
@@ -2883,7 +2883,7 @@ const Construction = {
             ${doc.notes ? `<div style="margin-top:8px;padding:12px;background:var(--bg);border-radius:var(--radius);font-size:13px"><strong>Notes:</strong><br>${doc.notes}</div>` : ''}
         `, `
             <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
-            ${Auth.canEditDelete() ? `<button class="btn btn-primary" onclick="Construction.openEditDocumentStatus('${doc.id}')"><i class="fas fa-edit"></i> Update Status</button>` : ''}
+            ${Auth.canEdit() ? `<button class="btn btn-primary" onclick="Construction.openEditDocumentStatus('${doc.id}')"><i class="fas fa-edit"></i> Update Status</button>` : ''}
         `);
     },
 

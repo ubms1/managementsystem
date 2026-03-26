@@ -988,7 +988,7 @@ const Automotive = {
     },
 
     updateEstimateStatus(id, status) {
-        if (status === 'rejected' && !Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can reject estimates', 'error'); return; }
+        if (status === 'rejected' && !Auth.canEdit()) { App.showToast('You do not have permission to reject estimates', 'error'); return; }
         Database.updateEstimate(id, { status });
         App.closeModal();
         App.showToast(`Estimate ${status}`, 'success');
@@ -1222,7 +1222,7 @@ const Automotive = {
     },
 
     rejectAppointment(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can reject appointments', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to reject appointments', 'error'); return; }
         if (!confirm('Reject this appointment? The customer will need to be notified.')) return;
         const b = DataStore.bookings.find(bk => bk.id === id);
         if (!b) return;
@@ -1262,7 +1262,7 @@ const Automotive = {
     },
 
     denyApptReschedule(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can deny reschedules', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to deny reschedules', 'error'); return; }
         if (!confirm('Deny this reschedule request? The original schedule will be kept.')) return;
         const b = DataStore.bookings.find(bk => bk.id === id);
         if (!b || !b.rescheduleRequest) return;

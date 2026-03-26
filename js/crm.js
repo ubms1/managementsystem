@@ -43,9 +43,9 @@ const CRM = {
             <div class="card-header">
                 <h3>Customer Directory</h3>
                 <div class="card-actions">
-                    <button class="btn btn-primary" onclick="CRM.openAddCustomer()">
+                    ${Auth.canEdit() ? `<button class="btn btn-primary" onclick="CRM.openAddCustomer()">
                         <i class="fas fa-plus"></i> Add Customer
-                    </button>
+                    </button>` : ''}
                 </div>
             </div>
             <div style="padding:16px 24px;border-bottom:1px solid var(--border)">
@@ -62,10 +62,16 @@ const CRM = {
                     </select>
                     <select class="form-control" style="width:180px" id="crmCompanyFilter" onchange="CRM.filterCustomers()">
                         <option value="all">All Companies</option>
+                        ${Auth.isSuperAdmin() || Auth.isOwner() ? `
                         <option value="dheekay">Dheekay Builders</option>
                         <option value="kdchavit">KDChavit Construction</option>
                         <option value="nuatthai">Nuat Thai</option>
-                        <option value="autocasa">AutoCasa</option>
+                        <option value="autocasa">AutoCasa</option>` :
+                        (() => {
+                            const uCo = Auth.getSession()?.companies || [Auth.getCompany()];
+                            const names = {dheekay:'Dheekay Builders',kdchavit:'KDChavit Construction',nuatthai:'Nuat Thai',autocasa:'AutoCasa'};
+                            return uCo.filter(c=>c!=='all').map(c=>`<option value="${c}">${names[c]||c}</option>`).join('');
+                        })()}
                     </select>
                 </div>
             </div>
@@ -77,8 +83,24 @@ const CRM = {
 
     getFilteredCustomers() {
         let customers = DataStore.customers;
+        // Superadmin sees ALL customers across ALL businesses
+        if (Auth.isSuperAdmin()) return customers;
+        // Manager/owner see their assigned companies' customers
+        if (Auth.isManager()) {
+            const userCompanies = Auth.getSession()?.companies || [Auth.getCompany()];
+            if (!userCompanies.includes('all')) {
+                customers = customers.filter(c => (c.companies || []).some(co => userCompanies.includes(co)));
+            }
+            return customers;
+        }
+        // Other roles: filter by active company or their assigned companies
         if (App.activeCompany !== 'all') {
             customers = customers.filter(c => (c.companies || []).includes(App.activeCompany));
+        } else {
+            const userCompanies = Auth.getSession()?.companies || [Auth.getCompany()];
+            if (!userCompanies.includes('all')) {
+                customers = customers.filter(c => (c.companies || []).some(co => userCompanies.includes(co)));
+            }
         }
         return customers;
     },
@@ -110,7 +132,8 @@ const CRM = {
             {
                 actions: (c) => `
                     <button class="btn btn-sm btn-secondary" onclick="CRM.viewCustomer('${c.id}')" title="View"><i class="fas fa-eye"></i></button>
-                    ${Auth.canEditDelete() ? `<button class="btn btn-sm btn-secondary" onclick="CRM.editCustomer('${c.id}')" title="Edit" style="margin-left:4px"><i class="fas fa-edit"></i></button>` : ''}
+                    ${Auth.canEdit() ? `<button class="btn btn-sm btn-secondary" onclick="CRM.editCustomer('${c.id}')" title="Edit" style="margin-left:4px"><i class="fas fa-edit"></i></button>` : ''}
+                    ${Auth.canDelete() ? `<button class="btn btn-sm btn-danger" onclick="CRM.deleteCustomer('${c.id}')" title="Delete" style="margin-left:4px"><i class="fas fa-trash"></i></button>` : ''}
                 `
             }
         );
@@ -294,7 +317,7 @@ const CRM = {
     },
 
     editCustomer(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can edit records', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to edit records', 'error'); return; }
         const c = DataStore.customers.find(cu => cu.id === id);
         if (!c) return;
 
@@ -374,6 +397,27 @@ const CRM = {
         Database.save();
         App.closeModal();
         App.showToast(`Customer "${name}" updated`, 'success');
+        this.render(document.getElementById('contentArea'));
+    },
+
+    deleteCustomer(id) {
+        if (!Auth.canDelete()) { App.showToast('Only Super Admin can delete records', 'error'); return; }
+        const c = DataStore.customers.find(cu => cu.id === id);
+        if (!c) return;
+
+        App.openModal('Confirm Delete', `
+            <p>Are you sure you want to delete customer <strong>${Utils.escapeHtml(c.name)}</strong>?</p>
+            <p style="color:var(--danger);font-size:13px"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</p>
+        `, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-danger" onclick="CRM.confirmDeleteCustomer('${id}')"><i class="fas fa-trash"></i> Delete</button>
+        `);
+    },
+
+    confirmDeleteCustomer(id) {
+        Database.deleteCustomer(id);
+        App.closeModal();
+        App.showToast('Customer deleted', 'success');
         this.render(document.getElementById('contentArea'));
     }
 };

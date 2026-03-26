@@ -99,7 +99,7 @@ const Wellness = {
     },
 
     rejectBooking(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can reject bookings', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to reject bookings', 'error'); return; }
         if (!confirm('Reject this booking? The customer will need to be notified.')) return;
         const b = DataStore.bookings.find(bk => bk.id === id);
         if (!b) return;
@@ -129,7 +129,7 @@ const Wellness = {
     },
 
     denyReschedule(id) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can deny reschedules', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to deny reschedules', 'error'); return; }
         if (!confirm('Deny this reschedule request? The original schedule will be kept.')) return;
         const b = DataStore.bookings.find(bk => bk.id === id);
         if (!b || !b.rescheduleRequest) return;

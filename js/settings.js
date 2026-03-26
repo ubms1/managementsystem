@@ -63,8 +63,8 @@ const Settings = {
                     users,
                     {
                         actions: r => `
-                            ${Auth.canEditDelete() ? `<button class="btn btn-sm btn-secondary" onclick="Settings.openEditUser('${r.id}')" title="Edit"><i class="fas fa-edit"></i></button>` : ''}
-                            ${Auth.canEditDelete() && r.role !== 'owner' ? `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="Settings.toggleUserStatus('${r.id}')" title="Deactivate"><i class="fas fa-ban"></i></button>` : ''}
+                            ${Auth.canEdit() ? `<button class="btn btn-sm btn-secondary" onclick="Settings.openEditUser('${r.id}')" title="Edit"><i class="fas fa-edit"></i></button>` : ''}
+                            ${Auth.canDelete() && r.role !== 'owner' ? `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="Settings.toggleUserStatus('${r.id}')" title="Deactivate"><i class="fas fa-ban"></i></button>` : ''}
                         `
                     }
                 )}
@@ -353,7 +353,7 @@ const Settings = {
     },
 
     openEditUser(userId) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can edit users', 'error'); return; }
+        if (!Auth.canEdit()) { App.showToast('You do not have permission to edit users', 'error'); return; }
         Admin.openEditUser(userId);
         setTimeout(() => {
             const saveBtn = document.querySelector('#modalFooter .btn-primary');
@@ -490,7 +490,7 @@ const Settings = {
     },
 
     async toggleUserStatus(userId) {
-        if (!Auth.canEditDelete()) { App.showToast('Only Owner or Super Admin can modify users', 'error'); return; }
+        if (!Auth.canDelete()) { App.showToast('Only Super Admin can modify user status', 'error'); return; }
         const user = Database.getUsers().find(u => u.id === userId);
         if (!user) return;
         const result = user.status === 'active' ? await Database.deactivateUser(userId) : await Database.activateUser(userId);

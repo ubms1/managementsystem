@@ -784,6 +784,23 @@ select.form-control { cursor: pointer; }
 .sa-error { display: none; color: #d32f2f; font-size: 12px; margin-top: 8px; }
 
 /* Hidden nav sections in standalone apps */
+
+/* ========================================
+   CRM RESPONSIVE / CROSS-DEVICE
+   ======================================== */
+/* Table horizontal scroll on small screens */
+.card-body.no-padding { overflow-x: auto; }
+
+/* CRM filter bar wraps on mobile */
+@media (max-width: 768px) {
+    .filter-bar { flex-direction: column; align-items: stretch; }
+    .filter-bar .form-control,
+    .filter-bar .topbar-search { width: 100% !important; min-width: 0; }
+    .card-header { flex-direction: column; align-items: flex-start !important; gap: 8px; }
+    .card-actions { width: 100%; }
+    .card-actions .btn { width: 100%; }
+    .form-row { flex-direction: column; gap: 0; }
+}
 .nav-section-hidden { display: none; }
 
 /* Company badge colors for standalone apps */

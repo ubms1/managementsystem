@@ -50,6 +50,17 @@ const Auth = {
         return this.isSuperAdmin() || this.session?.role === 'owner';
     },
 
+    /* New granular permissions:
+       canEdit()   → superadmin, owner, manager
+       canDelete() → superadmin only */
+    canEdit() {
+        return this.isSuperAdmin() || this.session?.role === 'owner' || this.session?.role === 'manager';
+    },
+
+    canDelete() {
+        return this.isSuperAdmin();
+    },
+
     canAccessCompany(companyId) {
         if (this.isSuperAdmin() || this.isOwner() || this.session?.role === 'accountant') return true;
         const companies = this.session?.companies || [this.session?.company];
