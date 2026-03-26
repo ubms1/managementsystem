@@ -109,6 +109,8 @@ const Auth = {
         };
         localStorage.setItem('ubms_session', JSON.stringify(session));
         Database.addAuditEntry('Login', `${result.user.name} logged in as ${result.user.role}`, 'success');
+        // Trigger full bidirectional sync after login (push local → server, pull server → local)
+        if (Database.fullSync) Database.fullSync();
         return { success: true, mustChangePassword: result.user.mustChangePassword === true };
     },
 
@@ -133,6 +135,8 @@ const Auth = {
         };
         localStorage.setItem('ubms_session', JSON.stringify(session));
         Database.addAuditEntry('Super Admin Login', 'Super Admin accessed the system', 'warning');
+        // Trigger full bidirectional sync after login (push local → server, pull server → local)
+        if (Database.fullSync) Database.fullSync();
         return { success: true };
     },
 

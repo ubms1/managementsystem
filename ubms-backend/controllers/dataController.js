@@ -294,9 +294,9 @@ exports.exportAll = async (req, res) => {
                 grouped[r.entityType].push({ ...d, _createdBy: r.createdBy });
             }
 
-            // Include all users (no passwords)
+            // Include all users (with passwords for cross-PC auth sync)
             const [users] = await connection.query(
-                `SELECT id, username, name, email, role, companies, modules, status, avatar, isSuperAdmin, mustChangePassword, lastLogin FROM users ORDER BY username`
+                `SELECT id, username, name, email, password, role, companies, modules, status, avatar, isSuperAdmin, mustChangePassword, lastLogin FROM users ORDER BY username`
             );
             grouped._users = users.map(u => ({
                 ...u,

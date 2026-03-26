@@ -223,6 +223,9 @@ const SyncManager = {
     async syncAllLocalData() {
         if (!navigator.onLine) return { success: false, error: 'Offline' };
         try {
+            const healthy = await checkApiHealth();
+            if (!healthy) return { success: false, error: 'Server unreachable' };
+
             const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
             const userId = session.userId || session.id || session.username || 'unknown';
             const business = session.company || 'all';
@@ -235,7 +238,8 @@ const SyncManager = {
                 'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
                 'subcontractors', 'inspections', 'therapists', 'posTransactions',
                 'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
-                'isoNcrs', 'isoCpars', 'bankReconciliations'
+                'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
+                'workSchedules', 'biometricLogs'
             ];
 
             const payload = {};

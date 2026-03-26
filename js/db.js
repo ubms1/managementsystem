@@ -11,10 +11,9 @@ const API_BASE_URL = (function() {
 
     const loc = window.location;
 
-    // GitHub Pages deployment — connect to the backend server
-    if (loc.hostname.includes('github.io')) {
-        // Use HTTPS backend on same server (port 3443)
-        return 'https://10.56.221.132:3443/api';
+    // GitHub Pages or external hosting — connect to the LAN backend server
+    if (loc.hostname.includes('github.io') || (loc.protocol === 'https:' && loc.port !== '3443')) {
+        return 'http://10.56.221.132:3000/api';
     }
     // If served from the backend (port 3000 or 3443), use same origin
     if (loc.port === '3000' || loc.port === '3443') {
@@ -27,7 +26,8 @@ const API_BASE_URL = (function() {
     // Default: use same hostname but port 3000
     return loc.protocol + '//' + loc.hostname + ':3000/api';
 })();
-let _apiAvailable = null; // null = unknown, true/false after first check
+let _apiAvailable = null; // null = unknown, true/false after check
+let _apiCheckTime = 0;    // timestamp of last check
 
 async function apiRequest(endpoint, method = 'GET', body = null) {
     const options = {
@@ -50,15 +50,17 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
     return response.json();
 }
 
-// Check if backend API is reachable
+// Check if backend API is reachable (re-checks every 30s instead of caching permanently)
 async function checkApiHealth() {
-    if (_apiAvailable !== null) return _apiAvailable;
+    const now = Date.now();
+    if (_apiAvailable !== null && (now - _apiCheckTime) < 30000) return _apiAvailable;
     try {
         const resp = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(3000) });
         _apiAvailable = resp.ok;
     } catch {
         _apiAvailable = false;
     }
+    _apiCheckTime = now;
     return _apiAvailable;
 }
 
@@ -122,8 +124,26 @@ const Database = {
             localStorage.setItem('ubms_db_version', String(this.DB_VERSION));
         }
         this.startAutoSave();
-        // Pull all server data in background after page loads (merges users + entities from all PCs)
-        setTimeout(() => this.loadFromServer(), 2000);
+        // Full bidirectional sync: push local → server, then pull server → local
+        this.fullSync();
+    },
+
+    // Full bidirectional sync — push local data first, then pull everything from server
+    async fullSync() {
+        try {
+            const healthy = await checkApiHealth();
+            if (!healthy) {
+                console.log('Server unreachable — running in offline mode');
+                return;
+            }
+            // 1. Push our local data + users to the server first
+            await this.syncAllToServer();
+            // 2. Pull ALL data from server (includes data from other users/PCs)
+            await this.loadFromServer();
+            console.log('✓ Full sync completed');
+        } catch (e) {
+            console.error('fullSync error:', e.message);
+        }
     },
 
     // ---- Clear all transactional data for fresh start ----
@@ -1215,7 +1235,8 @@ const Database = {
     // ============================================================
 
     // Pull all data from server and merge into local DataStore.
-    // This syncs users and entities added on other PCs.
+    // Server data is authoritative — overwrites local for matching IDs, adds new.
+    // Superadmin/owner with company='all' gets data from ALL businesses.
     async loadFromServer() {
         if (typeof navigator === 'undefined' || !navigator.onLine) return;
         try {
@@ -1223,59 +1244,72 @@ const Database = {
             if (!healthy) return;
 
             const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
-            const business = session.company || 'all';
+            // Superadmin and owner see ALL data across all companies
+            const role = session.role || '';
+            const business = (role === 'superadmin' || role === 'owner' || (session.companies && session.companies.includes('all')))
+                ? 'all' : (session.company || 'all');
 
             const response = await fetch(`${API_BASE_URL}/data/export?business=${encodeURIComponent(business)}`, {
-                signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(15000)
             });
             if (!response.ok) return;
             const result = await response.json();
             if (!result.success || !result.data) return;
 
-            // Merge server users into localStorage (users created on other PCs)
+            // Merge server users into localStorage — server wins for existing users
             if (result.data._users && Array.isArray(result.data._users)) {
                 const localRaw = localStorage.getItem(this.USERS_KEY);
                 const localUsers = localRaw ? JSON.parse(localRaw) : [];
                 const byId = new Map(localUsers.map(u => [u.id, u]));
                 for (const su of result.data._users) {
-                    if (!byId.has(su.id)) byId.set(su.id, su);
+                    const existing = byId.get(su.id);
+                    if (existing) {
+                        // Merge: prefer server data, but keep local password only if server doesn't have one
+                        const mergedPass = su.password || existing.password;
+                        byId.set(su.id, { ...existing, ...su, password: mergedPass });
+                    } else {
+                        byId.set(su.id, su);
+                    }
                 }
                 localStorage.setItem(this.USERS_KEY, JSON.stringify(Array.from(byId.values())));
             }
 
-            // Merge server entities into DataStore
+            // Merge server entities into DataStore — server wins for matching IDs
             const entityTypes = [
                 'customers', 'invoices', 'expenses', 'projects', 'bookings',
                 'jobCards', 'vehicles', 'autoParts', 'memberships', 'employees',
                 'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
                 'birInvoices', 'equipment', 'safetyRecords', 'documents',
                 'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
-                'subcontractors', 'inspections', 'therapists'
+                'subcontractors', 'inspections', 'therapists', 'posTransactions',
+                'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
+                'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
+                'workSchedules', 'biometricLogs'
             ];
             let merged = 0;
             for (const type of entityTypes) {
                 if (!result.data[type] || !Array.isArray(result.data[type])) continue;
                 if (!Array.isArray(DataStore[type])) DataStore[type] = [];
-                const byId = new Map(DataStore[type].map(x => [x.id, x]));
+                const localById = new Map(DataStore[type].map(x => [x.id, x]));
                 for (const item of result.data[type]) {
-                    if (!byId.has(item.id)) {
-                        // Strip server meta fields before local storage
-                        const { _createdBy, _business, _createdAt, _updatedAt, ...clean } = item;
-                        byId.set(item.id, clean);
-                        merged++;
+                    const { _createdBy, _business, _createdAt, _updatedAt, ...clean } = item;
+                    if (localById.has(item.id)) {
+                        // Server wins: update local with server data
+                        Object.assign(localById.get(item.id), clean);
+                    } else {
+                        // New item from another user/PC
+                        localById.set(item.id, clean);
                     }
+                    merged++;
                 }
-                DataStore[type] = Array.from(byId.values());
+                DataStore[type] = Array.from(localById.values());
             }
 
+            this._saveLocal();
             if (merged > 0) {
-                this._saveLocal();
-                console.log(`✓ Loaded ${merged} records from server`);
+                console.log(`✓ Synced ${merged} records from server`);
                 window.dispatchEvent(new CustomEvent('ubms-data-loaded', { detail: { count: merged } }));
             }
-
-            // Also push our local users to server (so they appear for all clients)
-            this.syncUsersToServer();
         } catch (e) {
             console.error('loadFromServer error:', e.message);
         }
@@ -1303,6 +1337,9 @@ const Database = {
     async syncAllToServer() {
         try {
             if (!navigator.onLine) return { success: false, error: 'Offline' };
+            const healthy = await checkApiHealth();
+            if (!healthy) return { success: false, error: 'Server unreachable' };
+
             const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
             const userId = session.userId || session.id || session.username || 'unknown';
             const business = session.company || 'all';
@@ -1315,7 +1352,8 @@ const Database = {
                 'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
                 'subcontractors', 'inspections', 'therapists', 'posTransactions',
                 'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
-                'isoNcrs', 'isoCpars', 'bankReconciliations'
+                'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
+                'workSchedules', 'biometricLogs'
             ];
             const payload = {};
             for (const type of entityTypes) {
@@ -1326,16 +1364,18 @@ const Database = {
             const users = JSON.parse(localStorage.getItem(this.USERS_KEY) || '[]');
             if (users.length > 0) payload._users = users;
 
+            // Also include audit log
+            const auditRaw = localStorage.getItem(this.AUDIT_KEY);
+            if (auditRaw) {
+                try { payload.activityLog = JSON.parse(auditRaw); } catch {}
+            }
+
             const response = await fetch(`${API_BASE_URL}/data/import`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data: payload, userId, business })
             });
             const result = await response.json();
-            if (result.success) {
-                this.addNotification('success', 'fa-cloud-upload-alt', 'Sync Complete',
-                    `Uploaded ${result.totalImported} records and ${result.usersSynced} users to server`);
-            }
             return result;
         } catch (e) {
             console.error('syncAllToServer error:', e.message);
