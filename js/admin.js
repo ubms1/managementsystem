@@ -69,6 +69,9 @@ const Admin = {
             <button class="tab-btn" onclick="Admin.switchTab('assignments',this)">
                 <i class="fas fa-tasks"></i> Tab & Business Assignments
             </button>
+            <button class="tab-btn" onclick="Admin.switchTab('activity',this)">
+                <i class="fas fa-stream"></i> User Activity
+            </button>
             <button class="tab-btn" onclick="Admin.switchTab('audit',this)">
                 <i class="fas fa-history"></i> System Audit Log
             </button>
@@ -84,6 +87,7 @@ const Admin = {
         switch (tab) {
             case 'users': el.innerHTML = this.renderUserManagement(); break;
             case 'assignments': el.innerHTML = this.renderAssignments(); break;
+            case 'activity': el.innerHTML = '<div class="loading-screen"><div class="spinner"></div><p>Loading activity...</p></div>'; el.innerHTML = await this.renderActivityDashboard(); break;
             case 'audit': el.innerHTML = await this.renderAuditLog(); break;
         }
     },
@@ -210,6 +214,150 @@ const Admin = {
         }
 
         return html;
+    },
+
+    // ============================================================
+    //  USER ACTIVITY DASHBOARD TAB (consolidated changes by user)
+    // ============================================================
+    async renderActivityDashboard(days = 7) {
+        const company = (typeof App !== 'undefined') ? App.activeCompany : 'all';
+        const [activityResult, summary] = await Promise.all([
+            Database.getActivityByUser(company, days),
+            Database.getActivitySummary(company, days)
+        ]);
+
+        const grouped = activityResult.data || [];
+        const raw = activityResult.raw || [];
+        const users = Database.getUsers();
+
+        // Build user lookup
+        const userMap = {};
+        users.forEach(u => { userMap[u.username] = u; });
+
+        // Company color map
+        const companyColors = {};
+        Object.entries(DataStore.companies || {}).forEach(([k, v]) => { companyColors[k] = v.color || '#888'; });
+
+        let html = `
+        <div class="section-header mb-2">
+            <h3><i class="fas fa-stream" style="color:var(--primary)"></i> User Activity — Last ${days} Days</h3>
+            <div class="section-actions" style="gap:8px;display:flex;align-items:center">
+                <select class="form-control" style="width:100px" onchange="Admin.reloadActivity(this.value)" id="activityDays">
+                    <option value="1" ${days===1?'selected':''}>Today</option>
+                    <option value="3" ${days===3?'selected':''}>3 Days</option>
+                    <option value="7" ${days===7?'selected':''}>7 Days</option>
+                    <option value="14" ${days===14?'selected':''}>14 Days</option>
+                    <option value="30" ${days===30?'selected':''}>30 Days</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" onclick="Admin.exportActivityCSV()"><i class="fas fa-download"></i> Export</button>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid-4 mb-3">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(0,137,123,0.12);color:#00897b"><i class="fas fa-bolt"></i></div>
+                <div class="stat-info"><h3>${summary.totalActions || 0}</h3><span>Total Actions</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(33,150,243,0.12);color:#2196f3"><i class="fas fa-user-clock"></i></div>
+                <div class="stat-info"><h3>${grouped.length}</h3><span>Active Users</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(255,152,0,0.12);color:#ff9800"><i class="fas fa-layer-group"></i></div>
+                <div class="stat-info"><h3>${(summary.byModule || []).length}</h3><span>Modules Used</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(244,67,54,0.12);color:#f44336"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="stat-info"><h3>${(summary.byLevel || []).find(l => l.level === 'warning')?.count || 0}</h3><span>Warnings</span></div>
+            </div>
+        </div>
+
+        <!-- Top Users & Module Breakdown side by side -->
+        <div class="grid-2 mb-3">
+            <div class="card"><div class="card-header"><h4>Top Users by Activity</h4></div><div class="card-body no-padding">
+                <table class="data-table"><thead><tr><th>User</th><th>Role</th><th>Actions</th><th>Bar</th></tr></thead><tbody>`;
+
+        const maxCount = grouped.length > 0 ? Math.max(...grouped.map(g => g.count)) : 1;
+        grouped.sort((a, b) => b.count - a.count).slice(0, 15).forEach(g => {
+            const u = userMap[g.user];
+            const role = u ? u.role : 'system';
+            const roleColors = { superadmin: '#f44336', owner: '#ff9800', manager: '#2196f3', accountant: '#009688', staff: '#9e9e9e' };
+            const pct = Math.round((g.count / maxCount) * 100);
+            html += `<tr>
+                <td><strong>${g.user}</strong></td>
+                <td><span class="badge-tag" style="background:${roleColors[role] || '#888'}20;color:${roleColors[role] || '#888'}">${role}</span></td>
+                <td style="font-weight:600">${g.count}</td>
+                <td style="width:120px"><div style="background:var(--primary);height:8px;border-radius:4px;width:${pct}%"></div></td>
+            </tr>`;
+        });
+
+        html += `</tbody></table></div></div>
+            <div class="card"><div class="card-header"><h4>Activity by Module</h4></div><div class="card-body no-padding">
+                <table class="data-table"><thead><tr><th>Module</th><th>Actions</th><th>Bar</th></tr></thead><tbody>`;
+
+        const byMod = summary.byModule || [];
+        const maxMod = byMod.length > 0 ? Math.max(...byMod.map(m => m.count)) : 1;
+        byMod.slice(0, 15).forEach(m => {
+            const pct = Math.round((m.count / maxMod) * 100);
+            html += `<tr>
+                <td><strong>${m.module || 'general'}</strong></td>
+                <td style="font-weight:600">${m.count}</td>
+                <td style="width:120px"><div style="background:#ff9800;height:8px;border-radius:4px;width:${pct}%"></div></td>
+            </tr>`;
+        });
+
+        html += `</tbody></table></div></div></div>
+
+        <!-- Detailed Activity Feed -->
+        <div class="card"><div class="card-header"><h4>Detailed Activity Feed</h4><span style="font-size:12px;color:var(--text-muted)">${raw.length} entries</span></div>
+        <div class="card-body no-padding"><div class="table-wrapper"><table class="data-table">
+        <thead><tr><th>Time</th><th>User</th><th>Business</th><th>Module</th><th>Action</th><th>Details</th><th>Level</th></tr></thead>
+        <tbody>`;
+
+        if (raw.length === 0) {
+            html += '<tr><td colspan="7" class="text-center text-muted" style="padding:40px">No activity recorded in the selected period</td></tr>';
+        }
+        raw.slice(0, 200).forEach(r => {
+            const co = r.company || 'all';
+            const coColor = companyColors[co] || '#888';
+            const coName = DataStore.companies[co]?.name || co;
+            html += `<tr>
+                <td><span style="font-family:monospace;font-size:11px">${Utils.formatDateTime(r.time)}</span></td>
+                <td><span class="badge-tag badge-neutral">${r.user}</span></td>
+                <td><span class="badge-tag" style="background:${coColor}18;color:${coColor};font-size:11px">${coName}</span></td>
+                <td style="font-size:12px">${r.module || '—'}</td>
+                <td><strong>${r.action}</strong></td>
+                <td style="font-size:12px;color:var(--text-secondary);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.detail || ''}</td>
+                <td><span class="badge-tag ${r.level === 'warning' ? 'badge-warning' : r.level === 'success' ? 'badge-success' : r.level === 'danger' ? 'badge-danger' : 'badge-info'}">${r.level}</span></td>
+            </tr>`;
+        });
+
+        html += '</tbody></table></div></div></div>';
+        return html;
+    },
+
+    async reloadActivity(days) {
+        const el = document.getElementById('adminContent');
+        el.innerHTML = '<div class="loading-screen"><div class="spinner"></div><p>Loading activity...</p></div>';
+        el.innerHTML = await this.renderActivityDashboard(parseInt(days));
+    },
+
+    exportActivityCSV() {
+        const table = document.querySelector('#adminContent .data-table:last-of-type');
+        if (!table) return;
+        const rows = [];
+        table.querySelectorAll('tr').forEach(tr => {
+            const cells = [];
+            tr.querySelectorAll('th,td').forEach(td => cells.push('"' + td.textContent.replace(/"/g, '""').trim() + '"'));
+            rows.push(cells.join(','));
+        });
+        const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `activity-report-${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
     },
 
     // ============================================================

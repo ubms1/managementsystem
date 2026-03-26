@@ -62,9 +62,22 @@ async function initDatabase() {
                 user VARCHAR(255),
                 action VARCHAR(255),
                 detail TEXT,
-                level VARCHAR(50)
+                level VARCHAR(50),
+                company VARCHAR(100) DEFAULT 'all',
+                module VARCHAR(100) DEFAULT NULL,
+                INDEX idx_company (company),
+                INDEX idx_user (user),
+                INDEX idx_time (time)
             )
         `);
+
+        // Add company and module columns if they don't exist (migration for existing tables)
+        await connection.query(`
+            ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS company VARCHAR(100) DEFAULT 'all'
+        `).catch(() => {});
+        await connection.query(`
+            ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS module VARCHAR(100) DEFAULT NULL
+        `).catch(() => {});
 
         // Create customers table
         await connection.query(`

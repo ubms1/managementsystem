@@ -96,21 +96,102 @@ const unifiedController = {
     // Get audit log
     async getAuditLog(req, res) {
         try {
-            const { limit = 100, offset = 0, level, user } = req.query;
+            const { limit = 100, offset = 0, level, user, company, module: mod, since } = req.query;
             let query = 'SELECT * FROM audit_logs';
             const params = [];
             const conditions = [];
 
             if (level) { conditions.push('level = ?'); params.push(level); }
             if (user) { conditions.push('user LIKE ?'); params.push(`%${user}%`); }
+            if (company && company !== 'all') { conditions.push('(company = ? OR company = "all")'); params.push(company); }
+            if (mod) { conditions.push('module = ?'); params.push(mod); }
+            if (since) { conditions.push('time >= ?'); params.push(since); }
 
             if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
             query += ' ORDER BY time DESC LIMIT ? OFFSET ?';
             params.push(parseInt(limit), parseInt(offset));
 
             const [rows] = await pool.query(query, params);
-            const [countResult] = await pool.query('SELECT COUNT(*) as total FROM audit_logs');
+
+            // Build count query with same conditions
+            let countQuery = 'SELECT COUNT(*) as total FROM audit_logs';
+            const countParams = params.slice(0, -2); // remove limit/offset
+            if (conditions.length > 0) countQuery += ' WHERE ' + conditions.join(' AND ');
+            const [countResult] = await pool.query(countQuery, countParams);
+
             res.json({ success: true, data: rows, total: countResult[0].total });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    },
+
+    // Get consolidated activity by user — for managers/superadmin
+    async getActivityByUser(req, res) {
+        try {
+            const { company, days = 7, limit = 500 } = req.query;
+            let query = `
+                SELECT user, company, module, action, detail, level, time
+                FROM audit_logs
+                WHERE time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            `;
+            const params = [parseInt(days)];
+            if (company && company !== 'all') {
+                query += ' AND (company = ? OR company = "all")';
+                params.push(company);
+            }
+            query += ' ORDER BY time DESC LIMIT ?';
+            params.push(parseInt(limit));
+
+            const [rows] = await pool.query(query, params);
+
+            // Group by user
+            const grouped = {};
+            rows.forEach(r => {
+                if (!grouped[r.user]) grouped[r.user] = { user: r.user, actions: [], count: 0 };
+                grouped[r.user].actions.push(r);
+                grouped[r.user].count++;
+            });
+
+            res.json({ success: true, data: Object.values(grouped), raw: rows });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    },
+
+    // Get activity summary stats
+    async getActivitySummary(req, res) {
+        try {
+            const { company, days = 7 } = req.query;
+            let whereClause = 'WHERE time >= DATE_SUB(NOW(), INTERVAL ? DAY)';
+            const params = [parseInt(days)];
+            if (company && company !== 'all') {
+                whereClause += ' AND (company = ? OR company = "all")';
+                params.push(company);
+            }
+
+            const [totalActions] = await pool.query(
+                `SELECT COUNT(*) as total FROM audit_logs ${whereClause}`, params
+            );
+            const [byUser] = await pool.query(
+                `SELECT user, COUNT(*) as count FROM audit_logs ${whereClause} GROUP BY user ORDER BY count DESC`, params
+            );
+            const [byModule] = await pool.query(
+                `SELECT COALESCE(module, 'general') as module, COUNT(*) as count FROM audit_logs ${whereClause} GROUP BY module ORDER BY count DESC`, params
+            );
+            const [byLevel] = await pool.query(
+                `SELECT level, COUNT(*) as count FROM audit_logs ${whereClause} GROUP BY level`, params
+            );
+            const [byDay] = await pool.query(
+                `SELECT DATE(time) as day, COUNT(*) as count FROM audit_logs ${whereClause} GROUP BY DATE(time) ORDER BY day DESC`, params
+            );
+
+            res.json({
+                success: true,
+                data: {
+                    totalActions: totalActions[0].total,
+                    byUser, byModule, byLevel, byDay
+                }
+            });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }
@@ -119,12 +200,12 @@ const unifiedController = {
     // Add audit log entry
     async addAuditLog(req, res) {
         try {
-            const { user, action, detail, level } = req.body;
+            const { user, action, detail, level, company, module: mod } = req.body;
             if (!action) return res.status(400).json({ success: false, error: 'action is required' });
 
             await pool.query(
-                'INSERT INTO audit_logs (user, action, detail, level) VALUES (?, ?, ?, ?)',
-                [user || 'System', action, detail || '', level || 'info']
+                'INSERT INTO audit_logs (user, action, detail, level, company, module) VALUES (?, ?, ?, ?, ?, ?)',
+                [user || 'System', action, detail || '', level || 'info', company || 'all', mod || null]
             );
             res.json({ success: true, message: 'Audit log entry added' });
         } catch (err) {

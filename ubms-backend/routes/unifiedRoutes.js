@@ -15,4 +15,8 @@ router.get('/config', unifiedController.getConfig);
 router.get('/audit', unifiedController.getAuditLog);
 router.post('/audit', unifiedController.addAuditLog);
 
+// Activity consolidation — for managers/superadmin
+router.get('/activity/by-user', unifiedController.getActivityByUser);
+router.get('/activity/summary', unifiedController.getActivitySummary);
+
 module.exports = router;

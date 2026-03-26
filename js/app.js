@@ -36,6 +36,7 @@ const App = {
 
         this.setupUI();
         this.setupNavVisibility();
+        this.setupSidebarClickOutside();
         this.loadNotifications();
         this.navigate('dashboard');
 
@@ -154,7 +155,12 @@ const App = {
 
         // Slight delay for smooth transition
         setTimeout(() => {
-            this.renderModule(module);
+            try {
+                this.renderModule(module);
+            } catch (e) {
+                console.error('Module render error:', e);
+                content.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#f44336"></i><h3>Error Loading Module</h3><p>${e.message}</p><button class="btn btn-primary mt-2" onclick="App.navigate('${module}')"><i class="fas fa-redo"></i> Retry</button></div>`;
+            }
         }, 100);
     },
 
@@ -248,6 +254,28 @@ const App = {
             sidebar.classList.toggle('collapsed');
             this.sidebarCollapsed = !this.sidebarCollapsed;
         }
+    },
+
+    setupSidebarClickOutside() {
+        document.addEventListener('click', (e) => {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            const toggle = document.getElementById('sidebarToggle');
+            const menuBtn = document.querySelector('.topbar-menu-btn');
+            // If click is inside sidebar or on the toggle buttons, ignore
+            if (sidebar.contains(e.target)) return;
+            if (toggle && toggle.contains(e.target)) return;
+            if (menuBtn && menuBtn.contains(e.target)) return;
+            // On mobile: close mobile-open
+            if (window.innerWidth <= 1024 && sidebar.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+            }
+            // On desktop: collapse if expanded
+            if (window.innerWidth > 1024 && !sidebar.classList.contains('collapsed')) {
+                sidebar.classList.add('collapsed');
+                this.sidebarCollapsed = true;
+            }
+        });
     },
 
     // ---- Theme ----

@@ -201,6 +201,47 @@ const Database = {
         };
     },
 
+    // Compute monthlyRevenue from actual invoices
+    recalcMonthlyRevenue() {
+        const rev = {
+            dheekay:  [0,0,0,0,0,0,0,0,0,0,0,0],
+            kdchavit: [0,0,0,0,0,0,0,0,0,0,0,0],
+            nuatthai: [0,0,0,0,0,0,0,0,0,0,0,0],
+            autocasa: [0,0,0,0,0,0,0,0,0,0,0,0]
+        };
+        const now = new Date();
+        const year = now.getFullYear();
+        (DataStore.invoices || []).forEach(inv => {
+            const co = inv.company;
+            if (!rev[co]) return;
+            const paid = inv.paid || 0;
+            if (paid <= 0) return;
+            // Use issueDate or created date to determine the month
+            const dateStr = inv.issueDate || inv.created;
+            if (!dateStr) return;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return;
+            if (d.getFullYear() === year) {
+                rev[co][d.getMonth()] += paid;
+            }
+        });
+        // Also include POS transactions from birInvoices
+        (DataStore.birInvoices || []).forEach(inv => {
+            const co = inv.company;
+            if (!rev[co]) return;
+            const amount = inv.totalAmount || inv.amount || 0;
+            if (amount <= 0) return;
+            const dateStr = inv.date || inv.issueDate;
+            if (!dateStr) return;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return;
+            if (d.getFullYear() === year) {
+                rev[co][d.getMonth()] += amount;
+            }
+        });
+        DataStore.monthlyRevenue = rev;
+    },
+
     // ---- Load from localStorage ----
     load() {
         try {
@@ -227,6 +268,8 @@ const Database = {
                     }
                 });
             }
+            // Always recompute monthly revenue from actual invoice data
+            this.recalcMonthlyRevenue();
         } catch (e) {
             console.error('Database load error:', e);
         }
@@ -235,6 +278,8 @@ const Database = {
     // ---- Save to localStorage ----
     save() {
         try {
+            // Recompute monthly revenue from actual invoices before saving
+            this.recalcMonthlyRevenue();
             const data = {
                 customers: DataStore.customers,
                 invoices: DataStore.invoices,
@@ -701,35 +746,70 @@ const Database = {
     // ============================================================
     //  AUDIT LOG
     // ============================================================
-    addAuditEntry(action, detail, level = 'info') {
+    addAuditEntry(action, detail, level = 'info', module = null) {
         try {
             const logs = this.getAuditLog();
             const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
+            const company = (typeof App !== 'undefined' && App.activeCompany) ? App.activeCompany : (session.company || 'all');
+            const currentModule = module || ((typeof App !== 'undefined' && App.currentModule) ? App.currentModule : null);
             const entry = {
                 time: new Date().toISOString(),
                 user: session.username || 'system',
                 action,
                 detail,
-                level
+                level,
+                company,
+                module: currentModule
             };
             logs.unshift(entry);
             // Keep last 500 entries
             if (logs.length > 500) logs.length = 500;
             localStorage.setItem(this.AUDIT_KEY, JSON.stringify(logs));
             // Also push to server (fire-and-forget)
-            apiRequest('/unified/audit', 'POST', { user: entry.user, action, detail, level }).catch(() => {});
+            apiRequest('/unified/audit', 'POST', {
+                user: entry.user, action, detail, level,
+                company, module: currentModule
+            }).catch(() => {});
         } catch (e) {
             console.error('Audit log error:', e);
         }
     },
 
     // Fetch audit log from server (for managers/superadmin cross-device visibility)
-    async getServerAuditLog(limit = 200) {
+    async getServerAuditLog(limit = 200, filters = {}) {
         try {
-            const result = await apiRequest(`/unified/audit?limit=${limit}`);
+            let qs = `limit=${limit}`;
+            if (filters.company && filters.company !== 'all') qs += `&company=${encodeURIComponent(filters.company)}`;
+            if (filters.user) qs += `&user=${encodeURIComponent(filters.user)}`;
+            if (filters.level) qs += `&level=${encodeURIComponent(filters.level)}`;
+            if (filters.module) qs += `&module=${encodeURIComponent(filters.module)}`;
+            if (filters.since) qs += `&since=${encodeURIComponent(filters.since)}`;
+            const result = await apiRequest(`/unified/audit?${qs}`);
             if (result.success && result.data) return result.data;
         } catch {}
         return this.getAuditLog();
+    },
+
+    // Fetch consolidated activity grouped by user
+    async getActivityByUser(company = 'all', days = 7) {
+        try {
+            let qs = `days=${days}`;
+            if (company && company !== 'all') qs += `&company=${encodeURIComponent(company)}`;
+            const result = await apiRequest(`/unified/activity/by-user?${qs}`);
+            if (result.success) return result;
+        } catch {}
+        return { success: false, data: [], raw: [] };
+    },
+
+    // Fetch activity summary stats
+    async getActivitySummary(company = 'all', days = 7) {
+        try {
+            let qs = `days=${days}`;
+            if (company && company !== 'all') qs += `&company=${encodeURIComponent(company)}`;
+            const result = await apiRequest(`/unified/activity/summary?${qs}`);
+            if (result.success) return result.data;
+        } catch {}
+        return { totalActions: 0, byUser: [], byModule: [], byLevel: [], byDay: [] };
     },
 
     getAuditLog() {
@@ -953,12 +1033,13 @@ const Database = {
         return sub;
     },
 
-    // ---- POS Transaction (Wellness) ----
+    // ---- POS Transaction ----
     processTransaction(transaction) {
+        const company = transaction.company || ((typeof App !== 'undefined' && App.activeCompany !== 'all') ? App.activeCompany : 'nuatthai');
         // Create invoice from POS sale
         const invoice = {
             id: Utils.generateId('POS'),
-            company: 'nuatthai',
+            company: company,
             customer: transaction.customer,
             amount: transaction.total,
             paid: transaction.total,
@@ -984,7 +1065,7 @@ const Database = {
         }
 
         this.save();
-        this.addActivity('success', `POS Sale: ${Utils.formatCurrency(transaction.total)}`, 'nuatthai');
+        this.addActivity('success', `POS Sale: ${Utils.formatCurrency(transaction.total)}`, company);
         this.addAuditEntry('POS Transaction', `${invoice.id} — ${Utils.formatCurrency(transaction.total)}`, 'success');
         return invoice;
     },

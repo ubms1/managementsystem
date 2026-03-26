@@ -14,6 +14,7 @@ const Settings = {
             <button class="tab-btn active" onclick="Settings.switchTab('users',this)">Users</button>
             <button class="tab-btn" onclick="Settings.switchTab('roles',this)">Roles & Permissions</button>
             <button class="tab-btn" onclick="Settings.switchTab('companies',this)">Company Settings</button>
+            ${Auth.isManager() ? '<button class="tab-btn" onclick="Settings.switchTab(\'activity\',this)"><i class="fas fa-stream" style="margin-right:5px"></i>User Activity</button>' : ''}
             <button class="tab-btn" onclick="Settings.switchTab('audit',this)">Audit Log</button>
             <button class="tab-btn" onclick="Settings.switchTab('myaccount',this)"><i class="fas fa-user-shield" style="margin-right:5px"></i>My Account</button>
             ${Auth.isSuperAdmin() ? '<button class="tab-btn" onclick="Settings.switchTab(\'system\',this)"><i class="fas fa-server" style="margin-right:5px"></i>System</button>' : ''}
@@ -32,6 +33,7 @@ const Settings = {
             case 'users': el.innerHTML = this.renderUsers(); break;
             case 'roles': el.innerHTML = this.renderRoles(); break;
             case 'companies': el.innerHTML = this.renderCompanySettings(); break;
+            case 'activity': el.innerHTML = '<div class="loading-screen"><div class="spinner"></div><p>Loading activity...</p></div>'; el.innerHTML = await this.renderUserActivity(); break;
             case 'audit': el.innerHTML = await this.renderAuditLog(); break;
             case 'myaccount': el.innerHTML = this.renderMyAccount(); break;
             case 'system': el.innerHTML = this.renderSystem(); break;
@@ -357,6 +359,109 @@ const Settings = {
             const saveBtn = document.querySelector('#modalFooter .btn-primary');
             if (saveBtn) saveBtn.setAttribute('onclick', 'Settings._doSaveEditUser()');
         }, 0);
+    },
+
+    // ============================================================
+    //  USER ACTIVITY (for managers — scoped to their business)
+    // ============================================================
+    async renderUserActivity(days = 7) {
+        const company = (typeof App !== 'undefined') ? App.activeCompany : 'all';
+        const isSA = Auth.isSuperAdmin();
+        const scope = isSA ? 'all' : company;
+
+        const [activityResult, summary] = await Promise.all([
+            Database.getActivityByUser(scope, days),
+            Database.getActivitySummary(scope, days)
+        ]);
+
+        const grouped = activityResult.data || [];
+        const raw = activityResult.raw || [];
+        const users = Database.getUsers();
+        const userMap = {};
+        users.forEach(u => { userMap[u.username] = u; });
+
+        const scopeName = isSA ? 'All Businesses' : (DataStore.companies[scope]?.name || scope);
+
+        let html = `
+        <div class="section-header mb-2">
+            <h3><i class="fas fa-stream" style="color:var(--primary)"></i> User Activity — ${scopeName}</h3>
+            <div class="section-actions" style="gap:8px;display:flex;align-items:center">
+                <select class="form-control" style="width:100px" onchange="Settings.reloadActivity(this.value)">
+                    <option value="1" ${days===1?'selected':''}>Today</option>
+                    <option value="3" ${days===3?'selected':''}>3 Days</option>
+                    <option value="7" ${days===7?'selected':''}>7 Days</option>
+                    <option value="14" ${days===14?'selected':''}>14 Days</option>
+                    <option value="30" ${days===30?'selected':''}>30 Days</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="grid-3 mb-3">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(0,137,123,0.12);color:#00897b"><i class="fas fa-bolt"></i></div>
+                <div class="stat-info"><h3>${summary.totalActions || 0}</h3><span>Total Actions</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(33,150,243,0.12);color:#2196f3"><i class="fas fa-user-clock"></i></div>
+                <div class="stat-info"><h3>${grouped.length}</h3><span>Active Users</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(255,152,0,0.12);color:#ff9800"><i class="fas fa-layer-group"></i></div>
+                <div class="stat-info"><h3>${(summary.byModule || []).length}</h3><span>Modules Used</span></div>
+            </div>
+        </div>
+
+        <!-- Per-user breakdown -->
+        <div class="card mb-3"><div class="card-header"><h4>Activity by User</h4></div><div class="card-body no-padding">
+        <table class="data-table"><thead><tr><th>User</th><th>Name</th><th>Role</th><th>Actions</th><th>Last Active</th></tr></thead><tbody>`;
+
+        grouped.sort((a, b) => b.count - a.count).forEach(g => {
+            const u = userMap[g.user];
+            const name = u ? u.name : g.user;
+            const role = u ? u.role : '—';
+            const lastAction = g.actions.length > 0 ? Utils.formatDateTime(g.actions[0].time) : '—';
+            html += `<tr>
+                <td><strong>${g.user}</strong></td>
+                <td>${name}</td>
+                <td><span class="badge-tag badge-neutral">${role}</span></td>
+                <td style="font-weight:600">${g.count}</td>
+                <td style="font-size:12px;font-family:monospace">${lastAction}</td>
+            </tr>`;
+        });
+        if (grouped.length === 0) {
+            html += '<tr><td colspan="5" class="text-center text-muted" style="padding:30px">No activity in selected period</td></tr>';
+        }
+
+        html += `</tbody></table></div></div>
+
+        <!-- Recent actions feed -->
+        <div class="card"><div class="card-header"><h4>Recent Changes</h4></div><div class="card-body no-padding">
+        <div class="table-wrapper"><table class="data-table">
+        <thead><tr><th>Time</th><th>User</th><th>Module</th><th>Action</th><th>Details</th></tr></thead>
+        <tbody>`;
+
+        raw.slice(0, 100).forEach(r => {
+            html += `<tr>
+                <td><span style="font-family:monospace;font-size:11px">${Utils.formatDateTime(r.time)}</span></td>
+                <td><span class="badge-tag badge-neutral">${r.user}</span></td>
+                <td style="font-size:12px">${r.module || '—'}</td>
+                <td><strong>${r.action}</strong></td>
+                <td style="font-size:12px;color:var(--text-secondary);max-width:300px;overflow:hidden;text-overflow:ellipsis">${r.detail || ''}</td>
+            </tr>`;
+        });
+        if (raw.length === 0) {
+            html += '<tr><td colspan="5" class="text-center text-muted" style="padding:30px">No activity</td></tr>';
+        }
+
+        html += '</tbody></table></div></div></div>';
+        return html;
+    },
+
+    async reloadActivity(days) {
+        const el = document.getElementById('settingsContent');
+        el.innerHTML = '<div class="loading-screen"><div class="spinner"></div><p>Loading activity...</p></div>';
+        el.innerHTML = await this.renderUserActivity(parseInt(days));
     },
 
     async _doSaveEditUser() {
