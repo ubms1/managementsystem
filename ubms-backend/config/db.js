@@ -193,6 +193,25 @@ async function initDatabase() {
             )
         `);
 
+        // Create entities table — generic server-side persistence for all business data
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS entities (
+                id VARCHAR(100) NOT NULL,
+                entityType VARCHAR(100) NOT NULL,
+                business VARCHAR(100) DEFAULT 'all',
+                createdBy VARCHAR(100) DEFAULT 'system',
+                data JSON NOT NULL,
+                isDeleted BOOLEAN DEFAULT FALSE,
+                createdAt TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+                updatedAt TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+                PRIMARY KEY (id, entityType),
+                INDEX idx_type (entityType),
+                INDEX idx_business (business),
+                INDEX idx_createdBy (createdBy),
+                INDEX idx_deleted (isDeleted)
+            )
+        `);
+
         // Create data_changes table for cross-user sync
         await connection.query(`
             CREATE TABLE IF NOT EXISTS data_changes (

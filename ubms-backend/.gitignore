@@ -25,3 +25,6 @@ build/
 # Storage uploads (keep folder structure via .gitkeep)
 storage/**/*
 !storage/**/.gitkeep
+
+# SSL certificates (private keys must not be in git)
+certs/

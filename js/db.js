@@ -5,14 +5,22 @@
    ======================================== */
 
 const API_BASE_URL = (function() {
-    // Auto-detect the server URL based on where the page is loaded from
-    // This allows the system to work from any device on the network
+    // Allow manual override via localStorage (set in Settings or console)
+    const custom = localStorage.getItem('ubms_server_url');
+    if (custom) return custom.replace(/\/$/, '') + '/api';
+
     const loc = window.location;
-    // If served from the backend (port 3000 or same origin), use same origin
-    if (loc.port === '3000' || loc.protocol === 'https:') {
+
+    // GitHub Pages deployment — connect to the backend server
+    if (loc.hostname.includes('github.io')) {
+        // Use HTTPS backend on same server (port 3443)
+        return 'https://10.56.221.132:3443/api';
+    }
+    // If served from the backend (port 3000 or 3443), use same origin
+    if (loc.port === '3000' || loc.port === '3443') {
         return loc.origin + '/api';
     }
-    // If opened as a file or different port, try the server on port 3000
+    // If opened as a file, try localhost
     if (loc.protocol === 'file:') {
         return 'http://localhost:3000/api';
     }
@@ -114,6 +122,8 @@ const Database = {
             localStorage.setItem('ubms_db_version', String(this.DB_VERSION));
         }
         this.startAutoSave();
+        // Pull all server data in background after page loads (merges users + entities from all PCs)
+        setTimeout(() => this.loadFromServer(), 2000);
     },
 
     // ---- Clear all transactional data for fresh start ----
@@ -1197,6 +1207,144 @@ const Database = {
     },
     deleteIncidentReport(id) {
         DataStore.incidentReports = DataStore.incidentReports.filter(i => i.id !== id);
+        this.save();
+    },
+
+    // ============================================================
+    //  SERVER SYNCHRONIZATION
+    // ============================================================
+
+    // Pull all data from server and merge into local DataStore.
+    // This syncs users and entities added on other PCs.
+    async loadFromServer() {
+        if (typeof navigator === 'undefined' || !navigator.onLine) return;
+        try {
+            const healthy = await checkApiHealth();
+            if (!healthy) return;
+
+            const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
+            const business = session.company || 'all';
+
+            const response = await fetch(`${API_BASE_URL}/data/export?business=${encodeURIComponent(business)}`, {
+                signal: AbortSignal.timeout(10000)
+            });
+            if (!response.ok) return;
+            const result = await response.json();
+            if (!result.success || !result.data) return;
+
+            // Merge server users into localStorage (users created on other PCs)
+            if (result.data._users && Array.isArray(result.data._users)) {
+                const localRaw = localStorage.getItem(this.USERS_KEY);
+                const localUsers = localRaw ? JSON.parse(localRaw) : [];
+                const byId = new Map(localUsers.map(u => [u.id, u]));
+                for (const su of result.data._users) {
+                    if (!byId.has(su.id)) byId.set(su.id, su);
+                }
+                localStorage.setItem(this.USERS_KEY, JSON.stringify(Array.from(byId.values())));
+            }
+
+            // Merge server entities into DataStore
+            const entityTypes = [
+                'customers', 'invoices', 'expenses', 'projects', 'bookings',
+                'jobCards', 'vehicles', 'autoParts', 'memberships', 'employees',
+                'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
+                'birInvoices', 'equipment', 'safetyRecords', 'documents',
+                'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
+                'subcontractors', 'inspections', 'therapists'
+            ];
+            let merged = 0;
+            for (const type of entityTypes) {
+                if (!result.data[type] || !Array.isArray(result.data[type])) continue;
+                if (!Array.isArray(DataStore[type])) DataStore[type] = [];
+                const byId = new Map(DataStore[type].map(x => [x.id, x]));
+                for (const item of result.data[type]) {
+                    if (!byId.has(item.id)) {
+                        // Strip server meta fields before local storage
+                        const { _createdBy, _business, _createdAt, _updatedAt, ...clean } = item;
+                        byId.set(item.id, clean);
+                        merged++;
+                    }
+                }
+                DataStore[type] = Array.from(byId.values());
+            }
+
+            if (merged > 0) {
+                this._saveLocal();
+                console.log(`✓ Loaded ${merged} records from server`);
+                window.dispatchEvent(new CustomEvent('ubms-data-loaded', { detail: { count: merged } }));
+            }
+
+            // Also push our local users to server (so they appear for all clients)
+            this.syncUsersToServer();
+        } catch (e) {
+            console.error('loadFromServer error:', e.message);
+        }
+    },
+
+    // Push all localStorage users to the server (captures users created offline)
+    async syncUsersToServer() {
+        try {
+            if (!navigator.onLine) return;
+            const raw = localStorage.getItem(this.USERS_KEY);
+            if (!raw) return;
+            const users = JSON.parse(raw);
+            if (!users || users.length === 0) return;
+            await fetch(`${API_BASE_URL}/data/import`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: { _users: users }, userId: 'system', business: 'all' })
+            });
+        } catch (e) {
+            console.error('syncUsersToServer error:', e.message);
+        }
+    },
+
+    // Push all local DataStore data to the server (call manually or on reconnect)
+    async syncAllToServer() {
+        try {
+            if (!navigator.onLine) return { success: false, error: 'Offline' };
+            const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
+            const userId = session.userId || session.id || session.username || 'unknown';
+            const business = session.company || 'all';
+
+            const entityTypes = [
+                'customers', 'invoices', 'expenses', 'projects', 'bookings',
+                'jobCards', 'vehicles', 'autoParts', 'memberships', 'employees',
+                'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
+                'birInvoices', 'equipment', 'safetyRecords', 'documents',
+                'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
+                'subcontractors', 'inspections', 'therapists', 'posTransactions',
+                'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
+                'isoNcrs', 'isoCpars', 'bankReconciliations'
+            ];
+            const payload = {};
+            for (const type of entityTypes) {
+                if (DataStore[type] && DataStore[type].length > 0) {
+                    payload[type] = DataStore[type];
+                }
+            }
+            const users = JSON.parse(localStorage.getItem(this.USERS_KEY) || '[]');
+            if (users.length > 0) payload._users = users;
+
+            const response = await fetch(`${API_BASE_URL}/data/import`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: payload, userId, business })
+            });
+            const result = await response.json();
+            if (result.success) {
+                this.addNotification('success', 'fa-cloud-upload-alt', 'Sync Complete',
+                    `Uploaded ${result.totalImported} records and ${result.usersSynced} users to server`);
+            }
+            return result;
+        } catch (e) {
+            console.error('syncAllToServer error:', e.message);
+            return { success: false, error: e.message };
+        }
+    },
+
+    // Internal: save to localStorage without triggering sync wrappers
+    _saveLocal() {
         this.save();
     }
 };

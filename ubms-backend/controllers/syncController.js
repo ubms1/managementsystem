@@ -1,6 +1,38 @@
 const { pool } = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 
+// Persist entity to the entities table from a change record
+async function persistEntityFromChange(connection, change) {
+    try {
+        if (!change.entityId || !change.entityType) return;
+        if (change.data && (change.operation === 'add' || change.operation === 'update')) {
+            const { _createdBy, _business, _createdAt, _updatedAt, ...cleanData } = change.data;
+            await connection.query(
+                `INSERT INTO entities (id, entityType, business, createdBy, data)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                   data = VALUES(data),
+                   business = VALUES(business),
+                   updatedAt = CURRENT_TIMESTAMP(3)`,
+                [
+                    change.entityId,
+                    change.entityType,
+                    change.business || 'all',
+                    change.userId || 'system',
+                    JSON.stringify(cleanData)
+                ]
+            );
+        } else if (change.operation === 'delete') {
+            await connection.query(
+                `UPDATE entities SET isDeleted = TRUE, updatedAt = CURRENT_TIMESTAMP(3) WHERE id = ? AND entityType = ?`,
+                [change.entityId, change.entityType]
+            );
+        }
+    } catch (e) {
+        console.error('persistEntityFromChange error:', e.message);
+    }
+}
+
 // ============================================
 // SSE Client Registry
 // ============================================
@@ -62,17 +94,20 @@ exports.submitChange = async (req, res) => {
         const changeId = id || ('CHG-' + uuidv4());
         const ts = timestamp || new Date().toISOString();
 
+        const change = { id: changeId, entityType, operation, entityId, data, business: business || 'all', userId: userId || 'system', timestamp: ts };
+
         const connection = await pool.getConnection();
         try {
             await connection.query(
                 `INSERT IGNORE INTO data_changes (id, entityType, operation, entityId, data, business, userId, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 [changeId, entityType, operation, entityId || null, JSON.stringify(data), business || 'all', userId || 'system', ts]
             );
+            // Also persist to entities table for queryable storage
+            await persistEntityFromChange(connection, change);
         } finally {
             connection.release();
         }
 
-        const change = { id: changeId, entityType, operation, entityId, data, business: business || 'all', userId: userId || 'system', timestamp: ts };
         broadcastChange(change, userId);
 
         res.json({ success: true, change });
@@ -104,6 +139,8 @@ exports.submitBulk = async (req, res) => {
                     [changeId, change.entityType, change.operation, change.entityId || null, JSON.stringify(change.data), change.business || 'all', change.userId || userId || 'system', ts]
                 );
                 const fullChange = { id: changeId, ...change, timestamp: ts };
+                // Also persist to entities table
+                await persistEntityFromChange(connection, fullChange);
                 broadcastChange(fullChange, change.userId || userId);
                 results.push({ id: changeId, success: true });
             }

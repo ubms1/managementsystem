@@ -3,6 +3,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const os = require('os');
+const https = require('https');
+const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const { initDatabase, seedInitialData } = require('./config/db');
@@ -14,6 +16,7 @@ const milestoneRoutes = require('./routes/milestoneRoutes');
 const fileRoutes = require('./routes/fileRoutes');
 const unifiedRoutes = require('./routes/unifiedRoutes');
 const syncRoutes = require('./routes/syncRoutes');
+const dataRoutes = require('./routes/dataRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -45,6 +48,7 @@ app.use('/api/milestones', milestoneRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/unified', unifiedRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/data', dataRoutes);
 
 // Health check with server info
 app.get('/api/health', (req, res) => {
@@ -169,6 +173,7 @@ async function startServer() {
             console.log(`   Milestones: GET|POST /api/milestones`);
             console.log(`   Unified:    GET /api/unified/dashboard, /api/unified/businesses, /api/unified/config`);
             console.log(`   Sync:       GET /api/sync/stream (SSE), POST /api/sync/changes, /api/sync/bulk`);
+            console.log(`   Data:       POST /api/data/import, GET /api/data/export, GET /api/data/:type, GET /api/data/user/:userId`);
             console.log(`\n🏢 Business Portals:`);
             console.log(`   Unified:    http://localhost:${PORT}/`);
             console.log(`   Dheekay:    http://localhost:${PORT}/dheekay/`);
@@ -193,6 +198,37 @@ async function startServer() {
                 throw err;
             }
         });
+
+        // HTTPS server for GitHub Pages (HTTPS → HTTPS, no mixed content)
+        const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
+        const pfxPath = path.join(__dirname, 'certs', 'server.pfx');
+        if (fs.existsSync(pfxPath)) {
+            try {
+                const httpsOptions = {
+                    pfx: fs.readFileSync(pfxPath),
+                    passphrase: process.env.PFX_PASS || 'ubms2026'
+                };
+                const httpsServer = https.createServer(httpsOptions, app);
+                httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
+                    console.log(`\n🔒 HTTPS server running on port ${HTTPS_PORT}`);
+                    const addresses = [];
+                    for (const iface of Object.values(os.networkInterfaces())) {
+                        for (const config of iface) {
+                            if (config.family === 'IPv4' && !config.internal) addresses.push(config.address);
+                        }
+                    }
+                    addresses.forEach(a => {
+                        console.log(`   🔐 https://${a}:${HTTPS_PORT}`);
+                    });
+                    console.log(`   ⚠️  Self-signed cert — browsers will warn on first visit. Click "Advanced" → "Proceed".`);
+                    console.log(`   💡 GitHub Pages users connect via: https://<IP>:${HTTPS_PORT}`);
+                });
+            } catch (e) {
+                console.warn('⚠️ HTTPS setup failed (non-fatal):', e.message);
+            }
+        } else {
+            console.log('\nℹ️  No certs/server.pfx found — HTTPS disabled. Run: node generate-cert.js');
+        }
     } catch (err) {
         console.error('❌ Failed to start server:', err);
         process.exit(1);

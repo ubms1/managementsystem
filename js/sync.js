@@ -170,6 +170,7 @@ const SyncManager = {
     // ============================================
     async trackChange(entityType, operation, entityId, data, business) {
         const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
+        const userId = session.userId || session.id || session.username || 'system';
         const change = {
             id: 'CHG-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11),
             entityType,
@@ -177,7 +178,7 @@ const SyncManager = {
             entityId,
             data: data ? JSON.parse(JSON.stringify(data)) : null, // deep clone
             business: business || session.company || 'all',
-            userId: session.userId || session.id || 'system',
+            userId,
             timestamp: new Date().toISOString()
         };
 
@@ -185,6 +186,21 @@ const SyncManager = {
 
         if (navigator.onLine) {
             try {
+                // Persist entity to queryable server store
+                if (data && (operation === 'add' || operation === 'update')) {
+                    fetch(`${API_BASE_URL}/data/${entityType}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...change.data, _meta: { createdBy: userId, business: change.business } })
+                    }).catch(() => {});
+                } else if (operation === 'delete') {
+                    fetch(`${API_BASE_URL}/data/${entityType}/${entityId}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' }
+                    }).catch(() => {});
+                }
+
+                // Also track in changes log
                 const response = await fetch(`${API_BASE_URL}/sync/changes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -199,6 +215,56 @@ const SyncManager = {
         }
 
         return change;
+    },
+
+    // ============================================
+    //  Send all localStorage data to server
+    // ============================================
+    async syncAllLocalData() {
+        if (!navigator.onLine) return { success: false, error: 'Offline' };
+        try {
+            const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
+            const userId = session.userId || session.id || session.username || 'unknown';
+            const business = session.company || 'all';
+
+            const entityTypes = [
+                'customers', 'invoices', 'expenses', 'projects', 'bookings',
+                'jobCards', 'vehicles', 'autoParts', 'memberships', 'employees',
+                'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
+                'birInvoices', 'equipment', 'safetyRecords', 'documents',
+                'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
+                'subcontractors', 'inspections', 'therapists', 'posTransactions',
+                'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
+                'isoNcrs', 'isoCpars', 'bankReconciliations'
+            ];
+
+            const payload = {};
+            if (typeof DataStore !== 'undefined') {
+                for (const type of entityTypes) {
+                    if (DataStore[type] && DataStore[type].length > 0) {
+                        payload[type] = DataStore[type];
+                    }
+                }
+            }
+
+            // Include all localStorage users
+            const localUsers = JSON.parse(localStorage.getItem('ubms_users') || '[]');
+            if (localUsers.length > 0) payload._users = localUsers;
+
+            const response = await fetch(`${API_BASE_URL}/data/import`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: payload, userId, business })
+            });
+            const result = await response.json();
+            if (result.success) {
+                console.log(`✓ Synced ${result.totalImported} records, ${result.usersSynced} users to server`);
+            }
+            return result;
+        } catch (e) {
+            console.error('syncAllLocalData error:', e);
+            return { success: false, error: e.message };
+        }
     },
 
     // ============================================
@@ -390,8 +456,9 @@ const SyncManager = {
         this.updateConnectionStatus(true);
 
         setTimeout(() => this.syncOfflineQueue(), 1000);
-        setTimeout(() => this.pullChanges(), 2000);
-        setTimeout(() => this.connectSSE(), 3000);
+        setTimeout(() => this.syncAllLocalData(), 2000);  // push all local data to server
+        setTimeout(() => this.pullChanges(), 4000);
+        setTimeout(() => this.connectSSE(), 5000);
     },
 
     onOffline() {
