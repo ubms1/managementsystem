@@ -193,6 +193,26 @@ async function initDatabase() {
             )
         `);
 
+        // Create attendance_images table for face scan snapshots
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS attendance_images (
+                id VARCHAR(50) PRIMARY KEY,
+                attendanceId VARCHAR(50),
+                employeeId VARCHAR(100) NOT NULL,
+                company VARCHAR(100),
+                imageType VARCHAR(30) DEFAULT 'clockin',
+                imagePath VARCHAR(500) NOT NULL,
+                fileSize BIGINT DEFAULT 0,
+                faceVerified BOOLEAN DEFAULT FALSE,
+                matchScore DECIMAL(5,2) DEFAULT 0,
+                capturedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_att (attendanceId),
+                INDEX idx_emp (employeeId),
+                INDEX idx_company (company),
+                INDEX idx_type (imageType)
+            )
+        `);
+
         // Create entities table — generic server-side persistence for all business data
         await connection.query(`
             CREATE TABLE IF NOT EXISTS entities (

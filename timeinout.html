@@ -555,7 +555,7 @@
         <div class="sub">Position your face within the oval guide</div>
     </div>
     <div class="face-scan-container">
-        <video id="faceCamVideo" autoplay muted webkit-playsinline></video>
+        <video id="faceCamVideo" autoplay muted playsinline webkit-playsinline></video>
         <canvas id="faceCamCanvas"></canvas>
         <div class="face-scan-guide"><div class="oval"></div></div>
     </div>
@@ -576,7 +576,42 @@
    ============================================================ */
 
 const DB_KEY = 'ubms_database';
-const ATTENDANCE_API = 'http://localhost:3000/api/attendance';
+
+// ---- Dynamic API URL: works on any device (mobile, tablet, PC, LAN, GitHub Pages) ----
+const API_BASE = (function() {
+    const custom = localStorage.getItem('ubms_server_url');
+    if (custom) return custom.replace(/\/$/, '') + '/api';
+    const loc = window.location;
+    if (loc.hostname.includes('github.io') || (loc.protocol === 'https:' && loc.port !== '3443')) {
+        return 'http://10.56.221.132:3000/api';
+    }
+    if (loc.port === '3000' || loc.port === '3443') return loc.origin + '/api';
+    if (loc.protocol === 'file:') return 'http://localhost:3000/api';
+    return loc.protocol + '//' + loc.hostname + ':3000/api';
+})();
+const ATTENDANCE_API = API_BASE + '/attendance';
+
+// ---- Capture snapshot from video element as base64 JPEG ----
+function captureVideoSnapshot(videoEl) {
+    if (!videoEl || !videoEl.videoWidth) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoEl.videoWidth;
+    canvas.height = videoEl.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(videoEl, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.85);  // base64 JPEG at 85% quality
+}
+
+// ---- Upload face snapshot image to server ----
+async function uploadFaceSnapshot({ attendanceId, employeeId, company, imageType, imageData, faceVerified, matchScore }) {
+    try {
+        await fetch(ATTENDANCE_API + '/snapshot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ attendanceId, employeeId, company, imageType, imageData, faceVerified, matchScore })
+        });
+    } catch { /* snapshot upload failed — non-blocking */ }
+}
 
 // ---- API helper for attendance sync ----
 async function apiSyncClockIn(record) {
@@ -585,6 +620,7 @@ async function apiSyncClockIn(record) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                id: record.id,
                 employeeId: record.employeeId,
                 company: state.company,
                 date: record.date,
@@ -629,7 +665,7 @@ let state = {
 
 // ---- Helpers ----
 function now() { return new Date(); }
-function todayStr() { return now().toISOString().split('T')[0]; }
+function todayStr() { const d = now(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function timeStr(d) {
     return d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
@@ -1098,6 +1134,21 @@ async function doClockIn() {
     // Sync to backend API
     apiSyncClockIn(record);
 
+    // Upload face snapshot if available (from face scan verification)
+    if (lastFaceSnapshot) {
+        uploadFaceSnapshot({
+            attendanceId: record.id,
+            employeeId: emp.id,
+            company: state.company,
+            imageType: 'clockin',
+            imageData: lastFaceSnapshot,
+            faceVerified: record.faceVerified,
+            matchScore: lastFaceMatchScore
+        });
+        lastFaceSnapshot = null;
+        lastFaceMatchScore = 0;
+    }
+
     // Update local state
     state.todayRecords.push(record);
 
@@ -1167,6 +1218,21 @@ async function doClockOut() {
             locationOut: geoResult,
             undertimeMinutes
         });
+
+        // Upload face snapshot if available (from face scan verification)
+        if (lastFaceSnapshot) {
+            uploadFaceSnapshot({
+                attendanceId: rec.id,
+                employeeId: emp.id,
+                company: state.company,
+                imageType: 'clockout',
+                imageData: lastFaceSnapshot,
+                faceVerified: true,
+                matchScore: lastFaceMatchScore
+            });
+            lastFaceSnapshot = null;
+            lastFaceMatchScore = 0;
+        }
 
         // Update local state
         rec.timeOut = timeOutStr;
@@ -1365,6 +1431,8 @@ function hidePinEmployee() {
 //  Flow: User clicks TIME IN/OUT → Face scan opens → Verify → Clock
 // ============================================================
 let pendingClockAction = null; // 'in' or 'out'
+let lastFaceSnapshot = null;   // base64 JPEG from face scan video
+let lastFaceMatchScore = 0;    // match score from last verification
 
 function doFaceClockIn() {
     if (!faceScanResolvedEmp) { showToast('No employee selected', 'error'); return; }
@@ -1450,10 +1518,16 @@ async function startFaceScan(mode) {
     if (enrollBtn) enrollBtn.style.display = faceScanMode === 'enroll' ? 'inline-flex' : 'none';
 
     try {
-        faceStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-        });
+        // Try front camera first (user-facing), fall back to any camera for mobile compatibility
+        try {
+            faceStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+            });
+        } catch {
+            faceStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
         video.srcObject = faceStream;
+        video.setAttribute('playsinline', 'true');
         await video.play();
         if (statusEl) statusEl.textContent = 'Position your face inside the oval…';
 
@@ -1552,7 +1626,11 @@ async function verifyFaceAndClock(capturedDescriptor) {
         const MATCH_THRESHOLD = 0.6;
 
         if (distance < MATCH_THRESHOLD) {
-            // Face matched!
+            // Face matched! — capture snapshot before stopping camera
+            const video = document.getElementById('faceCamVideo');
+            lastFaceSnapshot = captureVideoSnapshot(video);
+            lastFaceMatchScore = parseFloat(((1 - distance) * 100).toFixed(1));
+
             stopFaceScan();
             const overlay = document.getElementById('faceScanOverlay');
             if (overlay) overlay.style.display = 'none';
@@ -1620,13 +1698,18 @@ async function enrollFaceNow() {
             return;
         }
 
-        // Send descriptor to backend
+        // Capture enrollment photo from video
+        const enrollPhoto = captureVideoSnapshot(video);
+
+        // Send descriptor + enrollment photo to backend
         const resp = await fetch(`${ATTENDANCE_API}/face/enroll`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 employeeId: faceScanResolvedEmp.id,
-                descriptor: Array.from(detection.descriptor)
+                descriptor: Array.from(detection.descriptor),
+                enrollPhoto: enrollPhoto,
+                company: state.company
             })
         });
 

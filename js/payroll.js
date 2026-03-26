@@ -134,7 +134,7 @@ const Payroll = {
         switch (this.activeTab) {
             case 'payslips': el.innerHTML = this.renderPayslipsTab(); break;
             case 'employees': el.innerHTML = this.renderEmployeesTab(); break;
-            case 'attendance': el.innerHTML = this.renderAttendanceTab(); break;
+            case 'attendance': el.innerHTML = this.renderAttendanceTab(); this.loadFaceScanGallery(); break;
             case 'timesheets': el.innerHTML = this.renderTimesheetsTab(); break;
             case 'performance': el.innerHTML = this.renderPerformanceTab(); break;
             case 'incidents': el.innerHTML = this.renderIncidentsTab(); break;
@@ -172,7 +172,8 @@ const Payroll = {
     // ============================================================
     renderAttendanceTab() {
         const employees = this.getFilteredEmployees();
-        const today = new Date().toISOString().split('T')[0];
+        const _now = new Date();
+        const today = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0') + '-' + String(_now.getDate()).padStart(2,'0');
         const records = (DataStore.attendanceRecords || []).filter(r => {
             if (App.activeCompany !== 'all') {
                 const emp = DataStore.employees.find(e => e.id === r.employeeId);
@@ -307,6 +308,23 @@ const Payroll = {
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <!-- Face Scan Gallery for Managers / Superadmin -->
+        <div class="card mt-2">
+            <div class="card-header">
+                <h3><i class="fas fa-camera" style="margin-right:8px;color:var(--info)"></i>Face Scan Gallery</h3>
+                <div style="display:flex;gap:6px">
+                    <input type="date" class="form-control" style="width:auto;font-size:12px" id="faceScanDateFilter" value="${today}" onchange="Payroll.loadFaceScanGallery()">
+                    <button class="btn btn-sm btn-secondary" onclick="Payroll.loadFaceScanGallery()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                </div>
+            </div>
+            <div class="card-body" id="faceScanGalleryBody">
+                <div style="text-align:center;padding:24px;color:var(--text-muted)">
+                    <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:8px;display:block"></i>
+                    Loading face scan images…
+                </div>
+            </div>
         </div>`;
     },
 
@@ -341,6 +359,57 @@ const Payroll = {
     filterAttByDate() {
         // Re-render with optional filter
         this.renderTabContent();
+    },
+
+    // Load face scan images from server for the gallery
+    async loadFaceScanGallery() {
+        const container = document.getElementById('faceScanGalleryBody');
+        if (!container) return;
+        const dateEl = document.getElementById('faceScanDateFilter');
+        const localToday = new Date();
+        const localDateStr = localToday.getFullYear() + '-' + String(localToday.getMonth()+1).padStart(2,'0') + '-' + String(localToday.getDate()).padStart(2,'0');
+        const date = dateEl ? dateEl.value : localDateStr;
+        const company = App.activeCompany || 'all';
+        container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i> Loading…</div>';
+        try {
+            const apiBase = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : (window.location.origin + '/api');
+            const params = new URLSearchParams({ date });
+            if (company !== 'all') params.set('company', company);
+            const resp = await fetch(`${apiBase}/attendance/images?${params}`, { signal: AbortSignal.timeout(10000) });
+            if (!resp.ok) throw new Error('Server error');
+            const result = await resp.json();
+            const images = result.data || [];
+            if (images.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fas fa-camera-retro" style="font-size:36px;margin-bottom:8px;display:block;opacity:0.3"></i>No face scan images for this date</div>';
+                return;
+            }
+            container.innerHTML = `
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px"><i class="fas fa-images"></i> ${images.length} snapshot(s) for ${date}</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+                    ${images.map(img => {
+                        const emp = (DataStore.employees || []).find(e => e.id === img.employeeId);
+                        const empName = emp ? emp.name : img.employeeId;
+                        const typeLabel = img.imageType === 'clockin' ? 'Clock In' : img.imageType === 'clockout' ? 'Clock Out' : img.imageType === 'enrollment' ? 'Enrollment' : img.imageType;
+                        const typeColor = img.imageType === 'clockin' ? '#27ae60' : img.imageType === 'clockout' ? '#e74c3c' : '#f39c12';
+                        const time = img.capturedAt ? new Date(img.capturedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+                        const verified = img.faceVerified ? '<span style="color:#27ae60;font-size:10px"><i class="fas fa-check-circle"></i> Verified</span>' : '<span style="color:#e74c3c;font-size:10px"><i class="fas fa-times-circle"></i></span>';
+                        const score = img.matchScore ? ` (${parseFloat(img.matchScore).toFixed(0)}%)` : '';
+                        return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+                            <img src="${apiBase}/attendance/images/${img.id}/view" alt="${empName}" style="width:100%;height:160px;object-fit:cover;display:block;cursor:pointer" onclick="window.open(this.src,'_blank')" onerror="this.src='';this.alt='Image unavailable';this.style.background='#f1f5f9';this.style.display='flex';this.style.alignItems='center';this.style.justifyContent='center'">
+                            <div style="padding:10px">
+                                <div style="font-weight:700;font-size:13px;margin-bottom:2px">${empName}</div>
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:wrap">
+                                    <span style="background:${typeColor}15;color:${typeColor};padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">${typeLabel}</span>
+                                    <span style="font-size:10px;color:var(--text-muted)">${time}</span>
+                                </div>
+                                <div style="margin-top:4px;font-size:11px">${verified}${score}</div>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+        } catch (err) {
+            container.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text-muted)"><i class="fas fa-exclamation-triangle" style="color:var(--warning);font-size:24px;margin-bottom:8px;display:block"></i>Could not load face scan images.<br><span style="font-size:11px">${err.message}</span></div>`;
+        }
     },
 
     openLogAttendance() {
@@ -816,9 +885,9 @@ const Payroll = {
             ? `<option value="all">All Companies</option>` + allCompanyOpts
             : `<option value="all">All Companies</option><option value="${App.activeCompany}" selected>${DataStore.companies[App.activeCompany]?.name}</option>` + Object.values(DataStore.companies).filter(c => c.id !== App.activeCompany).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
-        // Figure out next auto userId
-        const existingIds = DataStore.employees.map(e => parseInt(e.userId, 10)).filter(n => !isNaN(n));
-        const nextUserId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1001;
+        // Figure out next auto userId (supports alphanumeric)
+        const existingNumIds = DataStore.employees.map(e => parseInt(e.userId, 10)).filter(n => !isNaN(n));
+        const nextUserId = existingNumIds.length > 0 ? Math.max(...existingNumIds) + 1 : 1001;
 
         App.openModal('Add Employee', `
         <form>
@@ -829,8 +898,8 @@ const Payroll = {
             <div class="form-row">
                 <div class="form-group">
                     <label><i class="fas fa-id-card" style="margin-right:5px;color:var(--secondary)"></i>Biometric / Kiosk User ID</label>
-                    <input type="number" class="form-control" id="empUserId" value="${nextUserId}" min="1000" max="99999" placeholder="e.g. 1001">
-                    <small style="color:var(--text-muted)">Employee uses this number to clock in at the DTR kiosk or biometric device</small>
+                    <input type="text" class="form-control" id="empUserId" value="${nextUserId}" maxlength="20" placeholder="e.g. DK-EMP-1001" style="text-transform:uppercase;font-family:monospace;letter-spacing:1px">
+                    <small style="color:var(--text-muted)">Alphanumeric ID for DTR kiosk &amp; biometric device (e.g. DK-EMP-1001, A1B2)</small>
                 </div>
                 <div class="form-group"><label>Company</label><select class="form-control" id="empCompany">${companies}</select></div>
             </div>
@@ -878,7 +947,7 @@ const Payroll = {
             philhealthNo: document.getElementById('empPhilHealth')?.value || '',
             pagibigNo: document.getElementById('empPagIBIG')?.value || '',
             tin: document.getElementById('empTIN')?.value || '',
-            userId: userIdRaw ? String(parseInt(userIdRaw, 10)) : undefined,
+            userId: userIdRaw ? userIdRaw.toString().toUpperCase().trim() : undefined,
             status: 'active'
         });
 
@@ -901,8 +970,8 @@ const Payroll = {
             <div class="form-row">
                 <div class="form-group">
                     <label><i class="fas fa-id-card" style="margin-right:5px;color:var(--secondary)"></i>Biometric / Kiosk User ID</label>
-                    <input type="number" class="form-control" id="empUserId" value="${emp.userId || ''}" min="1000" max="99999" placeholder="e.g. 1001">
-                    <small style="color:var(--text-muted)">Used to clock in at DTR kiosk &amp; biometric device</small>
+                    <input type="text" class="form-control" id="empUserId" value="${emp.userId || ''}" maxlength="20" placeholder="e.g. DK-EMP-1001" style="text-transform:uppercase;font-family:monospace;letter-spacing:1px">
+                    <small style="color:var(--text-muted)">Alphanumeric ID for DTR kiosk &amp; biometric device</small>
                 </div>
                 <div class="form-group"><label>Pay Frequency</label>
                     <select class="form-control" id="empPayFreq">
@@ -944,7 +1013,7 @@ const Payroll = {
             sssNo: document.getElementById('empSSS')?.value || '',
             philhealthNo: document.getElementById('empPhilHealth')?.value || '',
             pagibigNo: document.getElementById('empPagIBIG')?.value || '',
-            userId: document.getElementById('empUserId')?.value ? String(parseInt(document.getElementById('empUserId').value, 10)) : undefined
+            userId: document.getElementById('empUserId')?.value ? document.getElementById('empUserId').value.toString().toUpperCase().trim() : undefined
         });
 
         App.closeModal();
