@@ -25,7 +25,7 @@ exports.login = async (req, res) => {
         }
 
         // Check company access
-        if (!user.companies.includes('all') && company !== 'all' && !user.companies.includes(company)) {
+        if (!(user.companies || []).includes('all') && company !== 'all' && !(user.companies || []).includes(company)) {
             return res.status(403).json({ success: false, error: 'No access to this company' });
         }
 
@@ -45,7 +45,7 @@ exports.login = async (req, res) => {
                 role: user.role,
                 companies: user.companies,
                 modules: user.modules,
-                company: user.companies.includes('all') ? (company || 'all') : user.companies[0],
+                company: (user.companies || []).includes('all') ? (company || 'all') : (user.companies || [])[0],
                 isSuperAdmin: user.isSuperAdmin,
                 avatar: user.avatar,
                 mustChangePassword: user.mustChangePassword ? true : false

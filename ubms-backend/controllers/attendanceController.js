@@ -183,7 +183,8 @@ const attendanceController = {
             const { id } = req.params;
             const [rows] = await pool.query('SELECT imagePath FROM attendance_images WHERE id = ?', [id]);
             if (rows.length === 0) return res.status(404).json({ success: false, error: 'Image not found' });
-            const fullPath = path.join(STORAGE_ROOT, rows[0].imagePath);
+            const fullPath = path.resolve(STORAGE_ROOT, rows[0].imagePath);
+            if (!fullPath.startsWith(path.resolve(STORAGE_ROOT))) return res.status(403).json({ success: false, error: 'Access denied' });
             if (!fs.existsSync(fullPath)) return res.status(404).json({ success: false, error: 'Image file missing from disk' });
             res.setHeader('Content-Type', 'image/jpeg');
             res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -196,12 +197,15 @@ const attendanceController = {
 
 // Helper: Save a base64 face-scan image to disk + DB
 async function saveAttendanceImage({ attendanceId, employeeId, company, imageType, base64Data, faceVerified, matchScore }) {
+    // Validate company to prevent path traversal
+    const VALID_COMPANIES = ['dheekay', 'kdchavit', 'nuatthai', 'autocasa', 'unified', 'unknown'];
+    const safeCompany = VALID_COMPANIES.includes(company) ? company : 'unknown';
     // Strip data:image/...;base64, prefix if present
     const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Clean, 'base64');
 
     const dateDir = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const targetDir = path.join(STORAGE_ROOT, company, 'employees', 'attendance', dateDir);
+    const targetDir = path.join(STORAGE_ROOT, safeCompany, 'employees', 'attendance', dateDir);
     ensureDir(targetDir);
 
     const fileName = `${employeeId}_${imageType}_${Date.now()}.jpg`;

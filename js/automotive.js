@@ -63,11 +63,11 @@ const Automotive = {
                 <i class="fas fa-user" style="width:14px"></i> ${customer?.name || 'Walk-in'}
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
-                ${job.services.slice(0, 2).map(s => {
+                ${(job.services || []).slice(0, 2).map(s => {
                     const srv = DataStore.autoServices.find(as => as.id === s);
                     return `<span class="badge-tag badge-neutral" style="font-size:10px">${srv?.name || s}</span>`;
                 }).join('')}
-                ${job.services.length > 2 ? `<span class="badge-tag badge-neutral" style="font-size:10px">+${job.services.length - 2}</span>` : ''}
+                ${(job.services || []).length > 2 ? `<span class="badge-tag badge-neutral" style="font-size:10px">+${(job.services || []).length - 2}</span>` : ''}
             </div>
             <div class="flex-between">
                 <span style="font-size:13px;font-weight:700;color:var(--secondary)">${Utils.formatCurrency(job.total)}</span>
@@ -82,7 +82,7 @@ const Automotive = {
         const vehicle = DataStore.vehicles.find(v => v.id === job.vehicle);
         const customer = DataStore.customers.find(c => c.id === job.customer);
 
-        const serviceDetails = job.services.map(s => {
+        const serviceDetails = (job.services || []).map(s => {
             const srv = DataStore.autoServices.find(as => as.id === s);
             return srv ? `<tr><td>${srv.name}</td><td>${srv.category}</td><td>${Utils.formatCurrency(srv.price)}</td></tr>` : '';
         }).join('');
@@ -282,7 +282,7 @@ const Automotive = {
                     <span style="font-weight:700;color:var(--secondary)">${Utils.formatCurrency(j.total)}</span>
                 </div>
                 <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-                    ${j.services.map(s => { const srv = DataStore.autoServices.find(a => a.id === s); return srv?.name || s; }).join(', ')}
+                    ${(j.services || []).map(s => { const srv = DataStore.autoServices.find(a => a.id === s); return srv?.name || s; }).join(', ')}
                 </div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:4px">In: ${Utils.formatDate(j.dateIn)} ${j.dateOut ? '| Out: ' + Utils.formatDate(j.dateOut) : ''}</div>
             </div>
@@ -1146,9 +1146,9 @@ const Automotive = {
                 { label: 'Services', render: r => {
                     const names = (r.serviceNames || []).slice(0, 2);
                     if (names.length === 0 && r.services) {
-                        return r.services.slice(0, 2).map(id => { const sv = DataStore.autoServices.find(s => s.id === id); return sv?.name || id; }).join(', ') + (r.services.length > 2 ? ` +${r.services.length - 2}` : '');
+                        return (r.services || []).slice(0, 2).map(id => { const sv = DataStore.autoServices.find(s => s.id === id); return sv?.name || id; }).join(', ') + ((r.services || []).length > 2 ? ` +${r.services.length - 2}` : '');
                     }
-                    return names.join(', ') + ((r.serviceNames || []).length > 2 ? ` +${r.serviceNames.length - 2}` : '');
+                    return names.join(', ') + ((r.serviceNames || []).length > 2 ? ` +${(r.serviceNames || []).length - 2}` : '');
                 }},
                 { label: 'Source', render: r => r.source === 'online' ? '<span class="badge-tag badge-info" style="font-size:10px"><i class="fas fa-globe"></i> Online</span>' : '<span class="badge-tag badge-neutral" style="font-size:10px">Walk-in</span>' },
                 { label: 'Amount', render: r => `<strong>${Utils.formatCurrency(r.amount || 0)}</strong>` },

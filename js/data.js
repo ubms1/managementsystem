@@ -193,10 +193,14 @@ const DataStore = {
 
     // Inventory categories per business type
     inventoryCategories: {
-        construction: ['Purchases', 'Supplies', 'Office Supplies', 'Snacks & Drinks', 'Tools', 'PPE', 'Raw Materials'],
+        construction: ['Purchases', 'Supplies', 'Office Supplies', 'Snacks & Drinks', 'Tools', 'PPE', 'Raw Materials', 'Transformers', 'Electrical Equipment', 'Heavy Equipment'],
         wellness: ['Purchases', 'Supplies', 'Office Supplies', 'Oils Inventory', 'Towels & Linens', 'Skincare Products', 'Spa Consumables'],
-        automotive: ['Purchases', 'Supplies', 'Office Supplies', 'Auto Parts', 'Lubricants & Fluids', 'Tires', 'Accessories']
+        automotive: ['Purchases', 'Supplies', 'Office Supplies', 'Auto Parts', 'Lubricants & Fluids', 'Tires', 'Accessories', 'Electrical Equipment']
     },
+
+    // Transformer types and KVA ratings for inventory
+    transformerTypes: ['Silicon', 'Amorphous'],
+    transformerRatings: ['10 KVA', '25 KVA', '37.5 KVA', '50 KVA', '75 KVA', '100 KVA'],
 
     // ============================================================
     //  GROUP FINANCIAL SUMMARY

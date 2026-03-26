@@ -4,7 +4,7 @@ const unifiedController = {
     // Get unified dashboard stats across all businesses
     async getDashboard(req, res) {
         try {
-            const [userCount] = await pool.query('SELECT COUNT(*) as count FROM users WHERE status = "active"');
+            const [userCount] = await pool.query('SELECT COUNT(*) as count FROM users WHERE status = ?', ['active']);
             const [attendanceToday] = await pool.query('SELECT COUNT(*) as count FROM attendance_records WHERE date = CURDATE()');
             const [totalDocs] = await pool.query('SELECT COUNT(*) as count FROM project_documents');
             const [totalFiles] = await pool.query('SELECT COUNT(*) as count FROM uploaded_files');
@@ -109,7 +109,7 @@ const unifiedController = {
 
             if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
             query += ' ORDER BY time DESC LIMIT ? OFFSET ?';
-            params.push(parseInt(limit), parseInt(offset));
+            params.push(parseInt(limit, 10) || 100, parseInt(offset, 10) || 0);
 
             const [rows] = await pool.query(query, params);
 
@@ -134,13 +134,13 @@ const unifiedController = {
                 FROM audit_logs
                 WHERE time >= DATE_SUB(NOW(), INTERVAL ? DAY)
             `;
-            const params = [parseInt(days)];
+            const params = [parseInt(days, 10) || 7];
             if (company && company !== 'all') {
                 query += ' AND (company = ? OR company = "all")';
                 params.push(company);
             }
             query += ' ORDER BY time DESC LIMIT ?';
-            params.push(parseInt(limit));
+            params.push(parseInt(limit, 10) || 500);
 
             const [rows] = await pool.query(query, params);
 
@@ -163,7 +163,7 @@ const unifiedController = {
         try {
             const { company, days = 7 } = req.query;
             let whereClause = 'WHERE time >= DATE_SUB(NOW(), INTERVAL ? DAY)';
-            const params = [parseInt(days)];
+            const params = [parseInt(days, 10) || 7];
             if (company && company !== 'all') {
                 whereClause += ' AND (company = ? OR company = "all")';
                 params.push(company);

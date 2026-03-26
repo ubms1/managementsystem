@@ -275,8 +275,105 @@ const Construction = {
 
         App.openModal('Project Details', html, `
             <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
+            <button class="btn btn-info" onclick="Construction.viewProjectMaterials('${p.id}')"><i class="fas fa-boxes-stacked"></i> Materials</button>
             ${Auth.canEditDelete() ? `<button class="btn btn-primary" onclick="Construction.openEditProject('${p.id}')"><i class="fas fa-edit"></i> Edit Project</button>` : ''}
         `, true);
+    },
+
+    // ============================================================
+    //  PROJECT MATERIALS / INVENTORY LINK
+    // ============================================================
+    viewProjectMaterials(projectId) {
+        const p = DataStore.projects.find(pr => pr.id === projectId);
+        if (!p) return;
+        const materials = DataStore.inventoryItems.filter(i => i.projectId === projectId);
+        const transformers = materials.filter(i => i.category === 'Transformers');
+        const otherMats = materials.filter(i => i.category !== 'Transformers');
+
+        let html = `
+        <div style="margin-bottom:16px">
+            <h3 style="margin-bottom:4px"><i class="fas fa-boxes-stacked" style="color:var(--secondary);margin-right:6px"></i>Materials for: ${p.name}</h3>
+            <p style="font-size:12px;color:var(--text-muted)">${materials.length} item(s) assigned to this project</p>
+        </div>`;
+
+        if (transformers.length > 0) {
+            html += `
+            <h4 style="margin:12px 0 8px;font-size:13px;color:#3b82f6"><i class="fas fa-bolt" style="margin-right:4px"></i>Transformers (${transformers.length})</h4>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">
+                <thead><tr style="background:#f8fafc">
+                    <th style="padding:8px 12px;text-align:left">Name</th>
+                    <th style="padding:8px 12px;text-align:left">Type</th>
+                    <th style="padding:8px 12px;text-align:left">Rating</th>
+                    <th style="padding:8px 12px;text-align:center">Qty</th>
+                    <th style="padding:8px 12px;text-align:right">Cost</th>
+                </tr></thead>
+                <tbody>${transformers.map(t => {
+                    const typeColor = (t.transformerType || '').toLowerCase() === 'silicon' ? '#8b5cf6' : '#f59e0b';
+                    return `<tr style="border-bottom:1px solid var(--border)">
+                        <td style="padding:8px 12px"><strong>${t.name}</strong></td>
+                        <td style="padding:8px 12px"><span class="badge-tag" style="background:${typeColor}20;color:${typeColor}">${t.transformerType || '-'}</span></td>
+                        <td style="padding:8px 12px">${t.transformerRating || '-'}</td>
+                        <td style="padding:8px 12px;text-align:center">${t.quantity}</td>
+                        <td style="padding:8px 12px;text-align:right">${Utils.formatCurrency(t.unitCost || 0)}</td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>`;
+        }
+
+        if (otherMats.length > 0) {
+            html += `
+            <h4 style="margin:12px 0 8px;font-size:13px;color:var(--secondary)"><i class="fas fa-box" style="margin-right:4px"></i>Other Materials (${otherMats.length})</h4>
+            ${otherMats.map(i => `
+                <div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px">
+                    <div><strong>${i.name}</strong> <span style="color:var(--text-muted)">(${i.category || '-'})</span></div>
+                    <span class="badge-tag ${i.quantity <= (i.reorderLevel || 5) ? 'badge-danger' : 'badge-success'}">${i.quantity} ${i.unit || 'pcs'}</span>
+                </div>
+            `).join('')}`;
+        }
+
+        if (materials.length === 0) {
+            html += `<div style="padding:32px;text-align:center;color:var(--text-muted)"><i class="fas fa-inbox" style="font-size:32px;margin-bottom:8px;display:block;opacity:0.3"></i>No materials assigned to this project yet.<br>Assign items from the Inventory module.</div>`;
+        }
+
+        App.openModal('Project Materials', html, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
+            <button class="btn btn-primary" onclick="Construction.assignMaterialToProject('${projectId}')"><i class="fas fa-plus"></i> Assign Material</button>
+        `, true);
+    },
+
+    assignMaterialToProject(projectId) {
+        const p = DataStore.projects.find(pr => pr.id === projectId);
+        if (!p) return;
+        const unassigned = DataStore.inventoryItems.filter(i => !i.projectId && i.company === p.company);
+        if (unassigned.length === 0) {
+            App.showToast('No unassigned inventory items available for this company', 'error');
+            return;
+        }
+        const options = unassigned.map(i => `<option value="${i.id}">${i.name} (${i.category || '-'}) — ${i.quantity} ${i.unit || 'pcs'}</option>`).join('');
+
+        App.openModal('Assign Material to Project', `
+        <form>
+            <div class="form-group">
+                <label>Select Inventory Item</label>
+                <select class="form-control" id="assignMatItem">${options}</select>
+            </div>
+        </form>`, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Construction.saveAssignMaterial('${projectId}')"><i class="fas fa-link"></i> Assign</button>
+        `);
+    },
+
+    saveAssignMaterial(projectId) {
+        const itemId = document.getElementById('assignMatItem')?.value;
+        if (!itemId) return;
+        const item = DataStore.inventoryItems.find(i => i.id === itemId);
+        if (item) {
+            item.projectId = projectId;
+            Database.updateInventoryItem(itemId, { projectId });
+            App.closeModal();
+            App.showToast(`${item.name} assigned to project`, 'success');
+            this.viewProjectMaterials(projectId);
+        }
     },
 
     openEditProject(id) {
@@ -1391,6 +1488,9 @@ const Construction = {
             <button class="tab-btn" onclick="Construction.switchMonitorTab('geospatial',this)">
                 <i class="fas fa-map-marked-alt" style="margin-right:5px"></i>Geospatial
             </button>
+            <button class="tab-btn" onclick="Construction.switchMonitorTab('materials',this)">
+                <i class="fas fa-boxes-stacked" style="margin-right:5px"></i>Materials & Transformers
+            </button>
         </div>
 
         <div id="monitorTabContent">${this.renderMonitorOverview(projects, milestones)}</div>`;
@@ -1415,6 +1515,7 @@ const Construction = {
             case 'vendor':      el.innerHTML = this.renderVendorPerformance(projects); break;
             case 'delays':      el.innerHTML = this.renderDelayAnalysis(projects, milestones); break;
             case 'geospatial':  el.innerHTML = this.renderGeospatialDashboard(projects); break;
+            case 'materials':   el.innerHTML = this.renderProjectMaterialsTab(projects); break;
         }
     },
 
@@ -2239,6 +2340,170 @@ const Construction = {
                 </div>
             </div>`;
         }
+    },
+
+    renderProjectMaterialsTab(projects) {
+        const items = DataStore.inventoryItems || [];
+        const allTransformers = items.filter(i => i.category === 'Transformers');
+        const companyIds = [...new Set(projects.map(p => p.company))];
+        const relevantItems = items.filter(i => companyIds.includes(i.company));
+        const relevantTransformers = allTransformers.filter(i => companyIds.includes(i.company));
+
+        const assigned = relevantTransformers.filter(i => i.projectId);
+        const unassigned = relevantTransformers.filter(i => !i.projectId);
+        const siliconCount = relevantTransformers.filter(i => i.transformerType === 'Silicon').length;
+        const amorphousCount = relevantTransformers.filter(i => i.transformerType === 'Amorphous').length;
+        const totalQty = relevantTransformers.reduce((s, i) => s + (i.quantity || 1), 0);
+
+        let html = `
+        <div class="section-header mb-2">
+            <h3><i class="fas fa-boxes-stacked" style="margin-right:8px"></i>Materials & Transformers</h3>
+            <span style="font-size:13px;color:var(--text-secondary)">${relevantTransformers.length} transformer(s) · ${relevantItems.length - relevantTransformers.length} other material(s)</span>
+        </div>
+        <div class="grid-4 mb-3" style="gap:12px">
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon purple"><i class="fas fa-bolt"></i></div></div><div class="stat-value">${relevantTransformers.length}</div><div class="stat-label">Transformers</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><i class="fas fa-link"></i></div></div><div class="stat-value">${assigned.length}</div><div class="stat-label">Assigned to Projects</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon orange"><i class="fas fa-unlink"></i></div></div><div class="stat-value">${unassigned.length}</div><div class="stat-label">Unassigned</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><i class="fas fa-cubes"></i></div></div><div class="stat-value">${totalQty}</div><div class="stat-label">Total Units</div></div>
+        </div>
+        <div class="grid-2 mb-3" style="gap:12px">
+            <div class="stat-card" style="border-left:3px solid #8b5cf6"><div class="stat-value">${siliconCount}</div><div class="stat-label">Silicon Type</div></div>
+            <div class="stat-card" style="border-left:3px solid #f59e0b"><div class="stat-value">${amorphousCount}</div><div class="stat-label">Amorphous Type</div></div>
+        </div>`;
+
+        // Per-project materials breakdown
+        html += `<h4 style="margin:16px 0 10px">Transformers by Project</h4>`;
+        projects.forEach(p => {
+            const pTransformers = relevantTransformers.filter(i => i.projectId === p.id);
+            const pMaterials = relevantItems.filter(i => i.projectId === p.id && i.category !== 'Transformers');
+            if (pTransformers.length === 0 && pMaterials.length === 0) return;
+            html += `
+            <div class="card mb-2">
+                <div class="card-header">
+                    <h3 style="font-size:13px"><i class="fas fa-hard-hat" style="margin-right:6px"></i>${Utils.escapeHtml(p.name)}</h3>
+                    <span class="badge-tag badge-neutral">${pTransformers.length} transformer(s) · ${pMaterials.length} other</span>
+                </div>
+                <div class="card-body" style="padding:0;overflow-x:auto">
+                    <table class="data-table" style="font-size:12px;margin:0">
+                        <thead><tr><th>Name</th><th>Type</th><th>Rating</th><th>Qty</th><th>Status</th></tr></thead>
+                        <tbody>
+                            ${pTransformers.map(t => {
+                                const typeColor = t.transformerType === 'Silicon' ? '#8b5cf6' : '#f59e0b';
+                                return `<tr>
+                                    <td><strong>${Utils.escapeHtml(t.name)}</strong><div style="font-size:10px;color:var(--text-muted)">${t.code || ''}</div></td>
+                                    <td><span class="badge-tag" style="background:${typeColor}20;color:${typeColor}">${t.transformerType || '-'}</span></td>
+                                    <td>${t.transformerRating || '-'}</td>
+                                    <td>${t.quantity || 1}</td>
+                                    <td><span class="badge-tag ${t.status === 'active' ? 'badge-success' : 'badge-warning'}">${t.status || 'active'}</span></td>
+                                </tr>`;
+                            }).join('')}
+                            ${pMaterials.map(m => `<tr>
+                                <td><strong>${Utils.escapeHtml(m.name)}</strong></td>
+                                <td><span class="badge-tag badge-neutral">${m.category || '-'}</span></td>
+                                <td>-</td>
+                                <td>${m.quantity || 1}</td>
+                                <td><span class="badge-tag ${m.status === 'active' ? 'badge-success' : 'badge-warning'}">${m.status || 'active'}</span></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+        });
+
+        // Unassigned transformers
+        if (unassigned.length > 0) {
+            html += `<h4 style="margin:16px 0 10px">Unassigned Transformers</h4>
+            <div class="card mb-2">
+                <div class="card-body" style="padding:0;overflow-x:auto">
+                    <table class="data-table" style="font-size:12px;margin:0">
+                        <thead><tr><th>Name</th><th>Type</th><th>Rating</th><th>Company</th><th>Qty</th><th>Action</th></tr></thead>
+                        <tbody>
+                            ${unassigned.map(t => {
+                                const typeColor = t.transformerType === 'Silicon' ? '#8b5cf6' : '#f59e0b';
+                                return `<tr>
+                                    <td><strong>${Utils.escapeHtml(t.name)}</strong></td>
+                                    <td><span class="badge-tag" style="background:${typeColor}20;color:${typeColor}">${t.transformerType || '-'}</span></td>
+                                    <td>${t.transformerRating || '-'}</td>
+                                    <td>${t.company || '-'}</td>
+                                    <td>${t.quantity || 1}</td>
+                                    <td><button class="btn btn-sm btn-info" onclick="Construction.quickAssignTransformer('${t.id}')"><i class="fas fa-link"></i> Assign</button></td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+        }
+
+        // Rating distribution table
+        const ratings = ['10 KVA', '25 KVA', '37.5 KVA', '50 KVA', '75 KVA', '100 KVA'];
+        html += `<h4 style="margin:16px 0 10px">Rating Distribution</h4>
+        <div class="card mb-2">
+            <div class="card-body" style="padding:0;overflow-x:auto">
+                <table class="data-table" style="font-size:12px;margin:0">
+                    <thead><tr><th>Rating</th><th>Silicon</th><th>Amorphous</th><th>Total</th><th>Assigned</th><th>Available</th></tr></thead>
+                    <tbody>
+                        ${ratings.map(r => {
+                            const silicon = relevantTransformers.filter(i => i.transformerRating === r && i.transformerType === 'Silicon');
+                            const amorphous = relevantTransformers.filter(i => i.transformerRating === r && i.transformerType === 'Amorphous');
+                            const total = silicon.length + amorphous.length;
+                            const assignedR = [...silicon, ...amorphous].filter(i => i.projectId).length;
+                            return `<tr>
+                                <td><strong>${r}</strong></td>
+                                <td>${silicon.length}</td>
+                                <td>${amorphous.length}</td>
+                                <td>${total}</td>
+                                <td>${assignedR}</td>
+                                <td>${total - assignedR}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+
+        return html;
+    },
+
+    quickAssignTransformer(itemId) {
+        const item = (DataStore.inventoryItems || []).find(i => i.id === itemId);
+        if (!item) return;
+        const projects = DataStore.projects.filter(p => p.company === item.company);
+        if (projects.length === 0) { App.showToast('No projects available for this company', 'warning'); return; }
+
+        const html = `
+        <form>
+            <div class="form-group">
+                <label>Transformer</label>
+                <input type="text" class="form-control" value="${Utils.escapeHtml(item.name)}" disabled>
+            </div>
+            <div class="form-group">
+                <label>Assign to Project <span class="required">*</span></label>
+                <select class="form-control" id="assignProjectSelect">
+                    <option value="">-- Select Project --</option>
+                    ${projects.map(p => `<option value="${p.id}">${Utils.escapeHtml(p.name)}</option>`).join('')}
+                </select>
+            </div>
+        </form>`;
+
+        App.openModal('Assign Transformer to Project', html, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Construction.saveQuickAssign('${itemId}')"><i class="fas fa-link"></i> Assign</button>
+        `);
+    },
+
+    saveQuickAssign(itemId) {
+        const projectId = document.getElementById('assignProjectSelect')?.value;
+        if (!projectId) { App.showToast('Please select a project', 'error'); return; }
+        const item = (DataStore.inventoryItems || []).find(i => i.id === itemId);
+        if (!item) return;
+        item.projectId = projectId;
+        Database.updateInventoryItem(item);
+        App.showToast('Transformer assigned to project', 'success');
+        App.closeModal();
+        // Refresh the materials tab
+        const tabBtn = document.querySelector('.tab-btn.active');
+        if (tabBtn) this.switchMonitorTab('materials', tabBtn);
     },
 
     viewProjectDocuments(projectId) {

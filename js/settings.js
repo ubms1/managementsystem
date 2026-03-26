@@ -56,7 +56,7 @@ const Settings = {
                         { label: 'User', render: r => `<div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="background:var(--secondary);color:#fff">${(r.avatar || r.name[0])}</div><div><strong>${r.name}</strong><div style="font-size:11px;color:var(--text-muted)">@${r.username}</div></div></div>` },
                         { label: 'Role', render: r => `<span class="badge-tag badge-${r.role === 'owner' ? 'danger' : r.role === 'manager' ? 'warning' : r.role === 'accountant' ? 'info' : 'neutral'}">${r.role}</span>` },
                         { label: 'Email', render: r => `<a href="mailto:${r.email}" style="color:var(--primary);text-decoration:none">${r.email}</a>` },
-                        { label: 'Companies', render: r => r.companies.includes('all') ? '<span class="badge-tag badge-teal">All Companies</span>' : r.companies.map(c => `<span class="badge-tag" style="background:${Utils.getCompanyColor(c)}20;color:${Utils.getCompanyColor(c)}">${c}</span>`).join(' ') },
+                        { label: 'Companies', render: r => (r.companies || []).includes('all') ? '<span class="badge-tag badge-teal">All Companies</span>' : (r.companies || []).map(c => `<span class="badge-tag" style="background:${Utils.getCompanyColor(c)}20;color:${Utils.getCompanyColor(c)}">${c}</span>`).join(' ') },
                         { label: 'Last Login', render: r => r.lastLogin ? Utils.formatDateTime(r.lastLogin) : 'Never' },
                         { label: 'Status', render: r => `<span class="badge-tag ${r.status === 'active' ? 'badge-success' : 'badge-danger'}">${r.status}</span>` }
                     ],

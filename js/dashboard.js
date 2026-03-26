@@ -457,7 +457,7 @@ const Dashboard = {
                 <div class="status-card-item">
                     <div style="font-weight:600;font-size:13px;margin-bottom:4px">${vehicle ? `${vehicle.make} ${vehicle.model}` : j.vehicle}</div>
                     <div style="font-size:11px;color:var(--text-muted)">${vehicle?.plate || ''}</div>
-                    <div style="font-size:12px;margin-top:6px">${j.services.map(s => DataStore.autoServices.find(a => a.id === s)?.name || s).join(', ')}</div>
+                    <div style="font-size:12px;margin-top:6px">${(j.services || []).map(s => DataStore.autoServices.find(a => a.id === s)?.name || s).join(', ')}</div>
                     ${j.technician ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:4px"><i class="fas fa-user" style="margin-right:4px"></i>${j.technician}</div>` : ''}
                 </div>`;
             }).join('')}

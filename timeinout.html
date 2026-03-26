@@ -494,7 +494,7 @@
         .face-scan-overlay.active { display: flex; }
         .face-scan-container {
             position: relative;
-            width: 320px; height: 260px;
+            width: min(320px, 90vw); height: min(260px, 70vw);
             border-radius: 20px;
             overflow: hidden;
             border: 3px solid rgba(255,255,255,0.3);
@@ -555,7 +555,7 @@
         <div class="sub">Position your face within the oval guide</div>
     </div>
     <div class="face-scan-container">
-        <video id="faceCamVideo" autoplay muted playsinline webkit-playsinline></video>
+        <video id="faceCamVideo" autoplay muted playsinline></video>
         <canvas id="faceCamCanvas"></canvas>
         <div class="face-scan-guide"><div class="oval"></div></div>
     </div>
@@ -1518,16 +1518,26 @@ async function startFaceScan(mode) {
     if (enrollBtn) enrollBtn.style.display = faceScanMode === 'enroll' ? 'inline-flex' : 'none';
 
     try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Camera API not available. Use HTTPS or a supported browser.');
+        }
         // Try front camera first (user-facing), fall back to any camera for mobile compatibility
-        try {
-            faceStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-            });
-        } catch {
-            faceStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const camConstraints = [
+            { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } },
+            { video: { facingMode: 'user' } },
+            { video: true }
+        ];
+        for (let i = 0; i < camConstraints.length; i++) {
+            try {
+                faceStream = await navigator.mediaDevices.getUserMedia(camConstraints[i]);
+                break;
+            } catch (e) {
+                if (i === camConstraints.length - 1) throw e;
+            }
         }
         video.srcObject = faceStream;
         video.setAttribute('playsinline', 'true');
+        video.setAttribute('webkit-playsinline', 'true');
         await video.play();
         if (statusEl) statusEl.textContent = 'Position your face inside the oval…';
 

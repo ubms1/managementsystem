@@ -98,14 +98,14 @@ const App = {
         const navAutomotive = document.getElementById('navAutomotive');
 
         if (company === 'all') {
-            navConstruction.style.display = '';
-            navWellness.style.display = '';
-            navAutomotive.style.display = '';
+            if (navConstruction) navConstruction.style.display = '';
+            if (navWellness) navWellness.style.display = '';
+            if (navAutomotive) navAutomotive.style.display = '';
         } else {
             const type = DataStore.companies[company]?.type;
-            navConstruction.style.display = (type === 'construction') ? '' : 'none';
-            navWellness.style.display = (type === 'wellness') ? '' : 'none';
-            navAutomotive.style.display = (type === 'automotive') ? '' : 'none';
+            if (navConstruction) navConstruction.style.display = (type === 'construction') ? '' : 'none';
+            if (navWellness) navWellness.style.display = (type === 'wellness') ? '' : 'none';
+            if (navAutomotive) navAutomotive.style.display = (type === 'automotive') ? '' : 'none';
         }
     },
 
@@ -381,18 +381,18 @@ const App = {
         const results = [];
         const q = query.toLowerCase();
 
-        DataStore.customers.forEach(c => {
-            if (c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)) {
+        (DataStore.customers || []).forEach(c => {
+            if ((c.name || '').toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)) {
                 results.push({ type: 'Customer', name: c.name, module: 'crm', id: c.id });
             }
         });
-        DataStore.projects.forEach(p => {
-            if (p.name.toLowerCase().includes(q)) {
+        (DataStore.projects || []).forEach(p => {
+            if ((p.name || '').toLowerCase().includes(q)) {
                 results.push({ type: 'Project', name: p.name, module: 'construction', id: p.id });
             }
         });
-        DataStore.vehicles.forEach(v => {
-            if (v.plate.toLowerCase().includes(q) || v.make.toLowerCase().includes(q) || v.model.toLowerCase().includes(q)) {
+        (DataStore.vehicles || []).forEach(v => {
+            if ((v.plate || '').toLowerCase().includes(q) || (v.make || '').toLowerCase().includes(q) || (v.model || '').toLowerCase().includes(q)) {
                 results.push({ type: 'Vehicle', name: `${v.make} ${v.model} (${v.plate})`, module: 'vehicles', id: v.id });
             }
         });

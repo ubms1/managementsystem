@@ -19,6 +19,9 @@ const ENTITY_TYPES = [
 exports.upsertEntity = async (req, res) => {
     try {
         const { entityType } = req.params;
+        if (!ENTITY_TYPES.includes(entityType)) {
+            return res.status(400).json({ success: false, error: `Invalid entity type: ${entityType}` });
+        }
         const body = req.body;
         const { _meta, ...entityData } = body;
         const meta = _meta || {};
@@ -57,6 +60,9 @@ exports.upsertEntity = async (req, res) => {
 exports.getEntities = async (req, res) => {
     try {
         const { entityType } = req.params;
+        if (!ENTITY_TYPES.includes(entityType)) {
+            return res.status(400).json({ success: false, error: `Invalid entity type: ${entityType}` });
+        }
         const { business, createdBy } = req.query;
 
         const connection = await pool.getConnection();
@@ -100,6 +106,9 @@ exports.getEntities = async (req, res) => {
 exports.deleteEntity = async (req, res) => {
     try {
         const { entityType, id } = req.params;
+        if (!ENTITY_TYPES.includes(entityType)) {
+            return res.status(400).json({ success: false, error: `Invalid entity type: ${entityType}` });
+        }
 
         const connection = await pool.getConnection();
         try {

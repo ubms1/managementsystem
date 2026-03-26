@@ -106,10 +106,10 @@ const Admin = {
         </tr></thead><tbody>`;
 
         users.forEach(u => {
-            const companies = u.companies.includes('all') ? '<span class="badge-tag badge-teal">All Companies</span>' :
-                u.companies.map(c => `<span class="badge-tag" style="background:${Utils.getCompanyColor(c)}20;color:${Utils.getCompanyColor(c)}">${Utils.getCompanyName(c)}</span>`).join(' ');
+            const companies = (u.companies || []).includes('all') ? '<span class="badge-tag badge-teal">All Companies</span>' :
+                (u.companies || []).map(c => `<span class="badge-tag" style="background:${Utils.getCompanyColor(c)}20;color:${Utils.getCompanyColor(c)}">${Utils.getCompanyName(c)}</span>`).join(' ');
 
-            const moduleCount = u.modules.includes('all') ? 'All' : u.modules.length;
+            const moduleCount = (u.modules || []).includes('all') ? 'All' : (u.modules || []).length;
 
             html += `<tr>
                 <td>
@@ -156,7 +156,7 @@ const Admin = {
 
         users.forEach(u => {
             const companyChecks = Object.entries(DataStore.companies).map(([key, co]) => {
-                const checked = u.companies.includes('all') || u.companies.includes(key);
+                const checked = (u.companies || []).includes('all') || (u.companies || []).includes(key);
                 return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0">
                     <input type="checkbox" ${checked ? 'checked' : ''} onchange="Admin.toggleCompanyAccess('${u.id}','${key}',this.checked)" 
                         style="accent-color:${co.color}">
@@ -174,7 +174,7 @@ const Admin = {
             Object.entries(groups).forEach(([group, modules]) => {
                 moduleChecks += `<div style="margin-bottom:8px"><strong style="font-size:11px;text-transform:uppercase;color:var(--text-muted)">${group}</strong><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">`;
                 modules.forEach(m => {
-                    const checked = u.modules.includes('all') || u.modules.includes(m.id);
+                    const checked = (u.modules || []).includes('all') || (u.modules || []).includes(m.id);
                     moduleChecks += `<label style="display:flex;align-items:center;gap:4px;font-size:11px;background:var(--card-bg);border:1px solid var(--border);padding:4px 8px;border-radius:6px;cursor:pointer">
                         <input type="checkbox" ${checked ? 'checked' : ''} onchange="Admin.toggleModuleAccess('${u.id}','${m.id}',this.checked)">
                         <i class="fas ${m.icon}" style="font-size:10px"></i> ${m.label}
@@ -502,7 +502,7 @@ const Admin = {
         if (!user) return;
 
         const companyOptions = Object.entries(DataStore.companies).map(([k, v]) => {
-            const checked = user.companies.includes('all') || user.companies.includes(k);
+            const checked = (user.companies || []).includes('all') || (user.companies || []).includes(k);
             return `<label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="${k}" class="edit-user-company" ${checked ? 'checked' : ''}> ${v.name}</label>`;
         }).join('');
 
@@ -515,7 +515,7 @@ const Admin = {
         Object.entries(groups).forEach(([group, modules]) => {
             moduleOptions += `<div style="margin-bottom:8px"><strong style="font-size:11px;color:var(--text-muted)">${group}</strong><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">`;
             modules.forEach(m => {
-                const checked = user.modules.includes('all') || user.modules.includes(m.id);
+                const checked = (user.modules || []).includes('all') || (user.modules || []).includes(m.id);
                 moduleOptions += `<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="${m.id}" class="edit-user-module" ${checked ? 'checked' : ''}> <i class="fas ${m.icon}" style="font-size:10px"></i> ${m.label}</label>`;
             });
             moduleOptions += '</div></div>';
@@ -551,7 +551,7 @@ const Admin = {
                 <label>Module/Tab Access</label>
                 <div style="max-height:200px;overflow-y:auto;padding:8px;border:1px solid var(--border);border-radius:8px">
                     <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px;font-weight:600">
-                        <input type="checkbox" id="editUserAllModules" ${user.modules.includes('all') ? 'checked' : ''}
+                        <input type="checkbox" id="editUserAllModules" ${(user.modules || []).includes('all') ? 'checked' : ''}
                             onchange="document.querySelectorAll('.edit-user-module').forEach(c=>c.checked=this.checked)"> Select All Modules
                     </label>
                     ${moduleOptions}
@@ -643,6 +643,7 @@ const Admin = {
         const user = users.find(u => u.id === userId);
         if (!user) return;
 
+        if (!user.companies) user.companies = [];
         if (checked) {
             if (!user.companies.includes(company)) user.companies.push(company);
         } else {
@@ -658,6 +659,7 @@ const Admin = {
         const user = users.find(u => u.id === userId);
         if (!user) return;
 
+        if (!user.modules) user.modules = [];
         // Remove 'all' if unchecking individual
         if (!checked && user.modules.includes('all')) {
             user.modules = this.allModules.map(m => m.id).filter(m => m !== module);

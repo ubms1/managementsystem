@@ -99,7 +99,7 @@ const Database = {
         if (user.status !== 'active') return { success: false, error: 'This account is deactivated.' };
         if (user.isSuperAdmin) return { success: false, error: 'Super Admin password cannot be reset here.' };
         // Check company access if specified
-        if (company && !user.companies.includes('all') && !user.companies.includes(company)) {
+        if (company && !(user.companies || []).includes('all') && !(user.companies || []).includes(company)) {
             return { success: false, error: 'This account does not have access to this business.' };
         }
         if (!newPassword || newPassword.length < 8) return { success: false, error: 'Password must be at least 8 characters.' };
@@ -124,6 +124,8 @@ const Database = {
             localStorage.setItem('ubms_db_version', String(this.DB_VERSION));
         }
         this.startAutoSave();
+        // Seed default transformer inventory items if missing
+        this.seedTransformers();
         // Full bidirectional sync: push local → server, then pull server → local
         this.fullSync();
     },
@@ -267,6 +269,11 @@ const Database = {
                         DataStore[key] = data[key];
                     }
                 });
+                // Ensure all customer objects have a companies array
+                if (Array.isArray(DataStore.customers)) {
+                    DataStore.customers = DataStore.customers.filter(c => c && c.id);
+                    DataStore.customers.forEach(c => { if (!c.companies) c.companies = []; });
+                }
             }
             // Always recompute monthly revenue from actual invoice data
             this.recalcMonthlyRevenue();
@@ -476,6 +483,46 @@ const Database = {
             }
         ];
         localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+    },
+
+    // ============================================================
+    //  SEED DEFAULT TRANSFORMERS (Construction Inventory)
+    // ============================================================
+    seedTransformers() {
+        const types = DataStore.transformerTypes || ['Silicon', 'Amorphous'];
+        const ratings = DataStore.transformerRatings || ['10 KVA', '25 KVA', '37.5 KVA', '50 KVA', '75 KVA', '100 KVA'];
+        const companies = ['dheekay', 'kdchavit'];
+        let count = 0;
+        for (const company of companies) {
+            for (const type of types) {
+                for (const rating of ratings) {
+                    const code = `XFMR-${type.substring(0,3).toUpperCase()}-${rating.replace(/\s/g, '')}`;
+                    const existing = DataStore.inventoryItems.find(i => i.code === code && i.company === company);
+                    if (existing) continue;
+                    DataStore.inventoryItems.push({
+                        id: Utils.generateId('INV'),
+                        name: `${type} Transformer ${rating}`,
+                        code: code,
+                        barcode: '',
+                        company: company,
+                        category: 'Transformers',
+                        subcategory: type,
+                        unit: 'pcs',
+                        quantity: 0,
+                        reorderLevel: 2,
+                        unitCost: 0,
+                        location: '',
+                        transformerType: type,
+                        transformerRating: rating,
+                        specifications: { type, rating, phase: 'Single Phase', voltage: '13.8kV / 240V-120V' },
+                        projectId: null,
+                        createdAt: new Date().toISOString()
+                    });
+                    count++;
+                }
+            }
+        }
+        if (count > 0) this.save();
     },
 
     // ---- Get all users (synchronous from localStorage cache) ----
@@ -1436,9 +1483,12 @@ const Database = {
             for (const type of entityTypes) {
                 if (!result.data[type] || !Array.isArray(result.data[type])) continue;
                 if (!Array.isArray(DataStore[type])) DataStore[type] = [];
-                const localById = new Map(DataStore[type].map(x => [x.id, x]));
+                const localById = new Map(DataStore[type].filter(x => x && x.id).map(x => [x.id, x]));
                 for (const item of result.data[type]) {
+                    if (!item || !item.id) continue;
                     const { _createdBy, _business, _createdAt, _updatedAt, ...clean } = item;
+                    // Ensure customer objects always have a companies array
+                    if (type === 'customers' && !clean.companies) clean.companies = [];
                     if (localById.has(item.id)) {
                         // Server wins: update local with server data
                         Object.assign(localById.get(item.id), clean);

@@ -10,7 +10,7 @@ const CRM = {
         const customers = this.getFilteredCustomers();
         const totalCustomers = customers.length;
         const corporateCount = customers.filter(c => c.type === 'corporate').length;
-        const crossSellCount = customers.filter(c => c.companies.length > 1).length;
+        const crossSellCount = customers.filter(c => (c.companies || []).length > 1).length;
         const totalSpent = customers.reduce((s, c) => s + (c.totalSpent || 0), 0);
 
         container.innerHTML = `
@@ -78,7 +78,7 @@ const CRM = {
     getFilteredCustomers() {
         let customers = DataStore.customers;
         if (App.activeCompany !== 'all') {
-            customers = customers.filter(c => c.companies.includes(App.activeCompany));
+            customers = customers.filter(c => (c.companies || []).includes(App.activeCompany));
         }
         return customers;
     },
@@ -97,7 +97,7 @@ const CRM = {
                         </div>
                     </div>` },
                 { label: 'Type', render: c => `<span class="badge-tag ${c.type === 'corporate' ? 'badge-info' : c.type === 'government' ? 'badge-purple' : 'badge-neutral'}">${c.type}</span>` },
-                { label: 'Companies', render: c => c.companies.map(co =>
+                { label: 'Companies', render: c => (c.companies || []).map(co =>
                     `<span class="badge-tag badge-${co}" style="margin-right:4px">${co}</span>`
                 ).join('') },
                 { label: 'Tags', render: c => (c.tags || []).slice(0, 2).map(t =>
@@ -124,7 +124,7 @@ const CRM = {
         let filtered = this.getFilteredCustomers();
         if (search) filtered = filtered.filter(c => c.name.toLowerCase().includes(search) || c.email?.toLowerCase().includes(search));
         if (type !== 'all') filtered = filtered.filter(c => c.type === type);
-        if (company !== 'all') filtered = filtered.filter(c => c.companies.includes(company));
+        if (company !== 'all') filtered = filtered.filter(c => (c.companies || []).includes(company));
 
         document.getElementById('customerTableContainer').innerHTML = this.renderCustomerTable(filtered);
     },
@@ -144,7 +144,7 @@ const CRM = {
                 <h3 style="font-size:20px;margin-bottom:4px">${c.name}</h3>
                 <p style="color:var(--text-secondary)">${c.type} • ${c.address || 'No address'}</p>
                 <div style="margin-top:8px">
-                    ${c.companies.map(co => `<span class="badge-tag badge-${co}" style="margin-right:4px">${Utils.getCompanyName(co)}</span>`).join('')}
+                    ${(c.companies || []).map(co => `<span class="badge-tag badge-${co}" style="margin-right:4px">${Utils.getCompanyName(co)}</span>`).join('')}
                 </div>
             </div>
         </div>

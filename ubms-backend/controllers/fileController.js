@@ -164,13 +164,18 @@ const fileController = {
             if (rows.length === 0) return res.status(404).json({ success: false, error: 'File not found' });
 
             const file = rows[0];
-            const fullPath = path.join(STORAGE_ROOT, file.filePath);
+            const fullPath = path.resolve(STORAGE_ROOT, file.filePath);
+
+            if (!fullPath.startsWith(path.resolve(STORAGE_ROOT))) {
+                return res.status(403).json({ success: false, error: 'Access denied' });
+            }
 
             if (!fs.existsSync(fullPath)) {
                 return res.status(404).json({ success: false, error: 'File not found on disk' });
             }
 
-            res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
+            const safeName = encodeURIComponent(file.originalName).replace(/%20/g, ' ');
+            res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
             res.setHeader('Content-Type', file.fileType || 'application/octet-stream');
             const stream = fs.createReadStream(fullPath);
             stream.pipe(res);
@@ -186,7 +191,10 @@ const fileController = {
             const [rows] = await pool.query('SELECT filePath FROM uploaded_files WHERE id = ?', [id]);
             if (rows.length === 0) return res.status(404).json({ success: false, error: 'File not found' });
 
-            const fullPath = path.join(STORAGE_ROOT, rows[0].filePath);
+            const fullPath = path.resolve(STORAGE_ROOT, rows[0].filePath);
+            if (!fullPath.startsWith(path.resolve(STORAGE_ROOT))) {
+                return res.status(403).json({ success: false, error: 'Access denied' });
+            }
             if (fs.existsSync(fullPath)) {
                 fs.unlinkSync(fullPath);
             }
