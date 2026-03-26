@@ -427,7 +427,7 @@ const Construction = {
             </div>
             <div class="form-row">
                 <div class="form-group"><label>POC</label><input type="text" class="form-control" id="editProjPoc" value="${Utils.escapeHtml(p.poc || '')}"></div>
-                <div class="form-group"><label>COOP Abbreviation</label><input type="text" class="form-control" id="editProjCoop" value="${Utils.escapeHtml(p.coopAbbr || '')}"></div>
+                <div class="form-group"><label>COOP Abbreviation</label><input type="text" class="form-control" id="editProjCoop" value="${Utils.escapeHtml(p.coopAbbr || '')}" placeholder="Search COOP..." autocomplete="off"></div>
             </div>
             <div class="form-row">
                 <div class="form-group"><label>Territory</label><input type="text" class="form-control" id="editProjTerritory" value="${Utils.escapeHtml(p.territory || '')}"></div>
@@ -507,6 +507,15 @@ const Construction = {
             <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
             <button class="btn btn-primary" onclick="Construction.saveEditProject('${id}')"><i class="fas fa-save"></i> Save Changes</button>
         `, true);
+        // Init searchable COOP dropdown with auto-fill region/province
+        Utils.initCoopDropdown('editProjCoop', {
+            onSelect(c) {
+                const rEl = document.getElementById('editProjRegion');
+                const pEl = document.getElementById('editProjProvince');
+                if (rEl) rEl.value = c.region;
+                if (pEl) pEl.value = c.province;
+            }
+        });
     },
 
     saveEditProject(id) {
@@ -647,7 +656,7 @@ const Construction = {
                 </div>
                 <div class="form-group">
                     <label>COOP Abbreviation</label>
-                    <input type="text" class="form-control" id="newProjCoop" placeholder="e.g., CAGELCO II">
+                    <input type="text" class="form-control" id="newProjCoop" placeholder="Search COOP... e.g., CAGELCO II" autocomplete="off">
                 </div>
             </div>
             <div class="form-row">
@@ -730,6 +739,15 @@ const Construction = {
             <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
             <button class="btn btn-primary" onclick="Construction.saveNewProject()"><i class="fas fa-save"></i> Create</button>
         `);
+        // Init searchable COOP dropdown with auto-fill region/province
+        Utils.initCoopDropdown('newProjCoop', {
+            onSelect(c) {
+                const rEl = document.getElementById('newProjRegion');
+                const pEl = document.getElementById('newProjProvince');
+                if (rEl && !rEl.value) rEl.value = c.region;
+                if (pEl && !pEl.value) pEl.value = c.province;
+            }
+        });
     },
 
     saveNewProject() {

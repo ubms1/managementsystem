@@ -250,5 +250,105 @@ const Utils = {
 
     randomFromArray(arr) {
         return arr[Math.floor(Math.random() * arr.length)];
+    },
+
+    // ---- Searchable Dropdown ----
+    initCoopDropdown(inputId, options = {}) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const coops = DataStore.electricCooperatives || [];
+        const wrap = document.createElement('div');
+        wrap.className = 'search-dropdown-wrap';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        const arrow = document.createElement('span');
+        arrow.className = 'sd-arrow';
+        arrow.innerHTML = '<i class="fas fa-chevron-down"></i>';
+        wrap.appendChild(arrow);
+        const list = document.createElement('div');
+        list.className = 'search-dropdown-list';
+        list.id = inputId + '_dropdown';
+        wrap.appendChild(list);
+        let activeIdx = -1;
+
+        const renderList = (filter = '') => {
+            const q = filter.toLowerCase();
+            const filtered = q
+                ? coops.filter(c => c.abbr.toLowerCase().includes(q) || c.name.toLowerCase().includes(q) || c.region.toLowerCase().includes(q) || c.province.toLowerCase().includes(q))
+                : coops;
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="sd-empty"><i class="fas fa-search" style="margin-right:6px"></i>No matching cooperative found</div>';
+                list.classList.add('open');
+                activeIdx = -1;
+                return;
+            }
+            const grouped = {};
+            filtered.forEach(c => {
+                if (!grouped[c.region]) grouped[c.region] = [];
+                grouped[c.region].push(c);
+            });
+            let html = '';
+            let idx = 0;
+            Object.keys(grouped).forEach(region => {
+                html += '<div class="sd-group-label">' + Utils.escapeHtml(region) + '</div>';
+                grouped[region].forEach(c => {
+                    html += '<div class="sd-item" data-idx="' + idx + '" data-abbr="' + Utils.escapeHtml(c.abbr) + '" data-region="' + Utils.escapeHtml(c.region) + '" data-province="' + Utils.escapeHtml(c.province) + '">'
+                        + '<span class="sd-abbr">' + Utils.escapeHtml(c.abbr) + '</span>'
+                        + '<span class="sd-name">' + Utils.escapeHtml(c.name) + '</span>'
+                        + '<span class="sd-region">' + Utils.escapeHtml(c.province) + '</span>'
+                        + '</div>';
+                    idx++;
+                });
+            });
+            list.innerHTML = html;
+            list.classList.add('open');
+            activeIdx = -1;
+        };
+
+        const selectItem = (el) => {
+            input.value = el.dataset.abbr;
+            list.classList.remove('open');
+            if (options.onSelect) {
+                options.onSelect({
+                    abbr: el.dataset.abbr,
+                    region: el.dataset.region,
+                    province: el.dataset.province
+                });
+            }
+        };
+
+        input.addEventListener('focus', () => renderList(input.value));
+        input.addEventListener('input', () => renderList(input.value));
+        input.addEventListener('keydown', (e) => {
+            const items = list.querySelectorAll('.sd-item');
+            if (!items.length) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIdx = Math.min(activeIdx + 1, items.length - 1);
+                items.forEach(i => i.classList.remove('active'));
+                items[activeIdx].classList.add('active');
+                items[activeIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIdx = Math.max(activeIdx - 1, 0);
+                items.forEach(i => i.classList.remove('active'));
+                items[activeIdx].classList.add('active');
+                items[activeIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter' && activeIdx >= 0) {
+                e.preventDefault();
+                selectItem(items[activeIdx]);
+            } else if (e.key === 'Escape') {
+                list.classList.remove('open');
+            }
+        });
+
+        list.addEventListener('mousedown', (e) => {
+            const item = e.target.closest('.sd-item');
+            if (item) { e.preventDefault(); selectItem(item); }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!wrap.contains(e.target)) list.classList.remove('open');
+        });
     }
 };
