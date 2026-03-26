@@ -5,6 +5,7 @@
    ======================================== */
 
 const API_BASE_URL = 'http://localhost:3000/api'; // Change to your backend URL
+let _apiAvailable = null; // null = unknown, true/false after first check
 
 async function apiRequest(endpoint, method = 'GET', body = null) {
     const options = {
@@ -13,8 +14,30 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
     };
     if (body) options.body = JSON.stringify(body);
     const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-    if (!response.ok) throw new Error(await response.text());
+    if (!response.ok) {
+        let errorMsg = 'Request failed';
+        try {
+            const errData = await response.json();
+            errorMsg = errData.error || errData.message || JSON.stringify(errData);
+        } catch {
+            errorMsg = await response.text();
+        }
+        throw new Error(errorMsg);
+    }
+    _apiAvailable = true;
     return response.json();
+}
+
+// Check if backend API is reachable
+async function checkApiHealth() {
+    if (_apiAvailable !== null) return _apiAvailable;
+    try {
+        const resp = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(3000) });
+        _apiAvailable = resp.ok;
+    } catch {
+        _apiAvailable = false;
+    }
+    return _apiAvailable;
 }
 
 const Database = {
@@ -369,13 +392,20 @@ const Database = {
     async getUsers() {
         try {
             return await apiRequest('/users');
-        } catch { return []; }
+        } catch {
+            // Fallback to localStorage
+            try {
+                const data = localStorage.getItem(this.USERS_KEY);
+                return data ? JSON.parse(data).filter(u => !u.isSuperAdmin) : [];
+            } catch { return []; }
+        }
     },
 
     // ---- Save users ----
 
     async saveUsers(users) {
-        // Not needed with REST API; handled by add/update/delete
+        // Save to localStorage as fallback
+        localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
     },
 
     // ---- Find user by username ----
@@ -383,7 +413,14 @@ const Database = {
     async findUser(username) {
         try {
             return await apiRequest(`/users/username/${encodeURIComponent(username)}`);
-        } catch { return null; }
+        } catch {
+            // Fallback to localStorage
+            try {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                return users.find(u => u.username === username) || null;
+            } catch { return null; }
+        }
     },
 
     // ---- Find user by email ----
@@ -391,7 +428,14 @@ const Database = {
     async findUserByEmail(email) {
         try {
             return await apiRequest(`/users/email/${encodeURIComponent(email)}`);
-        } catch { return null; }
+        } catch {
+            // Fallback to localStorage
+            try {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                return users.find(u => u.email === email) || null;
+            } catch { return null; }
+        }
     },
 
     // ---- Authenticate user ----
@@ -400,7 +444,38 @@ const Database = {
         try {
             return await apiRequest('/auth/login', 'POST', { username, password, company });
         } catch (e) {
-            return { success: false, error: e.message };
+            // Fallback to localStorage auth
+            try {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                const user = users.find(u => u.username === username);
+                if (!user) return { success: false, error: 'User not found' };
+                if (user.password !== password) return { success: false, error: 'Invalid password' };
+                if (user.status !== 'active') return { success: false, error: 'Account is deactivated' };
+                const companies = typeof user.companies === 'string' ? JSON.parse(user.companies) : (user.companies || []);
+                if (!companies.includes('all') && company !== 'all' && !companies.includes(company)) {
+                    return { success: false, error: 'No access to this company' };
+                }
+                const modules = typeof user.modules === 'string' ? JSON.parse(user.modules) : (user.modules || []);
+                return {
+                    success: true,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        name: user.name,
+                        email: user.email,
+                        role: user.role,
+                        companies: companies,
+                        modules: modules,
+                        company: companies.includes('all') ? (company || 'all') : companies[0],
+                        isSuperAdmin: user.isSuperAdmin,
+                        avatar: user.avatar,
+                        mustChangePassword: user.mustChangePassword ? true : false
+                    }
+                };
+            } catch {
+                return { success: false, error: e.message || 'Authentication failed' };
+            }
         }
     },
 
@@ -410,7 +485,34 @@ const Database = {
         try {
             return await apiRequest('/auth/superadmin', 'POST', { code });
         } catch (e) {
-            return { success: false, error: e.message };
+            // Fallback: check localStorage superadmin
+            try {
+                const configuredCode = this.getSuperAdminCode();
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                const user = users.find(u => u.username === 'superadmin');
+                if (code !== configuredCode && (!user || code !== user.password)) {
+                    return { success: false, error: 'Invalid Super Admin code' };
+                }
+                if (!user) return { success: false, error: 'Super Admin account not found' };
+                return {
+                    success: true,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        name: user.name,
+                        email: user.email,
+                        role: 'superadmin',
+                        companies: ['all'],
+                        modules: ['all'],
+                        company: 'all',
+                        isSuperAdmin: true,
+                        avatar: user.avatar || 'SA'
+                    }
+                };
+            } catch {
+                return { success: false, error: e.message || 'Super Admin authentication failed' };
+            }
         }
     },
 
@@ -420,7 +522,30 @@ const Database = {
         try {
             return await apiRequest('/users', 'POST', userData);
         } catch (e) {
-            return { success: false, error: e.message };
+            // Fallback: add to localStorage
+            try {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                const newUser = {
+                    id: userData.id || Utils.generateId('USR'),
+                    name: userData.name,
+                    username: userData.username,
+                    email: userData.email,
+                    password: userData.password,
+                    role: userData.role || 'staff',
+                    companies: userData.companies || [],
+                    modules: userData.modules || [],
+                    status: 'active',
+                    avatar: userData.name ? userData.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U',
+                    mustChangePassword: userData.mustChangePassword !== undefined ? userData.mustChangePassword : true,
+                    created: new Date().toISOString()
+                };
+                users.push(newUser);
+                localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+                return { success: true, user: newUser };
+            } catch {
+                return { success: false, error: e.message };
+            }
         }
     },
 
@@ -430,7 +555,20 @@ const Database = {
         try {
             return await apiRequest(`/users/${encodeURIComponent(userId)}`, 'PUT', updates);
         } catch (e) {
-            return { success: false, error: e.message };
+            // Fallback: update in localStorage
+            try {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                const idx = users.findIndex(u => u.id === userId);
+                if (idx >= 0) {
+                    Object.assign(users[idx], updates);
+                    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+                    return { success: true, user: users[idx] };
+                }
+                return { success: false, error: 'User not found' };
+            } catch {
+                return { success: false, error: e.message };
+            }
         }
     },
 
@@ -450,7 +588,16 @@ const Database = {
         try {
             return await apiRequest(`/users/${encodeURIComponent(userId)}`, 'DELETE');
         } catch (e) {
-            return { success: false, error: e.message };
+            // Fallback: delete from localStorage
+            try {
+                const data = localStorage.getItem(this.USERS_KEY);
+                const users = data ? JSON.parse(data) : [];
+                const filtered = users.filter(u => u.id !== userId);
+                localStorage.setItem(this.USERS_KEY, JSON.stringify(filtered));
+                return { success: true, message: 'User deleted' };
+            } catch {
+                return { success: false, error: e.message };
+            }
         }
     },
 

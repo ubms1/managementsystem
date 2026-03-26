@@ -2,6 +2,15 @@ const { pool } = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 
 const milestoneController = {
+    async getAll(req, res) {
+        try {
+            const [rows] = await pool.query('SELECT * FROM project_milestones ORDER BY created DESC');
+            res.json({ success: true, data: rows });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    },
+
     async getByProject(req, res) {
         try {
             const { projectId } = req.params;

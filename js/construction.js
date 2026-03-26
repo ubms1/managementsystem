@@ -2639,7 +2639,7 @@ const Construction = {
 
     async downloadDocument(id) {
         try {
-            const resp = await fetch(`http://localhost:3000/api/documents/${encodeURIComponent(id)}/download`);
+            const resp = await fetch(`${API_BASE_URL}/documents/${encodeURIComponent(id)}/download`);
             if (!resp.ok) {
                 // Fallback: document may only be in localStorage
                 App.showToast('File not available for download from server', 'error');
@@ -2774,7 +2774,7 @@ const Construction = {
                 reader.onload = async function() {
                     const base64 = reader.result.split(',')[1];
                     try {
-                        await fetch('http://localhost:3000/api/documents', {
+                        await fetch(`${API_BASE_URL}/documents`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({

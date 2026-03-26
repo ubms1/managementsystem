@@ -576,6 +576,40 @@
    ============================================================ */
 
 const DB_KEY = 'ubms_database';
+const ATTENDANCE_API = 'http://localhost:3000/api/attendance';
+
+// ---- API helper for attendance sync ----
+async function apiSyncClockIn(record) {
+    try {
+        await fetch(ATTENDANCE_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                employeeId: record.employeeId,
+                company: state.company,
+                date: record.date,
+                timeIn: record.timeIn,
+                timeInTimestamp: record.timeInTimestamp,
+                status: record.status,
+                lateMinutes: record.lateMinutes,
+                notes: record.notes,
+                location: record.location,
+                source: record.source,
+                faceVerified: record.faceVerified
+            })
+        });
+    } catch { /* API unavailable — localStorage is primary */ }
+}
+
+async function apiSyncClockOut(recordId, data) {
+    try {
+        await fetch(`${ATTENDANCE_API}/${encodeURIComponent(recordId)}/clockout`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    } catch { /* API unavailable — localStorage is primary */ }
+}
 
 const COMPANY_META = {
     dheekay:  { name: 'Dheekay Builders OPC',              color: '#16a085', logo: 'assets/logos/dheekay.png',  bg: '#e8f5f2', type: 'Construction' },
@@ -1061,6 +1095,9 @@ async function doClockIn() {
     db.attendanceRecords.push(record);
     if (!saveDB(db)) { showToast('Could not save. Storage may be full.', 'error'); return; }
 
+    // Sync to backend API
+    apiSyncClockIn(record);
+
     // Update local state
     state.todayRecords.push(record);
 
@@ -1122,6 +1159,15 @@ async function doClockOut() {
         db.attendanceRecords[idx].locationOut = geoResult;
         db.attendanceRecords[idx].undertimeMinutes = undertimeMinutes;
         if (!saveDB(db)) { showToast('Could not save. Storage may be full.', 'error'); return; }
+
+        // Sync to backend API
+        apiSyncClockOut(rec.id, {
+            timeOut: timeOutStr,
+            timeOutTimestamp: now().toISOString(),
+            locationOut: geoResult,
+            undertimeMinutes
+        });
+
         // Update local state
         rec.timeOut = timeOutStr;
         rec.timeOutTimestamp = now().toISOString();
@@ -1341,7 +1387,7 @@ function doFaceClockOut() {
 // ============================================================
 async function checkFaceEnrollment(employeeId) {
     try {
-        const response = await fetch(`http://localhost:3000/api/attendance/face/${encodeURIComponent(employeeId)}`);
+        const response = await fetch(`${ATTENDANCE_API}/face/${encodeURIComponent(employeeId)}`);
         if (!response.ok) {
             if (response.status === 404) return false; // No face descriptor found
             throw new Error(`HTTP ${response.status}`);
@@ -1482,7 +1528,7 @@ async function verifyFaceAndClock(capturedDescriptor) {
 
     try {
         // Get stored face descriptor from backend using employee ID
-        const resp = await fetch(`http://localhost:3000/api/attendance/face/${encodeURIComponent(emp.id)}`);
+        const resp = await fetch(`${ATTENDANCE_API}/face/${encodeURIComponent(emp.id)}`);
         if (!resp.ok) {
             stopFaceScan();
             const overlay = document.getElementById('faceScanOverlay');
@@ -1575,7 +1621,7 @@ async function enrollFaceNow() {
         }
 
         // Send descriptor to backend
-        const resp = await fetch('http://localhost:3000/api/attendance/face/enroll', {
+        const resp = await fetch(`${ATTENDANCE_API}/face/enroll`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

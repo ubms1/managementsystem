@@ -55,7 +55,7 @@ async function startServer() {
         console.log('🌱 Seeding initial data...');
         await seedInitialData();
         
-        app.listen(PORT, () => {
+        const server = app.listen(PORT, () => {
             console.log(`\n✅ UBMS Backend running on http://localhost:${PORT}`);
             console.log(`📡 API Base URL: http://localhost:${PORT}/api`);
             console.log(`\n📚 Available Endpoints:`);
@@ -75,6 +75,16 @@ async function startServer() {
             console.log(`   Username: superadmin`);
             console.log(`   Password: DK-SA-7829-UBMS`);
             console.log(`   OR use Super Admin code at /api/auth/superadmin\n`);
+        });
+
+        server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                console.error(`❌ Port ${PORT} is already in use.`);
+                console.error(`   Kill the existing process or set a different PORT in .env`);
+                process.exit(1);
+            } else {
+                throw err;
+            }
         });
     } catch (err) {
         console.error('❌ Failed to start server:', err);
