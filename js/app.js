@@ -197,6 +197,7 @@ const App = {
             case 'admin': Admin.render(content); break;
             case 'iso': ISO.render(content); break;
             case 'financialanalysis': FinancialAnalysis.render(content); break;
+            case 'coe': COE.render(content); break;
             default:
                 content.innerHTML = `<div class="empty-state"><i class="fas fa-tools"></i><h3>Module Not Found</h3><p>This module is under development.</p></div>`;
         }
