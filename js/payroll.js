@@ -71,7 +71,7 @@ const Payroll = {
 
     getWithholdingTax(taxableIncome, period) {
         // Monthly BIR tax table (2024 TRAIN law)
-        const monthly = period === 'semi-monthly' ? taxableIncome * 2 : taxableIncome;
+        const monthly = period === 'semi-monthly' ? taxableIncome * 2 : period === 'weekly' ? taxableIncome * 4 : taxableIncome;
         let tax = 0;
         if (monthly <= 20833) tax = 0;
         else if (monthly <= 33333) tax = (monthly - 20833) * 0.15;
@@ -79,7 +79,7 @@ const Payroll = {
         else if (monthly <= 166667) tax = 8541.80 + (monthly - 66667) * 0.25;
         else if (monthly <= 666667) tax = 33541.80 + (monthly - 166667) * 0.30;
         else tax = 183541.80 + (monthly - 666667) * 0.35;
-        return period === 'semi-monthly' ? tax / 2 : tax;
+        return period === 'semi-monthly' ? tax / 2 : period === 'weekly' ? tax / 4 : tax;
     },
 
     // ============================================================
@@ -757,7 +757,7 @@ const Payroll = {
             </div>
             <div class="form-row">
                 <div class="form-group"><label>Pay Period</label>
-                    <select class="form-control" id="batchPeriod"><option value="monthly">Monthly</option><option value="semi-monthly">Semi-Monthly</option></select>
+                    <select class="form-control" id="batchPeriod"><option value="weekly">Weekly</option><option value="semi-monthly">Semi-Monthly</option><option value="monthly">Monthly</option></select>
                 </div>
                 <div class="form-group"><label>Working Days</label><input type="number" class="form-control" id="batchDays" value="26" min="1" max="31"></div>
             </div>
@@ -851,8 +851,8 @@ const Payroll = {
                 </div>
                 <div style="display:flex;gap:4px">
                     <button class="btn btn-sm btn-info" onclick="Payroll.openGeneratePayslip('${e.id}')" title="Generate Payslip"><i class="fas fa-receipt"></i></button>
-                    ${Auth.canEdit() ? `<button class="btn btn-sm btn-secondary" onclick="Payroll.editEmployee('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>` : ''}
-                    ${Auth.canDelete() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deleteEmployee('${e.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
+                    ${Auth.canEdit() || Auth.isSuperAdmin() ? `<button class="btn btn-sm btn-secondary" onclick="Payroll.editEmployee('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>` : ''}
+                    ${Auth.canDelete() || Auth.isSuperAdmin() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deleteEmployee('${e.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
             </div>
         `).join('');
@@ -870,7 +870,9 @@ const Payroll = {
                 <div style="display:flex;align-items:center;gap:8px">
                     <strong style="color:var(--secondary)">${Utils.formatCurrency(p.netPay || 0)}</strong>
                     <button class="btn btn-sm btn-info" onclick="Payroll.viewPayslip('${p.id}')" title="View"><i class="fas fa-eye"></i></button>
+                    ${Auth.isSuperAdmin() ? `<button class="btn btn-sm btn-warning" onclick="Payroll.editPayslip('${p.id}')" title="Edit / Override"><i class="fas fa-edit"></i></button>` : ''}
                     <button class="btn btn-sm btn-success" onclick="Payroll.printPayslip('${p.id}')" title="Print"><i class="fas fa-print"></i></button>
+                    ${Auth.isSuperAdmin() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deletePayslip('${p.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
             </div>
         `).join('');
@@ -906,8 +908,9 @@ const Payroll = {
             <div class="form-row">
                 <div class="form-group"><label>Pay Frequency</label>
                     <select class="form-control" id="empPayFreq">
-                        <option value="monthly">Monthly</option>
+                        <option value="weekly">Weekly</option>
                         <option value="semi-monthly">Semi-Monthly</option>
+                        <option value="monthly">Monthly</option>
                     </select>
                 </div>
                 <div class="form-group"><label>Monthly Rate (₱)</label><input type="number" class="form-control" id="empRate" placeholder="15000" min="0" step="0.01"></div>
@@ -957,7 +960,7 @@ const Payroll = {
     },
 
     editEmployee(id) {
-        if (!Auth.canEdit()) { App.showToast('You do not have permission to edit records', 'error'); return; }
+        if (!Auth.canEdit() && !Auth.isSuperAdmin()) { App.showToast('You do not have permission to edit records', 'error'); return; }
         const emp = DataStore.employees.find(e => e.id === id);
         if (!emp) return;
 
@@ -975,8 +978,9 @@ const Payroll = {
                 </div>
                 <div class="form-group"><label>Pay Frequency</label>
                     <select class="form-control" id="empPayFreq">
-                        <option value="monthly" ${emp.payFrequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+                        <option value="weekly" ${emp.payFrequency === 'weekly' ? 'selected' : ''}>Weekly</option>
                         <option value="semi-monthly" ${emp.payFrequency === 'semi-monthly' ? 'selected' : ''}>Semi-Monthly</option>
+                        <option value="monthly" ${emp.payFrequency === 'monthly' ? 'selected' : ''}>Monthly</option>
                     </select>
                 </div>
             </div>
@@ -1022,7 +1026,7 @@ const Payroll = {
     },
 
     deleteEmployee(id) {
-        if (!Auth.canDelete()) { App.showToast('Only Super Admin can delete records', 'error'); return; }
+        if (!Auth.canDelete() && !Auth.isSuperAdmin()) { App.showToast('Only Super Admin can delete records', 'error'); return; }
         if (!confirm('Delete this employee?')) return;
         Database.deleteEmployee(id);
         App.showToast('Employee deleted', 'success');
@@ -1050,8 +1054,9 @@ const Payroll = {
             <div class="form-row">
                 <div class="form-group"><label>Pay Period Type</label>
                     <select class="form-control" id="psPeriod" onchange="Payroll.previewDeductions()">
-                        <option value="monthly">Monthly</option>
+                        <option value="weekly">Weekly</option>
                         <option value="semi-monthly">Semi-Monthly (1st–15th)</option>
+                        <option value="monthly">Monthly</option>
                     </select>
                 </div>
                 <div class="form-group"><label>Period Start</label><input type="date" class="form-control" id="psPeriodStart" value="${y}-${m}-01"></div>
@@ -1136,14 +1141,14 @@ const Payroll = {
         const grossPay = basicPay + overtimePay + allowance + bonus + incentive;
 
         // Monthly equivalents for contribution computation
-        const monthlyEquiv = period === 'semi-monthly' ? grossPay * 2 : grossPay;
+        const monthlyEquiv = period === 'semi-monthly' ? grossPay * 2 : period === 'weekly' ? grossPay * 4 : grossPay;
 
         const sssRow = this.getSSSContribution(monthlyEquiv);
         const philRow = this.getPhilHealthContribution(monthlyEquiv);
         const pagRow = this.getPagIBIGContribution(monthlyEquiv);
 
-        // For semi-monthly, split contributions in half
-        const divisor = period === 'semi-monthly' ? 2 : 1;
+        // For semi-monthly split by 2, weekly split by 4
+        const divisor = period === 'semi-monthly' ? 2 : period === 'weekly' ? 4 : 1;
         const sss = sssRow.ee / divisor;
         const philhealth = philRow.ee / divisor;
         const pagibig = pagRow.ee / divisor;
@@ -2020,6 +2025,110 @@ const Payroll = {
         Database.deleteIncidentReport(id);
         App.showToast('Incident report deleted', 'success');
         this.renderTabContent();
+    },
+
+    // ============================================================
+    //  SUPERADMIN: EDIT / OVERRIDE PAYSLIP
+    // ============================================================
+    editPayslip(id) {
+        if (!Auth.isSuperAdmin()) { App.showToast('Only Super Admin can edit payslips', 'error'); return; }
+        const ps = DataStore.payslips.find(p => p.id === id);
+        if (!ps) { App.showToast('Payslip not found', 'error'); return; }
+
+        App.openModal(`Edit Payslip — ${ps.employeeName}`, `
+        <form>
+            <div style="background:var(--bg);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;font-size:12px;color:var(--text-muted)">
+                <i class="fas fa-shield-alt" style="color:var(--danger);margin-right:6px"></i><strong>Super Admin Override</strong> — Changes will recalculate NET PAY automatically.
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Pay Frequency</label>
+                    <select class="form-control" id="editPsFreq">
+                        <option value="weekly" ${ps.payFrequency === 'weekly' ? 'selected' : ''}>Weekly</option>
+                        <option value="semi-monthly" ${ps.payFrequency === 'semi-monthly' ? 'selected' : ''}>Semi-Monthly</option>
+                        <option value="monthly" ${ps.payFrequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Days Worked</label><input type="number" class="form-control" id="editPsDays" value="${ps.daysWorked || 0}" min="0" max="31" step="0.5"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Period Start</label><input type="date" class="form-control" id="editPsStart" value="${ps.periodStart || ''}"></div>
+                <div class="form-group"><label>Period End</label><input type="date" class="form-control" id="editPsEnd" value="${ps.periodEnd || ''}"></div>
+            </div>
+            <h4 style="margin:12px 0 8px;font-size:13px;color:var(--text-muted)">EARNINGS</h4>
+            <div class="form-row">
+                <div class="form-group"><label>Basic Pay (₱)</label><input type="number" class="form-control" id="editPsBasic" value="${ps.basicPay || 0}" min="0" step="0.01"></div>
+                <div class="form-group"><label>Overtime Pay (₱)</label><input type="number" class="form-control" id="editPsOT" value="${ps.overtimePay || 0}" min="0" step="0.01"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Allowances (₱)</label><input type="number" class="form-control" id="editPsAllow" value="${ps.allowance || 0}" min="0" step="0.01"></div>
+                <div class="form-group"><label>Bonus (₱)</label><input type="number" class="form-control" id="editPsBonus" value="${ps.bonus || 0}" min="0" step="0.01"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Incentive (₱)</label><input type="number" class="form-control" id="editPsIncentive" value="${ps.incentive || 0}" min="0" step="0.01"></div>
+                <div class="form-group"><label>Late Deduction (₱)</label><input type="number" class="form-control" id="editPsLate" value="${ps.lateDeduction || 0}" min="0" step="0.01"></div>
+            </div>
+            <h4 style="margin:12px 0 8px;font-size:13px;color:var(--text-muted)">DEDUCTIONS (override)</h4>
+            <div class="form-row">
+                <div class="form-group"><label>SSS (EE)</label><input type="number" class="form-control" id="editPsSSS" value="${ps.sss || 0}" min="0" step="0.01"></div>
+                <div class="form-group"><label>PhilHealth (EE)</label><input type="number" class="form-control" id="editPsPH" value="${ps.philhealth || 0}" min="0" step="0.01"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Pag-IBIG (EE)</label><input type="number" class="form-control" id="editPsPag" value="${ps.pagibig || 0}" min="0" step="0.01"></div>
+                <div class="form-group"><label>Withholding Tax</label><input type="number" class="form-control" id="editPsTax" value="${ps.tax || 0}" min="0" step="0.01"></div>
+            </div>
+        </form>`, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-warning" onclick="Payroll.savePayslipOverride('${ps.id}')"><i class="fas fa-save"></i> Save Override</button>
+        `, true);
+    },
+
+    savePayslipOverride(id) {
+        if (!Auth.isSuperAdmin()) { App.showToast('Unauthorized', 'error'); return; }
+        const ps = DataStore.payslips.find(p => p.id === id);
+        if (!ps) { App.showToast('Payslip not found', 'error'); return; }
+
+        const basicPay = parseFloat(document.getElementById('editPsBasic')?.value || 0);
+        const overtimePay = parseFloat(document.getElementById('editPsOT')?.value || 0);
+        const allowance = parseFloat(document.getElementById('editPsAllow')?.value || 0);
+        const bonus = parseFloat(document.getElementById('editPsBonus')?.value || 0);
+        const incentive = parseFloat(document.getElementById('editPsIncentive')?.value || 0);
+        const lateDeduction = parseFloat(document.getElementById('editPsLate')?.value || 0);
+        const sss = parseFloat(document.getElementById('editPsSSS')?.value || 0);
+        const philhealth = parseFloat(document.getElementById('editPsPH')?.value || 0);
+        const pagibig = parseFloat(document.getElementById('editPsPag')?.value || 0);
+        const tax = parseFloat(document.getElementById('editPsTax')?.value || 0);
+
+        const grossPay = basicPay + overtimePay + allowance + bonus + incentive;
+        const totalDeductions = sss + philhealth + pagibig + tax + lateDeduction;
+        const netPay = grossPay - totalDeductions;
+
+        Object.assign(ps, {
+            payFrequency: document.getElementById('editPsFreq')?.value || ps.payFrequency,
+            daysWorked: parseFloat(document.getElementById('editPsDays')?.value || ps.daysWorked),
+            periodStart: document.getElementById('editPsStart')?.value || ps.periodStart,
+            periodEnd: document.getElementById('editPsEnd')?.value || ps.periodEnd,
+            basicPay, overtimePay, allowance, bonus, incentive, lateDeduction,
+            grossPay, sss, philhealth, pagibig, tax, totalDeductions, netPay,
+            overriddenBy: 'superadmin',
+            overriddenAt: new Date().toISOString()
+        });
+
+        Database.save();
+        App.closeModal();
+        App.showToast(`Payslip for ${ps.employeeName} updated — Net Pay: ${Utils.formatCurrency(netPay)}`, 'success');
+        this.render(document.getElementById('contentArea'));
+    },
+
+    deletePayslip(id) {
+        if (!Auth.isSuperAdmin()) { App.showToast('Only Super Admin can delete payslips', 'error'); return; }
+        if (!confirm('Delete this payslip? This cannot be undone.')) return;
+        const idx = DataStore.payslips.findIndex(p => p.id === id);
+        if (idx >= 0) {
+            DataStore.payslips.splice(idx, 1);
+            Database.save();
+            App.showToast('Payslip deleted', 'success');
+            this.render(document.getElementById('contentArea'));
+        }
     },
 
     printPayslip(id) {
