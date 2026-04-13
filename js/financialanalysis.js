@@ -91,12 +91,12 @@ const FinancialAnalysis = {
         const revTrend = prevMonthRev > 0 ? ((curMonthRev - prevMonthRev) / prevMonthRev * 100) : 0;
 
         // Expenses
-        const totalExpenses = companies.reduce((s, co) => s + DataStore.expenses.filter(e => e.company === co).reduce((a, e) => a + e.amount, 0), 0);
+        const totalExpenses = companies.reduce((s, co) => s + DataStore.expenses.filter(e => e.company === co).reduce((a, e) => a + Utils.safeNum(e.amount), 0), 0);
 
         // Invoices
         const invoices = companies.reduce((arr, co) => arr.concat(DataStore.invoices.filter(i => i.company === co)), []);
-        const totalCollected = invoices.reduce((s, i) => s + i.paid, 0);
-        const totalReceivable = invoices.reduce((s, i) => s + (i.amount - i.paid), 0);
+        const totalCollected = invoices.reduce((s, i) => s + Utils.safeNum(i.paid), 0);
+        const totalReceivable = invoices.reduce((s, i) => s + (Utils.safeNum(i.amount) - Utils.safeNum(i.paid)), 0);
         const overdueInvoices = invoices.filter(i => i.status !== 'paid' && new Date(i.dueDate) < now).length;
 
         // Net income
@@ -104,7 +104,7 @@ const FinancialAnalysis = {
         const profitMargin = totalAnnualRevenue > 0 ? (netIncome / totalAnnualRevenue * 100) : 0;
 
         // Collection efficiency
-        const totalBilled = invoices.reduce((s, i) => s + i.amount, 0);
+        const totalBilled = invoices.reduce((s, i) => s + Utils.safeNum(i.amount), 0);
         const collectionRate = totalBilled > 0 ? (totalCollected / totalBilled * 100) : 0;
 
         // Expense ratio
@@ -292,11 +292,11 @@ const FinancialAnalysis = {
             const h = this.getCompanyHealth(co);
             const coData = DataStore.companies[co];
             const invoices = DataStore.invoices.filter(i => i.company === co);
-            const avgInvoice = invoices.length > 0 ? invoices.reduce((s, i) => s + i.amount, 0) / invoices.length : 0;
+            const avgInvoice = invoices.length > 0 ? invoices.reduce((s, i) => s + Utils.safeNum(i.amount), 0) / invoices.length : 0;
 
             // Gross margin (revenue - COGS) / revenue; approximate COGS from materials/parts expenses
             const coExpenses = DataStore.expenses.filter(e => e.company === co);
-            const cogs = coExpenses.filter(e => ['Materials', 'Parts', 'Labor'].includes(e.category)).reduce((s, e) => s + e.amount, 0);
+            const cogs = coExpenses.filter(e => ['Materials', 'Parts', 'Labor'].includes(e.category)).reduce((s, e) => s + Utils.safeNum(e.amount), 0);
             const grossMargin = h.totalAnnualRevenue > 0 ? ((h.totalAnnualRevenue - cogs) / h.totalAnnualRevenue * 100) : 0;
 
             // Operating margin = (Revenue - all Expenses) / Revenue
@@ -440,8 +440,8 @@ const FinancialAnalysis = {
         const netFlow = monthlyInflow.map((v, i) => v - monthlyOutflow[i]);
 
         // Opening balance from invoices paid minus expenses
-        const totalCollected = companies.reduce((s, co) => s + DataStore.invoices.filter(i => i.company === co).reduce((sum, inv) => sum + inv.paid, 0), 0);
-        const totalExpPaid = companies.reduce((s, co) => s + DataStore.expenses.filter(e => e.company === co).reduce((sum, exp) => sum + exp.amount, 0), 0);
+        const totalCollected = companies.reduce((s, co) => s + DataStore.invoices.filter(i => i.company === co).reduce((sum, inv) => sum + Utils.safeNum(inv.paid), 0), 0);
+        const totalExpPaid = companies.reduce((s, co) => s + DataStore.expenses.filter(e => e.company === co).reduce((sum, exp) => sum + Utils.safeNum(exp.amount), 0), 0);
         let runningBalance = totalCollected - totalExpPaid;
         const balances = netFlow.map(v => { runningBalance += v; return runningBalance; });
 
@@ -540,7 +540,7 @@ const FinancialAnalysis = {
             return { ...h, co, name: coData.name, color: coData.color, type: coData.type };
         });
 
-        const totalRev = data.reduce((s, d) => s + d.totalAnnualRevenue, 0);
+        const totalRev = data.reduce((s, d) => s + Utils.safeNum(d.totalAnnualRevenue), 0);
 
         return `
         <div class="card mb-3">
@@ -574,8 +574,8 @@ const FinancialAnalysis = {
                 ${['construction', 'wellness', 'automotive'].map(type => {
                     const typeData = data.filter(d => d.type === type);
                     if (typeData.length === 0) return '';
-                    const typeRev = typeData.reduce((s, d) => s + d.totalAnnualRevenue, 0);
-                    const typeNet = typeData.reduce((s, d) => s + d.netIncome, 0);
+                    const typeRev = typeData.reduce((s, d) => s + Utils.safeNum(d.totalAnnualRevenue), 0);
+                    const typeNet = typeData.reduce((s, d) => s + Utils.safeNum(d.netIncome), 0);
                     const typeMargin = typeRev > 0 ? (typeNet / typeRev * 100) : 0;
                     const icon = type === 'construction' ? 'fa-hard-hat' : type === 'wellness' ? 'fa-spa' : 'fa-car';
                     return `

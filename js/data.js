@@ -348,10 +348,11 @@ const DataStore = {
         const filter = (items) => company === 'all' ? items : items.filter(i => i.company === company);
         const invs = filter(this.invoices);
         const exps = filter(this.expenses);
+        const _n = (v) => Utils.safeNum(v);
 
-        const totalRevenue = invs.reduce((s, i) => s + i.paid, 0);
-        const totalReceivable = invs.reduce((s, i) => s + (i.amount - i.paid), 0);
-        const totalExpenses = exps.reduce((s, e) => s + e.amount, 0);
+        const totalRevenue = invs.reduce((s, i) => s + _n(i.paid), 0);
+        const totalReceivable = invs.reduce((s, i) => s + (_n(i.amount) - _n(i.paid)), 0);
+        const totalExpenses = exps.reduce((s, e) => s + _n(e.amount), 0);
 
         return {
             totalRevenue,
@@ -368,15 +369,17 @@ const DataStore = {
     getCompanySummary(companyId) {
         const fin = this.getFinancialSummary(companyId);
         const company = this.companies[companyId];
+        const _n = (v) => Utils.safeNum(v);
         let extra = {};
 
         if (company.type === 'construction') {
             const projs = this.projects.filter(p => p.company === companyId);
+            const activeProjs = projs.filter(p => p.status === 'in-progress');
             extra = {
-                activeProjects: projs.filter(p => p.status === 'in-progress').length,
+                activeProjects: activeProjs.length,
                 totalProjects: projs.length,
-                totalBudget: projs.reduce((s, p) => s + p.budget, 0),
-                avgProgress: projs.filter(p => p.status === 'in-progress').reduce((s, p) => s + p.progress, 0) / (projs.filter(p => p.status === 'in-progress').length || 1)
+                totalBudget: projs.reduce((s, p) => s + _n(p.budget), 0),
+                avgProgress: activeProjs.reduce((s, p) => s + _n(p.progress), 0) / (activeProjs.length || 1)
             };
         } else if (company.type === 'wellness') {
             const bks = this.bookings.filter(b => b.company === companyId);

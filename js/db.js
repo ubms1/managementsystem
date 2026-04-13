@@ -740,43 +740,58 @@ const Database = {
 
     // ---- Authenticate user ----
 
+    _localAuth(username, password, company) {
+        const data = localStorage.getItem(this.USERS_KEY);
+        const users = data ? JSON.parse(data) : [];
+        const user = users.find(u => u.username === username);
+        if (!user) return null; // not found locally
+        if (user.password !== password) return { success: false, error: 'Invalid password' };
+        if (user.status !== 'active') return { success: false, error: 'Account is deactivated' };
+        const companies = typeof user.companies === 'string' ? JSON.parse(user.companies) : (user.companies || []);
+        if (!companies.includes('all') && company !== 'all' && !companies.includes(company)) {
+            return { success: false, error: 'No access to this company' };
+        }
+        const modules = typeof user.modules === 'string' ? JSON.parse(user.modules) : (user.modules || []);
+        return {
+            success: true,
+            user: {
+                id: user.id,
+                username: user.username,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                companies: companies,
+                modules: modules,
+                company: companies.includes('all') ? (company || 'all') : companies[0],
+                isSuperAdmin: user.isSuperAdmin,
+                avatar: user.avatar,
+                mustChangePassword: user.mustChangePassword ? true : false
+            }
+        };
+    },
+
     async authenticate(username, password, company) {
+        // 1. Try backend API first
         try {
             return await apiRequest('/auth/login', 'POST', { username, password, company });
-        } catch (e) {
-            // Fallback to localStorage auth
-            try {
-                const data = localStorage.getItem(this.USERS_KEY);
-                const users = data ? JSON.parse(data) : [];
-                const user = users.find(u => u.username === username);
-                if (!user) return { success: false, error: 'User not found' };
-                if (user.password !== password) return { success: false, error: 'Invalid password' };
-                if (user.status !== 'active') return { success: false, error: 'Account is deactivated' };
-                const companies = typeof user.companies === 'string' ? JSON.parse(user.companies) : (user.companies || []);
-                if (!companies.includes('all') && company !== 'all' && !companies.includes(company)) {
-                    return { success: false, error: 'No access to this company' };
-                }
-                const modules = typeof user.modules === 'string' ? JSON.parse(user.modules) : (user.modules || []);
-                return {
-                    success: true,
-                    user: {
-                        id: user.id,
-                        username: user.username,
-                        name: user.name,
-                        email: user.email,
-                        role: user.role,
-                        companies: companies,
-                        modules: modules,
-                        company: companies.includes('all') ? (company || 'all') : companies[0],
-                        isSuperAdmin: user.isSuperAdmin,
-                        avatar: user.avatar,
-                        mustChangePassword: user.mustChangePassword ? true : false
-                    }
-                };
-            } catch {
-                return { success: false, error: e.message || 'Authentication failed' };
-            }
+        } catch (apiErr) {
+            // Backend failed — fall through to local auth
         }
+
+        // 2. Try localStorage auth
+        try {
+            const localResult = this._localAuth(username, password, company);
+            if (localResult) return localResult; // found locally (success or wrong password)
+        } catch { /* ignore parse errors */ }
+
+        // 3. User not found locally — try refreshing users from server then retry
+        try {
+            await this.refreshUsersFromServer();
+            const retryResult = this._localAuth(username, password, company);
+            if (retryResult) return retryResult;
+        } catch { /* server unreachable */ }
+
+        return { success: false, error: 'User not found. Please check your username or contact your administrator.' };
     },
 
     // ---- Authenticate Super Admin by code ----
@@ -1637,7 +1652,7 @@ const Database = {
                 'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
                 'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
                 'workSchedules', 'biometricLogs', 'notifications', 'activityLog',
-                'projectMilestones'
+                'projectMilestones', 'cashAdvances'
             ];
             let merged = 0;
             for (const type of entityTypes) {

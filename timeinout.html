@@ -582,8 +582,10 @@ const API_BASE = (function() {
     const custom = localStorage.getItem('ubms_server_url');
     if (custom) return custom.replace(/\/$/, '') + '/api';
     const loc = window.location;
+    // GitHub Pages or external HTTPS hosting — connect to the LAN backend via HTTPS (port 3443)
+    // to avoid mixed-content blocking (HTTPS page → HTTP fetch)
     if (loc.hostname.includes('github.io') || (loc.protocol === 'https:' && loc.port !== '3443')) {
-        return 'http://10.56.221.132:3000/api';
+        return 'https://10.56.221.132:3443/api';
     }
     if (loc.port === '3000' || loc.port === '3443') return loc.origin + '/api';
     if (loc.protocol === 'file:') return 'http://localhost:3000/api';
@@ -759,15 +761,17 @@ function loadState() {
 
 async function syncFromServer() {
     try {
-        // Pull employees from server
-        const empResp = await fetch(`${API_BASE}/data/employees?_limit=5000`, { signal: AbortSignal.timeout(8000) });
+        // Pull employees from server — use business filter for company scoping
+        const empResp = await fetch(`${API_BASE}/data/employees?business=${encodeURIComponent(state.company || 'all')}`, { signal: AbortSignal.timeout(8000) });
         if (empResp.ok) {
             const empResult = await empResp.json();
-            if (empResult.success && Array.isArray(empResult.data) && empResult.data.length > 0) {
+            // API returns { entities: [...] }, handle both `entities` and `data` for compat
+            const serverEmps = empResult.entities || empResult.data || [];
+            if (empResult.success && Array.isArray(serverEmps) && serverEmps.length > 0) {
                 const db = loadDB();
                 if (db) {
                     const localById = new Map((db.employees || []).map(e => [e.id, e]));
-                    for (const serverEmp of empResult.data) {
+                    for (const serverEmp of serverEmps) {
                         if (!serverEmp || !serverEmp.id) continue;
                         const { _createdBy, _business, _createdAt, _updatedAt, ...clean } = serverEmp;
                         if (localById.has(serverEmp.id)) {
@@ -779,6 +783,8 @@ async function syncFromServer() {
                     db.employees = Array.from(localById.values());
                     saveDB(db);
                     state.employees = (db.employees || []).filter(e => e.company === state.company);
+                    // Re-render employee grid so newly synced employees appear
+                    renderApp();
                 }
             }
         }

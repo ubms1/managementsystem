@@ -38,7 +38,7 @@ const App = {
         this.setupNavVisibility();
         this.setupSidebarClickOutside();
         this.loadNotifications();
-        this.navigate('dashboard');
+        this.navigate(Auth.getDefaultModule());
 
         // Hide loading screen
         const ls = document.getElementById('loadingScreen');
@@ -96,6 +96,10 @@ const App = {
         const navConstruction = document.getElementById('navConstruction');
         const navWellness = document.getElementById('navWellness');
         const navAutomotive = document.getElementById('navAutomotive');
+
+        // Dashboard nav: only visible to superadmin/owner
+        const dashNav = document.querySelector('.nav-item[data-module="dashboard"]');
+        if (dashNav) dashNav.style.display = (Auth.isSuperAdmin() || Auth.isOwner()) ? '' : 'none';
 
         if (company === 'all') {
             if (navConstruction) navConstruction.style.display = '';

@@ -99,8 +99,8 @@ const Financial = {
             <div class="card-footer">
                 <span style="font-size:12px;color:var(--text-muted)">${invoices.length} invoice(s)</span>
                 <div>
-                    <span style="font-size:12px;margin-right:16px"><strong>Total:</strong> ${Utils.formatCurrency(invoices.reduce((s, i) => s + i.amount, 0))}</span>
-                    <span style="font-size:12px"><strong>Collected:</strong> ${Utils.formatCurrency(invoices.reduce((s, i) => s + i.paid, 0))}</span>
+                    <span style="font-size:12px;margin-right:16px"><strong>Total:</strong> ${Utils.formatCurrency(invoices.reduce((s, i) => s + Utils.safeNum(i.amount), 0))}</span>
+                    <span style="font-size:12px"><strong>Collected:</strong> ${Utils.formatCurrency(invoices.reduce((s, i) => s + Utils.safeNum(i.paid), 0))}</span>
                 </div>
             </div>
         </div>`;

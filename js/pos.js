@@ -257,7 +257,7 @@ const POS = {
     },
 
     getCartTotal() {
-        return this.cart.reduce((s, i) => s + (i.price * i.qty), 0);
+        return this.cart.reduce((s, i) => s + (Utils.safeNum(i.price) * Utils.safeNum(i.qty)), 0);
     },
 
     updateCartTotals() {

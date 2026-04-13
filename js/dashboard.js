@@ -204,8 +204,8 @@ const Dashboard = {
 
         // Over-budget projects
         DataStore.projects.forEach(p => {
-            if (p.actualCost > p.budget * 0.9 && p.status === 'in-progress') {
-                const pct = ((p.actualCost / p.budget) * 100).toFixed(0);
+            if (Utils.safeNum(p.actualCost) > Utils.safeNum(p.budget) * 0.9 && p.status === 'in-progress') {
+                const pct = Utils.safeNum(p.budget) > 0 ? ((Utils.safeNum(p.actualCost) / Utils.safeNum(p.budget)) * 100).toFixed(0) : 0;
                 alerts.push({ icon: 'fa-hard-hat', color: 'orange', title: 'Near/Over Budget', desc: `${p.name} — ${pct}% of budget used`, company: p.company });
             }
         });
@@ -232,8 +232,8 @@ const Dashboard = {
     renderConstructionDashboard(company) {
         const projects = DataStore.projects.filter(p => p.company === company);
         const active = projects.filter(p => p.status === 'in-progress');
-        const totalBudget = projects.reduce((s, p) => s + p.budget, 0);
-        const totalSpent = projects.reduce((s, p) => s + p.actualCost, 0);
+        const totalBudget = projects.reduce((s, p) => s + Utils.safeNum(p.budget), 0);
+        const totalSpent = projects.reduce((s, p) => s + Utils.safeNum(p.actualCost), 0);
         const summary = DataStore.getFinancialSummary(company);
 
         return `

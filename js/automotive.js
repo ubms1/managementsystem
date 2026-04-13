@@ -13,7 +13,7 @@ const Automotive = {
         const inProgress = jobs.filter(j => j.status === 'in-progress');
         const waitingParts = jobs.filter(j => j.status === 'waiting-parts');
         const ready = jobs.filter(j => j.status === 'completed');
-        const totalRevenue = jobs.filter(j => j.status === 'completed').reduce((s, j) => s + j.total, 0);
+        const totalRevenue = jobs.filter(j => j.status === 'completed').reduce((s, j) => s + Utils.safeNum(j.total), 0);
 
         container.innerHTML = `
         <div class="grid-4 mb-3">
@@ -356,12 +356,12 @@ const Automotive = {
     renderParts(container) {
         const parts = DataStore.autoParts;
         const lowStock = parts.filter(p => p.quantity <= p.reorderLevel);
-        const totalValue = parts.reduce((s, p) => s + (p.quantity * p.unitCost), 0);
+        const totalValue = parts.reduce((s, p) => s + (Utils.safeNum(p.quantity) * Utils.safeNum(p.unitCost)), 0);
 
         container.innerHTML = `
         <div class="grid-4 mb-3">
             <div class="stat-card"><div class="stat-header"><div class="stat-icon teal"><i class="fas fa-boxes-stacked"></i></div></div><div class="stat-value">${parts.length}</div><div class="stat-label">Total SKUs</div></div>
-            <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><i class="fas fa-cubes"></i></div></div><div class="stat-value">${parts.reduce((s, p) => s + p.quantity, 0)}</div><div class="stat-label">Total Units</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><i class="fas fa-cubes"></i></div></div><div class="stat-value">${parts.reduce((s, p) => s + Utils.safeNum(p.quantity), 0)}</div><div class="stat-label">Total Units</div></div>
             <div class="stat-card"><div class="stat-header"><div class="stat-icon orange"><i class="fas fa-triangle-exclamation"></i></div></div><div class="stat-value">${lowStock.length}</div><div class="stat-label">Low Stock Items</div></div>
             <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><i class="fas fa-peso-sign"></i></div></div><div class="stat-value">${Utils.formatCurrency(totalValue, true)}</div><div class="stat-label">Inventory Value</div></div>
         </div>
@@ -1069,7 +1069,7 @@ const Automotive = {
             if (desc) lineItems.push({ description: desc, amount });
         });
 
-        const total = lineItems.reduce((s, li) => s + li.amount, 0);
+        const total = lineItems.reduce((s, li) => s + Utils.safeNum(li.amount), 0);
 
         Database.addEstimate({
             customerName: name,

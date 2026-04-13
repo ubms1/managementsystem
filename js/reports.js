@@ -50,13 +50,13 @@ const Reports = {
             const summary = DataStore.getCompanySummary(co);
             const revenue = DataStore.monthlyRevenue[co]?.reduce((s, v) => s + v, 0) || 0;
             const coExpenses = DataStore.expenses.filter(e => e.company === co);
-            const expenses = coExpenses.reduce((s, e) => s + e.amount, 0);
+            const expenses = coExpenses.reduce((s, e) => s + Utils.safeNum(e.amount), 0);
             const netIncome = revenue - expenses;
 
             // Compute invoice-based revenue breakdown
             const coInvoices = DataStore.invoices.filter(i => i.company === co);
-            const serviceRevenue = coInvoices.filter(i => ['service', 'progress-billing'].includes(i.type)).reduce((s, i) => s + i.paid, 0);
-            const otherRevenue = coInvoices.filter(i => !['service', 'progress-billing'].includes(i.type)).reduce((s, i) => s + i.paid, 0);
+            const serviceRevenue = coInvoices.filter(i => ['service', 'progress-billing'].includes(i.type)).reduce((s, i) => s + Utils.safeNum(i.paid), 0);
+            const otherRevenue = coInvoices.filter(i => !['service', 'progress-billing'].includes(i.type)).reduce((s, i) => s + Utils.safeNum(i.paid), 0);
             // If no invoices categorized, apportion from monthly revenue
             const hasInvoiceBreakdown = coInvoices.length > 0;
             const displayServiceRev = hasInvoiceBreakdown ? serviceRevenue : revenue;
@@ -65,16 +65,16 @@ const Reports = {
             // Compute actual expense breakdown by category
             const payrollCats = ['Labor', 'Salaries', 'Payroll', 'Wages'];
             const utilityCats = ['Utilities', 'Rent', 'Office Supplies'];
-            const payrollExp = coExpenses.filter(e => payrollCats.some(c => e.category?.includes(c) || e.vendor === 'Payroll')).reduce((s, e) => s + e.amount, 0);
-            const utilityExp = coExpenses.filter(e => utilityCats.some(c => e.category?.includes(c))).reduce((s, e) => s + e.amount, 0);
+            const payrollExp = coExpenses.filter(e => payrollCats.some(c => e.category?.includes(c) || e.vendor === 'Payroll')).reduce((s, e) => s + Utils.safeNum(e.amount), 0);
+            const utilityExp = coExpenses.filter(e => utilityCats.some(c => e.category?.includes(c))).reduce((s, e) => s + Utils.safeNum(e.amount), 0);
             const operatingExp = expenses - payrollExp - utilityExp;
 
             return { co, name: DataStore.companies[co]?.name || co, revenue, expenses, netIncome,
                      displayServiceRev, displayOtherRev, payrollExp, utilityExp, operatingExp, ...summary };
         });
 
-        const totalRevenue = summaries.reduce((s, c) => s + c.revenue, 0);
-        const totalExpenses = summaries.reduce((s, c) => s + c.expenses, 0);
+        const totalRevenue = summaries.reduce((s, c) => s + Utils.safeNum(c.revenue), 0);
+        const totalExpenses = summaries.reduce((s, c) => s + Utils.safeNum(c.expenses), 0);
         const totalNet = totalRevenue - totalExpenses;
 
         return `
@@ -139,8 +139,8 @@ const Reports = {
         );
         const netFlow = monthlyInflow.map((v, i) => v - monthlyOutflow[i]);
         // Compute opening balance from total invoices collected minus total expenses (prior accumulated cash)
-        const totalCollected = companies.reduce((s, co) => s + DataStore.invoices.filter(i => i.company === co).reduce((sum, inv) => sum + inv.paid, 0), 0);
-        const totalExpPaid = companies.reduce((s, co) => s + DataStore.expenses.filter(e => e.company === co).reduce((sum, exp) => sum + exp.amount, 0), 0);
+        const totalCollected = companies.reduce((s, co) => s + DataStore.invoices.filter(i => i.company === co).reduce((sum, inv) => sum + Utils.safeNum(inv.paid), 0), 0);
+        const totalExpPaid = companies.reduce((s, co) => s + DataStore.expenses.filter(e => e.company === co).reduce((sum, exp) => sum + Utils.safeNum(exp.amount), 0), 0);
         let runningBalance = totalCollected - totalExpPaid;
         const balances = netFlow.map(v => { runningBalance += v; return runningBalance; });
 
@@ -182,7 +182,7 @@ const Reports = {
             return { co, name: DataStore.companies[co]?.name || co, revenue, vat, incomeTax, withholdingTax, totalTax: vat + incomeTax + withholdingTax };
         });
 
-        const totalTax = data.reduce((s, d) => s + d.totalTax, 0);
+        const totalTax = data.reduce((s, d) => s + Utils.safeNum(d.totalTax), 0);
 
         return `
         <div class="card mb-3" style="border-left:4px solid #8b5cf6">
@@ -191,11 +191,11 @@ const Reports = {
                 <div class="grid-3 mb-3" style="gap:16px">
                     <div style="padding:16px;background:var(--bg);border-radius:var(--radius);text-align:center">
                         <div style="font-size:11px;color:var(--text-muted)">Total VAT</div>
-                        <div style="font-size:20px;font-weight:700">${Utils.formatCurrency(data.reduce((s, d) => s + d.vat, 0), true)}</div>
+                        <div style="font-size:20px;font-weight:700">${Utils.formatCurrency(data.reduce((s, d) => s + Utils.safeNum(d.vat), 0), true)}</div>
                     </div>
                     <div style="padding:16px;background:var(--bg);border-radius:var(--radius);text-align:center">
                         <div style="font-size:11px;color:var(--text-muted)">Income Tax</div>
-                        <div style="font-size:20px;font-weight:700">${Utils.formatCurrency(data.reduce((s, d) => s + d.incomeTax, 0), true)}</div>
+                        <div style="font-size:20px;font-weight:700">${Utils.formatCurrency(data.reduce((s, d) => s + Utils.safeNum(d.incomeTax), 0), true)}</div>
                     </div>
                     <div style="padding:16px;background:var(--bg);border-radius:var(--radius);text-align:center">
                         <div style="font-size:11px;color:var(--text-muted)">Total Tax Liability</div>

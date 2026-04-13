@@ -4,26 +4,33 @@
    ======================================== */
 
 const Utils = {
+    // ---- Safe number coercion (prevents NaN across the system) ----
+    safeNum(val) {
+        if (val === null || val === undefined || val === '') return 0;
+        const n = typeof val === 'string' ? parseFloat(val) : Number(val);
+        return isNaN(n) || !isFinite(n) ? 0 : n;
+    },
+
     // ---- Currency Formatting ----
     formatCurrency(amount, compact = false) {
-        if (amount === null || amount === undefined) return '₱0.00';
-        if (compact && Math.abs(amount) >= 1e6) {
-            return '₱' + (amount / 1e6).toFixed(1) + 'M';
+        const n = this.safeNum(amount);
+        if (compact && Math.abs(n) >= 1e6) {
+            return '₱' + (n / 1e6).toFixed(1) + 'M';
         }
-        if (compact && Math.abs(amount) >= 1e3) {
-            return '₱' + (amount / 1e3).toFixed(1) + 'K';
+        if (compact && Math.abs(n) >= 1e3) {
+            return '₱' + (n / 1e3).toFixed(1) + 'K';
         }
-        return '₱' + amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     },
 
     // ---- Number Formatting ----
     formatNumber(num) {
-        if (num === null || num === undefined) return '0';
-        return num.toLocaleString('en-PH');
+        const n = this.safeNum(num);
+        return n.toLocaleString('en-PH');
     },
 
     formatPercent(num) {
-        return (num || 0).toFixed(1) + '%';
+        return this.safeNum(num).toFixed(1) + '%';
     },
 
     // ---- Date Formatting ----

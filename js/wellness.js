@@ -418,7 +418,7 @@ const Wellness = {
         <div class="grid-3 mb-3">
             <div class="stat-card"><div class="stat-header"><div class="stat-icon teal"><i class="fas fa-users"></i></div></div><div class="stat-value">${therapists.length}</div><div class="stat-label">Total Therapists</div></div>
             <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div></div><div class="stat-value">${available.length}</div><div class="stat-label">Available Now</div></div>
-            <div class="stat-card"><div class="stat-header"><div class="stat-icon orange"><i class="fas fa-star"></i></div></div><div class="stat-value">${(therapists.reduce((s, t) => s + t.rating, 0) / (therapists.length || 1)).toFixed(1)}</div><div class="stat-label">Avg Rating</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon orange"><i class="fas fa-star"></i></div></div><div class="stat-value">${(therapists.reduce((s, t) => s + Utils.safeNum(t.rating), 0) / (therapists.length || 1)).toFixed(1)}</div><div class="stat-label">Avg Rating</div></div>
         </div>
 
         <div class="grid-3">
@@ -585,7 +585,7 @@ const Wellness = {
             return;
         }
 
-        const total = this.posCart.reduce((s, i) => s + (i.price * i.qty), 0);
+        const total = this.posCart.reduce((s, i) => s + (Utils.safeNum(i.price) * Utils.safeNum(i.qty)), 0);
         cartEl.innerHTML = this.posCart.map(i => `
             <div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)">
                 <div>
@@ -605,7 +605,7 @@ const Wellness = {
 
     processPayment() {
         if (this.posCart.length === 0) return;
-        const total = this.posCart.reduce((s, i) => s + (i.price * i.qty), 0);
+        const total = this.posCart.reduce((s, i) => s + (Utils.safeNum(i.price) * Utils.safeNum(i.qty)), 0);
         const method = document.getElementById('posPayment')?.value || 'cash';
 
         App.showToast(`Payment of ${Utils.formatCurrency(total)} via ${method.toUpperCase()} processed successfully!`, 'success');
@@ -619,7 +619,7 @@ const Wellness = {
     renderMembership(container) {
         const memberships = DataStore.memberships;
         const active = memberships.filter(m => m.status === 'active');
-        const totalValue = memberships.reduce((s, m) => s + m.price, 0);
+        const totalValue = memberships.reduce((s, m) => s + Utils.safeNum(m.price), 0);
 
         container.innerHTML = `
         <div class="grid-4 mb-3">

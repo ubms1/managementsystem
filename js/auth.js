@@ -61,6 +61,17 @@ const Auth = {
         return this.isSuperAdmin();
     },
 
+    getDefaultModule() {
+        if (this.isSuperAdmin() || this.isOwner()) return 'dashboard';
+        // Return first assigned module, or fall back to role-appropriate default
+        const assigned = this.session?.modules || [];
+        if (assigned.length > 0 && assigned[0] !== 'all') return assigned[0];
+        const role = this.getRole();
+        if (role === 'accountant') return 'financial';
+        if (role === 'manager') return 'construction';
+        return 'settings';
+    },
+
     canAccessCompany(companyId) {
         if (this.isSuperAdmin() || this.isOwner() || this.session?.role === 'accountant') return true;
         const companies = this.session?.companies || [this.session?.company];
@@ -74,6 +85,9 @@ const Auth = {
         // Superadmin and Owner: full access to ALL modules across ALL businesses
         if (role === 'superadmin' || role === 'owner') return true;
 
+        // Dashboard is restricted to superadmin/owner only
+        if (module === 'dashboard') return false;
+
         // Check user's assigned modules first
         const allowedModules = this.session?.modules || [];
         if (allowedModules.includes('all')) return true;
@@ -81,14 +95,14 @@ const Auth = {
 
         // Role-based module restrictions
         if (role === 'accountant') {
-            return ['dashboard', 'financial', 'reports', 'invoicing', 'payroll', 'inventory',
+            return ['financial', 'reports', 'invoicing', 'payroll', 'inventory',
                     'financialanalysis', 'settings'].includes(module);
         }
 
         if (role === 'staff') {
             // Staff can only access modules explicitly assigned to them (checked above)
             // Plus company-based filtering below
-            const staffBaseModules = ['dashboard', 'settings'];
+            const staffBaseModules = ['settings'];
             if (staffBaseModules.includes(module)) return true;
         }
 

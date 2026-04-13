@@ -14,7 +14,7 @@ const Construction = {
 
         const active = projects.filter(p => p.status === 'in-progress');
         const completed = projects.filter(p => p.status === 'completed');
-        const totalBudget = projects.reduce((s, p) => s + p.budget, 0);
+        const totalBudget = projects.reduce((s, p) => s + Utils.safeNum(p.budget), 0);
 
         container.innerHTML = `
         <div class="grid-4 mb-3">
@@ -277,6 +277,7 @@ const Construction = {
             <button class="btn btn-secondary" onclick="App.closeModal()">Close</button>
             <button class="btn btn-info" onclick="Construction.viewProjectMaterials('${p.id}')"><i class="fas fa-boxes-stacked"></i> Materials</button>
             ${Auth.canEdit() ? `<button class="btn btn-primary" onclick="Construction.openEditProject('${p.id}')"><i class="fas fa-edit"></i> Edit Project</button>` : ''}
+            ${Auth.canDelete() ? `<button class="btn btn-danger" onclick="Construction.deleteProject('${p.id}')"><i class="fas fa-trash"></i> Delete</button>` : ''}
         `, true);
     },
 
@@ -567,10 +568,34 @@ const Construction = {
         p.remarks = document.getElementById('editProjRemarks')?.value || '';
         // Auto-calculate aging
         Construction.recalcProjectAging(p);
-        Database.save();
+        Database.save([id]);
         App.closeModal();
         App.showToast(`Project "${name}" updated`, 'success');
         Database.addAuditEntry('Project Updated', `Project "${name}" was modified`, 'info');
+        Construction.render(document.getElementById('contentArea'));
+    },
+
+    deleteProject(id) {
+        if (!Auth.canDelete()) { App.showToast('Only superadmin can delete projects', 'error'); return; }
+        const p = DataStore.projects.find(pr => pr.id === id);
+        if (!p) return;
+        if (!confirm(`Are you sure you want to permanently delete project "${p.name}"?\n\nThis will also remove all associated milestones and documents.`)) return;
+
+        // Remove project
+        DataStore.projects = DataStore.projects.filter(pr => pr.id !== id);
+        // Remove associated milestones
+        if (DataStore.projectMilestones) {
+            DataStore.projectMilestones = DataStore.projectMilestones.filter(ms => ms.projectId !== id);
+        }
+        // Remove associated documents
+        if (DataStore.documents) {
+            DataStore.documents = DataStore.documents.filter(doc => doc.projectId !== id);
+        }
+
+        Database.save([id]);
+        App.closeModal();
+        App.showToast(`Project "${p.name}" deleted`, 'success');
+        Database.addAuditEntry('Project Deleted', `Project "${p.name}" (${id}) was permanently deleted`, 'warning');
         Construction.render(document.getElementById('contentArea'));
     },
 
@@ -892,7 +917,7 @@ const Construction = {
             Database.addDocument(docData);
         });
 
-        Database.save();
+        Database.save([projectId]);
         App.closeModal();
         App.showToast(`Project "${name}" created with ${defaultMilestones.length} milestones and ${requiredDocs.length} required documents`, 'success');
         this.render(document.getElementById('contentArea'));
@@ -1002,7 +1027,7 @@ const Construction = {
             </div>
             <div class="stat-card">
                 <div class="stat-header"><div class="stat-icon orange"><i class="fas fa-star"></i></div></div>
-                <div class="stat-value">${(subs.reduce((s, sub) => s + sub.rating, 0) / (subs.length || 1)).toFixed(1)}</div>
+                <div class="stat-value">${(subs.reduce((s, sub) => s + Utils.safeNum(sub.rating), 0) / (subs.length || 1)).toFixed(1)}</div>
                 <div class="stat-label">Avg Rating</div>
             </div>
         </div>
@@ -1996,9 +2021,9 @@ const Construction = {
         </div>
         <div class="grid-4 mb-3" style="gap:12px">
             <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><i class="fas fa-truck"></i></div></div><div class="stat-value">${vendors.length}</div><div class="stat-label">Total Vendors</div></div>
-            <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div></div><div class="stat-value">${vendors.reduce((s, [,v]) => s + v.completed, 0)}</div><div class="stat-label">Completed Projects</div></div>
-            <div class="stat-card"><div class="stat-header"><div class="stat-icon orange"><i class="fas fa-exclamation-circle"></i></div></div><div class="stat-value">${vendors.reduce((s, [,v]) => s + v.delays, 0)}</div><div class="stat-label">Projects with Delays</div></div>
-            <div class="stat-card"><div class="stat-header"><div class="stat-icon teal"><i class="fas fa-hourglass-half"></i></div></div><div class="stat-value">${Math.round(vendors.reduce((s, [,v]) => s + v.totalAging, 0) / Math.max(projects.length, 1))}d</div><div class="stat-label">Avg Power Aging</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div></div><div class="stat-value">${vendors.reduce((s, [,v]) => s + Utils.safeNum(v.completed), 0)}</div><div class="stat-label">Completed Projects</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon orange"><i class="fas fa-exclamation-circle"></i></div></div><div class="stat-value">${vendors.reduce((s, [,v]) => s + Utils.safeNum(v.delays), 0)}</div><div class="stat-label">Projects with Delays</div></div>
+            <div class="stat-card"><div class="stat-header"><div class="stat-icon teal"><i class="fas fa-hourglass-half"></i></div></div><div class="stat-value">${Math.round(vendors.reduce((s, [,v]) => s + Utils.safeNum(v.totalAging), 0) / Math.max(projects.length, 1))}d</div><div class="stat-label">Avg Power Aging</div></div>
         </div>`;
 
         html += `<div class="card"><div class="card-body no-padding">
@@ -3097,21 +3122,21 @@ const Construction = {
         const invoices = filter(DataStore.invoices);
         const receipts = filter(DataStore.collectionReceipts || []);
 
-        const totalBilled    = invoices.reduce((s, i) => s + i.amount, 0);
-        const totalCollected = invoices.reduce((s, i) => s + i.paid, 0);
+        const totalBilled    = invoices.reduce((s, i) => s + Utils.safeNum(i.amount), 0);
+        const totalCollected = invoices.reduce((s, i) => s + Utils.safeNum(i.paid), 0);
         const totalAR        = totalBilled - totalCollected;
 
         const now = new Date();
         const overdue = invoices.filter(i =>
             (i.status === 'unpaid' || i.status === 'partial') && new Date(i.dueDate) < now
         );
-        const overdueAmount = overdue.reduce((s, i) => s + (i.amount - i.paid), 0);
+        const overdueAmount = overdue.reduce((s, i) => s + (Utils.safeNum(i.amount) - Utils.safeNum(i.paid)), 0);
 
         const thisMonthReceipts = receipts.filter(r => {
             const d = new Date(r.date);
             return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         });
-        const collectedThisMonth = thisMonthReceipts.reduce((s, r) => s + r.amount, 0);
+        const collectedThisMonth = thisMonthReceipts.reduce((s, r) => s + Utils.safeNum(r.amount), 0);
 
         container.innerHTML = `
         <div class="grid-4 mb-3">
@@ -3167,8 +3192,8 @@ const Construction = {
     renderChargeInvoicesTab() {
         const company = App.activeCompany;
         const invoices = company === 'all' ? DataStore.invoices : DataStore.invoices.filter(i => i.company === company);
-        const total = invoices.reduce((s, i) => s + i.amount, 0);
-        const collected = invoices.reduce((s, i) => s + i.paid, 0);
+        const total = invoices.reduce((s, i) => s + Utils.safeNum(i.amount), 0);
+        const collected = invoices.reduce((s, i) => s + Utils.safeNum(i.paid), 0);
 
         return `
         <div class="card">
@@ -3472,7 +3497,7 @@ const Construction = {
         const receipts = (DataStore.collectionReceipts || [])
             .filter(r => company === 'all' || r.company === company)
             .sort((a, b) => (b.postedAt > a.postedAt ? 1 : -1));
-        const totalCollected = receipts.reduce((s, r) => s + r.amount, 0);
+        const totalCollected = receipts.reduce((s, r) => s + Utils.safeNum(r.amount), 0);
 
         return `
         <div class="card">
@@ -3524,7 +3549,7 @@ const Construction = {
         });
 
         const renderBucket = (items, label, badgeCls) => {
-            const total = items.reduce((s, r) => s + r.balance, 0);
+            const total = items.reduce((s, r) => s + Utils.safeNum(r.balance), 0);
             const isDanger = badgeCls.includes('danger');
             return `
             <div class="card mb-2">
@@ -3557,13 +3582,13 @@ const Construction = {
             </div>`;
         };
 
-        const grandTotal = Object.values(buckets).flat().reduce((s, r) => s + r.balance, 0);
+        const grandTotal = Object.values(buckets).flat().reduce((s, r) => s + Utils.safeNum(r.balance), 0);
         const summary = [
-            { label: 'Current',    amount: buckets.current.reduce((s,r)=>s+r.balance,0), color: 'var(--success)' },
-            { label: '1-30 Days',  amount: buckets.d30.reduce((s,r)=>s+r.balance,0),     color: 'var(--warning)' },
-            { label: '31-60 Days', amount: buckets.d60.reduce((s,r)=>s+r.balance,0),     color: '#f97316' },
-            { label: '61-90 Days', amount: buckets.d90.reduce((s,r)=>s+r.balance,0),     color: 'var(--danger)' },
-            { label: '91+ Days',   amount: buckets.d120.reduce((s,r)=>s+r.balance,0),    color: '#7f1d1d' }
+            { label: 'Current',    amount: buckets.current.reduce((s,r)=>s+Utils.safeNum(r.balance),0), color: 'var(--success)' },
+            { label: '1-30 Days',  amount: buckets.d30.reduce((s,r)=>s+Utils.safeNum(r.balance),0),     color: 'var(--warning)' },
+            { label: '31-60 Days', amount: buckets.d60.reduce((s,r)=>s+Utils.safeNum(r.balance),0),     color: '#f97316' },
+            { label: '61-90 Days', amount: buckets.d90.reduce((s,r)=>s+Utils.safeNum(r.balance),0),     color: 'var(--danger)' },
+            { label: '91+ Days',   amount: buckets.d120.reduce((s,r)=>s+Utils.safeNum(r.balance),0),    color: '#7f1d1d' }
         ];
 
         return `

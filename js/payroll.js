@@ -895,7 +895,7 @@ const Payroll = {
     compute13thMonthAll() {
         const employees = this.getFilteredEmployees();
         const year = new Date().getFullYear();
-        return employees.reduce((s, emp) => s + this.compute13thMonth(emp, year).thirteenthMonth, 0);
+        return employees.reduce((s, emp) => s + Utils.safeNum(this.compute13thMonth(emp, year).thirteenthMonth), 0);
     },
 
     generate13thMonthPayslip(empId) {
