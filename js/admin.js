@@ -5,22 +5,42 @@
 
 const Admin = {
     allModules: [
+        // Core
         { id: 'dashboard', label: 'Dashboard', icon: 'fa-th-large', group: 'Core' },
         { id: 'crm', label: 'CRM', icon: 'fa-users', group: 'Core' },
         { id: 'financial', label: 'Financial', icon: 'fa-peso-sign', group: 'Core' },
         { id: 'reports', label: 'Reports', icon: 'fa-chart-bar', group: 'Core' },
+        { id: 'invoicing', label: 'Invoicing', icon: 'fa-file-invoice', group: 'Core' },
+        { id: 'payroll', label: 'Payroll', icon: 'fa-money-check-alt', group: 'Core' },
+        { id: 'inventory', label: 'Inventory', icon: 'fa-boxes', group: 'Core' },
+        { id: 'pos', label: 'POS', icon: 'fa-cash-register', group: 'Core' },
+        { id: 'financialanalysis', label: 'Financial Analysis', icon: 'fa-chart-line', group: 'Core' },
+        // Construction
         { id: 'construction', label: 'Projects', icon: 'fa-hard-hat', group: 'Construction' },
         { id: 'jobcosting', label: 'Job Costing', icon: 'fa-calculator', group: 'Construction' },
         { id: 'subcontractors', label: 'Subcontractors', icon: 'fa-people-carry', group: 'Construction' },
+        { id: 'equipment', label: 'Equipment & Fleet', icon: 'fa-truck', group: 'Construction' },
+        { id: 'safety', label: 'Safety / QHSE', icon: 'fa-shield-alt', group: 'Construction' },
+        { id: 'documents', label: 'Documents', icon: 'fa-folder-open', group: 'Construction' },
+        { id: 'projectmonitoring', label: 'Project Monitoring', icon: 'fa-tasks', group: 'Construction' },
+        { id: 'credits', label: 'Credit & Collection', icon: 'fa-hand-holding-usd', group: 'Construction' },
+        // Wellness
         { id: 'booking', label: 'Bookings', icon: 'fa-calendar-check', group: 'Wellness' },
         { id: 'therapists', label: 'Therapists', icon: 'fa-user-nurse', group: 'Wellness' },
-        { id: 'pos', label: 'POS', icon: 'fa-cash-register', group: 'All' },
         { id: 'membership', label: 'Membership', icon: 'fa-id-card', group: 'Wellness' },
+        { id: 'spainventory', label: 'Spa Inventory', icon: 'fa-pump-soap', group: 'Wellness' },
+        // Automotive
         { id: 'workshop', label: 'Workshop', icon: 'fa-wrench', group: 'Automotive' },
         { id: 'vehicles', label: 'Vehicles', icon: 'fa-car', group: 'Automotive' },
         { id: 'parts', label: 'Parts Inventory', icon: 'fa-cogs', group: 'Automotive' },
         { id: 'inspections', label: 'Inspections', icon: 'fa-clipboard-check', group: 'Automotive' },
-        { id: 'settings', label: 'Settings', icon: 'fa-cog', group: 'Admin' }
+        { id: 'estimates', label: 'Estimates & Quotes', icon: 'fa-file-invoice-dollar', group: 'Automotive' },
+        { id: 'appointments', label: 'Appointments', icon: 'fa-calendar-alt', group: 'Automotive' },
+        // System
+        { id: 'iso', label: 'ISO Compliance', icon: 'fa-certificate', group: 'System' },
+        { id: 'coe', label: 'COE Management', icon: 'fa-award', group: 'System' },
+        { id: 'settings', label: 'Settings', icon: 'fa-cog', group: 'System' },
+        { id: 'admin', label: 'Admin Panel', icon: 'fa-shield-alt', group: 'System' }
     ],
 
     render(container) {

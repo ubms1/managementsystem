@@ -462,6 +462,56 @@
             else { input.type = 'password'; icon.classList.replace('fa-eye-slash','fa-eye'); btn.title = 'Show password'; }
         }
 
+        /**
+         * Determine the correct destination based on user role and company access.
+         * - superadmin / owner / accountant → unified dashboard (index.html)
+         * - manager / staff with a single company → company portal
+         * - users who selected a specific company in dropdown → that company portal
+         */
+        function getLoginDestination(sess, dropdownCompany) {
+            const companyRoutes = {
+                dheekay: 'dheekay/index.html',
+                kdchavit: 'kdchavit/index.html',
+                nuatthai: 'nuatthai/index.html',
+                autocasa: 'autocasa/index.html'
+            };
+
+            const role = sess.role || 'staff';
+            const companies = sess.companies || [];
+
+            // Superadmin and owner always go to unified dashboard
+            if (role === 'superadmin' || sess.isSuperAdmin || role === 'owner') {
+                // Unless they explicitly chose a specific company in the dropdown
+                if (dropdownCompany && dropdownCompany !== 'all' && companyRoutes[dropdownCompany]) {
+                    return companyRoutes[dropdownCompany];
+                }
+                return 'index.html';
+            }
+
+            // Accountant with all-company access → unified dashboard
+            if (role === 'accountant' && companies.includes('all')) {
+                return 'index.html';
+            }
+
+            // Manager / Staff / Accountant with single company → company portal
+            const effectiveCompany = (sess.company && sess.company !== 'all')
+                ? sess.company
+                : (dropdownCompany && dropdownCompany !== 'all' ? dropdownCompany : null);
+
+            if (effectiveCompany && companyRoutes[effectiveCompany]) {
+                return companyRoutes[effectiveCompany];
+            }
+
+            // Fallback: if user has exactly one company, go there
+            const realCompanies = companies.filter(c => c !== 'all');
+            if (realCompanies.length === 1 && companyRoutes[realCompanies[0]]) {
+                return companyRoutes[realCompanies[0]];
+            }
+
+            // Multi-company or unknown → unified dashboard
+            return 'index.html';
+        }
+
         async function handleLogin(e) {
             e.preventDefault();
             const company = document.getElementById('company').value;
@@ -485,12 +535,9 @@
                 localStorage.removeItem('ubms_remember');
             }
 
-            // Route to standalone app if specific company selected, unified if 'all'
-            // Use session company (from DB) to ensure correct routing, fall back to dropdown
+            // Route user to the correct dashboard based on role and company
             const sess = JSON.parse(localStorage.getItem('ubms_session') || '{}');
-            const effectiveCompany = (sess.company && sess.company !== 'all') ? sess.company : company;
-            const companyRoutes = { dheekay: 'dheekay/index.html', kdchavit: 'kdchavit/index.html', nuatthai: 'nuatthai/index.html', autocasa: 'autocasa/index.html' };
-            const destination = companyRoutes[effectiveCompany] || 'index.html';
+            const destination = getLoginDestination(sess, company);
 
             if (result.mustChangePassword) {
                 showChangePasswordModal(username, destination);
@@ -630,10 +677,10 @@
             window.location.href = 'index.html';
         }
 
-        // Redirect if already logged in
+        // Redirect if already logged in — route to correct destination
         const _session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
         if (_session.isLoggedIn) {
-            window.location.href = 'index.html';
+            window.location.href = getLoginDestination(_session, '');
         }
 
         // Restore remembered credentials

@@ -71,18 +71,30 @@ const Auth = {
         const role = this.getRole();
         const company = this.getCompany();
 
+        // Superadmin and Owner: full access to ALL modules across ALL businesses
         if (role === 'superadmin' || role === 'owner') return true;
 
-        // Check user's assigned modules
+        // Check user's assigned modules first
         const allowedModules = this.session?.modules || [];
         if (allowedModules.includes('all')) return true;
         if (allowedModules.length > 0 && !allowedModules.includes(module)) return false;
 
+        // Role-based module restrictions
         if (role === 'accountant') {
-            return ['dashboard', 'financial', 'reports', 'invoicing', 'payroll', 'inventory', 'settings'].includes(module);
+            return ['dashboard', 'financial', 'reports', 'invoicing', 'payroll', 'inventory',
+                    'financialanalysis', 'settings'].includes(module);
         }
 
-        const constructionModules = ['construction', 'jobcosting', 'subcontractors', 'equipment', 'safety', 'documents'];
+        if (role === 'staff') {
+            // Staff can only access modules explicitly assigned to them (checked above)
+            // Plus company-based filtering below
+            const staffBaseModules = ['dashboard', 'settings'];
+            if (staffBaseModules.includes(module)) return true;
+        }
+
+        // Company-based module filtering (blocks cross-industry modules)
+        const constructionModules = ['construction', 'jobcosting', 'subcontractors', 'equipment',
+                                      'safety', 'documents', 'projectmonitoring', 'credits'];
         const wellnessModules = ['booking', 'therapists', 'membership', 'spainventory'];
         const automotiveModules = ['workshop', 'vehicles', 'parts', 'inspections', 'estimates', 'appointments'];
         // 'pos' is shared across all company types
