@@ -7,6 +7,7 @@ router.get('/', attendanceController.getAll);
 router.get('/company/:company', attendanceController.getByCompany);
 router.get('/employee/:employeeId', attendanceController.getByEmployee);
 router.post('/', attendanceController.create);
+router.put('/:id', attendanceController.updateRecord);
 router.put('/:id/clockout', attendanceController.clockOut);
 
 // Face descriptor endpoints

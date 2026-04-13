@@ -232,14 +232,16 @@ const SyncManager = {
 
             const entityTypes = [
                 'customers', 'invoices', 'expenses', 'projects', 'bookings',
-                'jobCards', 'vehicles', 'autoParts', 'memberships', 'employees',
-                'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
+                'jobCards', 'vehicles', 'autoParts', 'memberships', 'membershipPackages',
+                'employees', 'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
                 'birInvoices', 'equipment', 'safetyRecords', 'documents',
-                'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
+                'spaInventory', 'spaServices', 'autoServices', 'chartOfAccounts',
+                'performanceReviews', 'timesheets', 'incidentReports',
                 'subcontractors', 'inspections', 'therapists', 'posTransactions',
                 'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
                 'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
-                'workSchedules', 'biometricLogs'
+                'workSchedules', 'biometricLogs', 'notifications', 'activityLog',
+                'projectMilestones'
             ];
 
             const payload = {};

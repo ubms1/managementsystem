@@ -264,6 +264,8 @@ const Payroll = {
                             r.source === 'biometric' ? `<span class="badge-tag" style="background:#e8eaf6;color:#3f51b5;font-size:10px;padding:2px 6px">biometric</span>` :
                             `<span class="badge-tag" style="background:#f5f5f5;color:#666;font-size:10px;padding:2px 6px">manual</span>`;
                         const canClockOut = r.timeIn && !r.timeOut;
+                        const isSA = Auth.isSuperAdmin();
+                        const editBtn = isSA ? `<button class="btn btn-sm btn-secondary" onclick="Payroll.openEditAttendance('${r.id}')" title="Edit Record"><i class="fas fa-edit"></i></button>` : '';
                         return `<tr>
                             <td><strong>${emp?.name || r.employeeId}</strong></td>
                             <td style="font-size:11px">${r.date}</td>
@@ -275,7 +277,7 @@ const Payroll = {
                             <td>${locDetail}</td>
                             <td>${srcBadge}</td>
                             <td><span class="badge-tag badge-${r.status === 'present' ? 'green' : r.status === 'absent' ? 'red' : r.status === 'late' ? 'orange' : 'orange'}">${r.status || 'present'}</span></td>
-                            <td>${canClockOut ? `<button class="btn btn-sm btn-danger" onclick="Payroll.adminClockOut('${r.id}')" title="Clock Out"><i class="fas fa-sign-out-alt"></i></button>` : '—'}</td>
+                            <td style="white-space:nowrap">${editBtn}${canClockOut ? ` <button class="btn btn-sm btn-danger" onclick="Payroll.adminClockOut('${r.id}')" title="Clock Out"><i class="fas fa-sign-out-alt"></i></button>` : ''}</td>
                         </tr>`;
                     }).join('')}
                     </tbody>
@@ -489,6 +491,159 @@ const Payroll = {
         Database.save();
         App.showToast('Clock-out recorded', 'success');
         this.renderTabContent();
+    },
+
+    // ============================================================
+    //  SUPERADMIN: EDIT ATTENDANCE RECORD (date, time-in, time-out)
+    // ============================================================
+    openEditAttendance(attId) {
+        if (!Auth.isSuperAdmin()) { App.showToast('Only Super Admin can edit attendance records', 'error'); return; }
+        const rec = (DataStore.attendanceRecords || []).find(r => r.id === attId);
+        if (!rec) { App.showToast('Record not found', 'error'); return; }
+        const emp = (DataStore.employees || []).find(e => e.id === rec.employeeId);
+        const empName = emp ? emp.name : rec.employeeId;
+
+        // Parse existing time values to 24h format for <input type="time">
+        const timeIn24 = this._to24h(rec.timeIn) || '08:00';
+        const timeOut24 = this._to24h(rec.timeOut) || '';
+
+        App.openModal('Edit Attendance Record', `
+        <div style="margin-bottom:16px;padding:12px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0">
+            <strong style="font-size:15px"><i class="fas fa-user" style="margin-right:6px"></i>${empName}</strong>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Record ID: ${rec.id}</div>
+        </div>
+        <form>
+            <div class="form-group"><label>Date</label><input type="date" class="form-control" id="editAttDate" value="${rec.date || ''}"></div>
+            <div class="form-row">
+                <div class="form-group"><label>Time In</label><input type="time" class="form-control" id="editAttTimeIn" value="${timeIn24}"></div>
+                <div class="form-group"><label>Time Out</label><input type="time" class="form-control" id="editAttTimeOut" value="${timeOut24}" placeholder="Leave blank if not yet clocked out"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Status</label>
+                    <select class="form-control" id="editAttStatus">
+                        <option value="present" ${rec.status === 'present' ? 'selected' : ''}>Present</option>
+                        <option value="late" ${rec.status === 'late' ? 'selected' : ''}>Late</option>
+                        <option value="absent" ${rec.status === 'absent' ? 'selected' : ''}>Absent</option>
+                        <option value="half-day" ${rec.status === 'half-day' ? 'selected' : ''}>Half Day</option>
+                        <option value="leave" ${rec.status === 'leave' ? 'selected' : ''}>On Leave</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Late Minutes</label><input type="number" class="form-control" id="editAttLate" value="${rec.lateMinutes || 0}" min="0"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Undertime (min)</label><input type="number" class="form-control" id="editAttUndertime" value="${rec.undertimeMinutes || 0}" min="0"></div>
+                <div class="form-group"><label>Overtime (hrs)</label><input type="number" class="form-control" id="editAttOT" value="${rec.overtimeHours || 0}" min="0" step="0.5"></div>
+            </div>
+            <div class="form-group"><label>Notes</label><input type="text" class="form-control" id="editAttNotes" value="${(rec.notes || '').replace(/"/g, '&quot;')}" placeholder="Optional notes"></div>
+        </form>
+        <div style="margin-top:12px;padding:10px;background:#fef3c7;border-radius:8px;font-size:11px;color:#92400e">
+            <i class="fas fa-shield-alt" style="margin-right:4px"></i>
+            This edit is logged in the audit trail. Only Super Admins can modify attendance records.
+        </div>`, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Payroll.saveEditAttendance('${rec.id}')"><i class="fas fa-save"></i> Save Changes</button>
+        `);
+    },
+
+    async saveEditAttendance(attId) {
+        if (!Auth.isSuperAdmin()) { App.showToast('Only Super Admin can edit attendance records', 'error'); return; }
+        const rec = (DataStore.attendanceRecords || []).find(r => r.id === attId);
+        if (!rec) { App.showToast('Record not found', 'error'); return; }
+
+        const newDate = document.getElementById('editAttDate')?.value;
+        const newTimeIn24 = document.getElementById('editAttTimeIn')?.value;
+        const newTimeOut24 = document.getElementById('editAttTimeOut')?.value;
+        const newStatus = document.getElementById('editAttStatus')?.value || 'present';
+        const newLate = parseInt(document.getElementById('editAttLate')?.value || 0);
+        const newUndertime = parseInt(document.getElementById('editAttUndertime')?.value || 0);
+        const newOT = parseFloat(document.getElementById('editAttOT')?.value || 0);
+        const newNotes = document.getElementById('editAttNotes')?.value || '';
+
+        if (!newDate) { App.showToast('Date is required', 'error'); return; }
+        if (!newTimeIn24) { App.showToast('Time In is required', 'error'); return; }
+
+        // Convert 24h to 12h display format
+        const newTimeIn12 = this._to12h(newTimeIn24);
+        const newTimeOut12 = newTimeOut24 ? this._to12h(newTimeOut24) : null;
+
+        // Build ISO timestamps from date + time
+        const newTimeInTS = new Date(`${newDate}T${newTimeIn24}:00`).toISOString();
+        const newTimeOutTS = newTimeOut24 ? new Date(`${newDate}T${newTimeOut24}:00`).toISOString() : null;
+
+        // Track changes for audit
+        const changes = [];
+        if (rec.date !== newDate) changes.push(`Date: ${rec.date} → ${newDate}`);
+        if (rec.timeIn !== newTimeIn12) changes.push(`Time In: ${rec.timeIn} → ${newTimeIn12}`);
+        if ((rec.timeOut || '') !== (newTimeOut12 || '')) changes.push(`Time Out: ${rec.timeOut || '—'} → ${newTimeOut12 || '—'}`);
+        if (rec.status !== newStatus) changes.push(`Status: ${rec.status} → ${newStatus}`);
+        if ((rec.lateMinutes || 0) !== newLate) changes.push(`Late: ${rec.lateMinutes || 0} → ${newLate}`);
+        if ((rec.undertimeMinutes || 0) !== newUndertime) changes.push(`UT: ${rec.undertimeMinutes || 0} → ${newUndertime}`);
+        if ((rec.overtimeHours || 0) !== newOT) changes.push(`OT: ${rec.overtimeHours || 0} → ${newOT}`);
+
+        // Update local record
+        rec.date = newDate;
+        rec.timeIn = newTimeIn12;
+        rec.timeInTimestamp = newTimeInTS;
+        rec.timeOut = newTimeOut12;
+        rec.timeOutTimestamp = newTimeOutTS;
+        rec.status = newStatus;
+        rec.lateMinutes = newLate;
+        rec.undertimeMinutes = newUndertime;
+        rec.overtimeHours = newOT;
+        rec.notes = newNotes;
+
+        Database.save();
+
+        // Sync to backend server
+        try {
+            await apiRequest(`/attendance/${encodeURIComponent(attId)}`, 'PUT', {
+                date: newDate,
+                timeIn: newTimeIn12,
+                timeInTimestamp: newTimeInTS,
+                timeOut: newTimeOut12,
+                timeOutTimestamp: newTimeOutTS,
+                status: newStatus,
+                lateMinutes: newLate,
+                undertimeMinutes: newUndertime,
+                overtimeHours: newOT,
+                notes: newNotes
+            });
+        } catch (e) {
+            console.warn('Server sync for attendance edit failed:', e.message);
+        }
+
+        // Audit log
+        const emp = (DataStore.employees || []).find(e => e.id === rec.employeeId);
+        const detail = changes.length > 0 ? changes.join('; ') : 'No changes';
+        Database.addAuditEntry('Attendance Edited', `SuperAdmin edited attendance for ${emp?.name || rec.employeeId}: ${detail}`, 'warning');
+
+        App.closeModal();
+        App.showToast('Attendance record updated', 'success');
+        this.renderTabContent();
+    },
+
+    // Convert "08:30 AM" or "02:15 PM" to "08:30" / "14:15" for <input type="time">
+    _to24h(timeStr) {
+        if (!timeStr) return '';
+        const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (!match) return timeStr; // already 24h or unrecognized
+        let h = parseInt(match[1]);
+        const m = match[2];
+        const ampm = match[3].toUpperCase();
+        if (ampm === 'PM' && h < 12) h += 12;
+        if (ampm === 'AM' && h === 12) h = 0;
+        return String(h).padStart(2, '0') + ':' + m;
+    },
+
+    // Convert "14:30" to "02:30 PM"
+    _to12h(time24) {
+        if (!time24) return '';
+        const [hStr, mStr] = time24.split(':');
+        let h = parseInt(hStr);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        if (h > 12) h -= 12;
+        if (h === 0) h = 12;
+        return String(h).padStart(2, '0') + ':' + mStr + ' ' + ampm;
     },
 
     copyKioskLink(url) {

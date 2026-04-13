@@ -92,6 +92,39 @@ const attendanceController = {
         }
     },
 
+    // PUT /api/attendance/:id — superadmin edit: update date, timeIn, timeOut, status, late, undertime, OT, notes
+    async updateRecord(req, res) {
+        try {
+            const { id } = req.params;
+            const { date, timeIn, timeInTimestamp, timeOut, timeOutTimestamp, status, lateMinutes, undertimeMinutes, overtimeHours, notes } = req.body;
+
+            // Build dynamic SET clause — only update fields that are provided
+            const fields = [];
+            const params = [];
+            if (date !== undefined)              { fields.push('date = ?');              params.push(date); }
+            if (timeIn !== undefined)            { fields.push('timeIn = ?');            params.push(timeIn); }
+            if (timeInTimestamp !== undefined)    { fields.push('timeInTimestamp = ?');   params.push(timeInTimestamp); }
+            if (timeOut !== undefined)            { fields.push('timeOut = ?');           params.push(timeOut || null); }
+            if (timeOutTimestamp !== undefined)   { fields.push('timeOutTimestamp = ?');  params.push(timeOutTimestamp || null); }
+            if (status !== undefined)            { fields.push('status = ?');            params.push(status); }
+            if (lateMinutes !== undefined)       { fields.push('lateMinutes = ?');       params.push(parseInt(lateMinutes) || 0); }
+            if (undertimeMinutes !== undefined)  { fields.push('undertimeMinutes = ?');  params.push(parseInt(undertimeMinutes) || 0); }
+            if (overtimeHours !== undefined)     { fields.push('overtimeHours = ?');     params.push(parseFloat(overtimeHours) || 0); }
+            if (notes !== undefined)             { fields.push('notes = ?');             params.push(notes); }
+
+            if (fields.length === 0) return res.status(400).json({ success: false, error: 'No fields to update' });
+
+            params.push(id);
+            await pool.query(`UPDATE attendance_records SET ${fields.join(', ')} WHERE id = ?`, params);
+
+            const [rows] = await pool.query('SELECT * FROM attendance_records WHERE id = ?', [id]);
+            if (rows.length === 0) return res.status(404).json({ success: false, error: 'Record not found' });
+            res.json({ success: true, data: rows[0] });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    },
+
     // ====== Face Descriptor CRUD ======
     async getFaceDescriptor(req, res) {
         try {

@@ -128,6 +128,8 @@ const Database = {
         this.seedTransformers();
         // Full bidirectional sync: push local → server, then pull server → local
         this.fullSync();
+        // Start automatic background sync to keep all devices in sync
+        this.startBackgroundSync();
     },
 
     // Full bidirectional sync — push local data first, then pull everything from server
@@ -148,6 +150,22 @@ const Database = {
         } catch (e) {
             console.error('fullSync error:', e.message);
         }
+    },
+
+    // Periodic background sync — runs every 30 seconds to keep all devices in sync
+    _bgSyncTimer: null,
+    startBackgroundSync() {
+        if (this._bgSyncTimer) return; // already running
+        this._bgSyncTimer = setInterval(async () => {
+            if (!navigator.onLine) return;
+            try {
+                await this.syncAllToServer();
+                await this.loadFromServer();
+            } catch (e) {
+                console.warn('Background sync error:', e.message);
+            }
+        }, 30000); // every 30 seconds
+        console.log('✓ Background sync started (every 30s)');
     },
 
     // ---- Clear all transactional data for fresh start ----
@@ -260,7 +278,7 @@ const Database = {
                     'birInvoices', 'employees', 'payslips', 'attendanceRecords', 'workSchedules',
                     'posTransactions', 'journalEntries', 'isoDocuments', 'isoAudits', 'isoNcrs', 'isoCpars',
                     'inventoryItems', 'inventoryTransactions',
-                    'inspections', 'bankReconciliations', 'biometricLogs',
+                    'inspections', 'bankReconciliations', 'collectionReceipts', 'biometricLogs',
                     'performanceReviews', 'timesheets', 'incidentReports',
                     'projectMilestones'
                 ];
@@ -1470,14 +1488,16 @@ const Database = {
             // Merge server entities into DataStore — server wins for matching IDs
             const entityTypes = [
                 'customers', 'invoices', 'expenses', 'projects', 'bookings',
-                'jobCards', 'vehicles', 'autoParts', 'memberships', 'employees',
-                'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
+                'jobCards', 'vehicles', 'autoParts', 'memberships', 'membershipPackages',
+                'employees', 'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
                 'birInvoices', 'equipment', 'safetyRecords', 'documents',
-                'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
+                'spaInventory', 'spaServices', 'autoServices', 'chartOfAccounts',
+                'performanceReviews', 'timesheets', 'incidentReports',
                 'subcontractors', 'inspections', 'therapists', 'posTransactions',
                 'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
                 'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
-                'workSchedules', 'biometricLogs'
+                'workSchedules', 'biometricLogs', 'notifications', 'activityLog',
+                'projectMilestones'
             ];
             let merged = 0;
             for (const type of entityTypes) {
@@ -1542,14 +1562,16 @@ const Database = {
 
             const entityTypes = [
                 'customers', 'invoices', 'expenses', 'projects', 'bookings',
-                'jobCards', 'vehicles', 'autoParts', 'memberships', 'employees',
-                'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
+                'jobCards', 'vehicles', 'autoParts', 'memberships', 'membershipPackages',
+                'employees', 'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
                 'birInvoices', 'equipment', 'safetyRecords', 'documents',
-                'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
+                'spaInventory', 'spaServices', 'autoServices', 'chartOfAccounts',
+                'performanceReviews', 'timesheets', 'incidentReports',
                 'subcontractors', 'inspections', 'therapists', 'posTransactions',
                 'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
                 'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
-                'workSchedules', 'biometricLogs'
+                'workSchedules', 'biometricLogs', 'notifications', 'activityLog',
+                'projectMilestones'
             ];
             const payload = {};
             for (const type of entityTypes) {

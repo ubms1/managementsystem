@@ -3,14 +3,16 @@ const { pool } = require('../config/db');
 // All supported entity types from the frontend DataStore
 const ENTITY_TYPES = [
     'customers', 'invoices', 'expenses', 'projects', 'bookings',
-    'jobCards', 'vehicles', 'autoParts', 'memberships', 'employees',
-    'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
+    'jobCards', 'vehicles', 'autoParts', 'memberships', 'membershipPackages',
+    'employees', 'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
     'birInvoices', 'equipment', 'safetyRecords', 'documents',
-    'spaInventory', 'performanceReviews', 'timesheets', 'incidentReports',
+    'spaInventory', 'spaServices', 'autoServices', 'chartOfAccounts',
+    'performanceReviews', 'timesheets', 'incidentReports',
     'subcontractors', 'inspections', 'therapists', 'posTransactions',
     'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
-    'isoNcrs', 'isoCpars', 'bankReconciliations', 'biometricLogs',
-    'collectionReceipts', 'workSchedules', 'activityLog', 'notifications'
+    'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
+    'workSchedules', 'biometricLogs', 'notifications', 'activityLog',
+    'projectMilestones'
 ];
 
 // ============================================================
