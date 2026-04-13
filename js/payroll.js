@@ -3,10 +3,105 @@
    DOLE / BIR / SSS / PhilHealth / Pag-IBIG
    13th Month · OT · Absences · Late · Schedules
    Incentives · Allowances · Gov Reports
+   Cash Advance · Transport/Biyahe · Auto-Compute
+   Role-Based: SuperAdmin / Manager / User
+   Real-Time Sync Across Devices
    ======================================== */
 
 const Payroll = {
     activeTab: 'payslips',
+
+    // ============================================================
+    //  ROLE HELPER — checks if current user can edit payroll inputs
+    // ============================================================
+    canEditPayroll() {
+        return Auth.isSuperAdmin() || Auth.isManager();
+    },
+    canDeletePayroll() {
+        return Auth.isSuperAdmin() || Auth.isManager();
+    },
+
+    // ============================================================
+    //  CASH ADVANCE HELPERS
+    // ============================================================
+    getCashAdvances(empId) {
+        if (!DataStore.cashAdvances) DataStore.cashAdvances = [];
+        return DataStore.cashAdvances.filter(ca => ca.employeeId === empId);
+    },
+    getCashAdvanceBalance(empId) {
+        const advances = this.getCashAdvances(empId);
+        return advances.reduce((sum, ca) => sum + ((ca.amount || 0) - (ca.totalPaid || 0)), 0);
+    },
+    addCashAdvance(data) {
+        if (!DataStore.cashAdvances) DataStore.cashAdvances = [];
+        const id = Utils.generateId('CA');
+        const entry = { id, ...data, totalPaid: 0, status: 'active', createdAt: new Date().toISOString() };
+        DataStore.cashAdvances.push(entry);
+        Database.save();
+        if (SyncManager && SyncManager.trackChange) SyncManager.trackChange('cashAdvances', 'add', id, entry, data.company);
+        Database.addAuditEntry('Cash Advance', `CA ${id} — ₱${data.amount} for ${data.employeeName}`);
+        return entry;
+    },
+    applyCashAdvancePayment(empId, amount) {
+        if (!DataStore.cashAdvances || amount <= 0) return 0;
+        let remaining = amount;
+        const active = DataStore.cashAdvances.filter(ca => ca.employeeId === empId && ca.status === 'active')
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // oldest first
+        let totalApplied = 0;
+        active.forEach(ca => {
+            if (remaining <= 0) return;
+            const owed = (ca.amount || 0) - (ca.totalPaid || 0);
+            const payment = Math.min(owed, remaining);
+            ca.totalPaid = (ca.totalPaid || 0) + payment;
+            if (ca.totalPaid >= ca.amount) ca.status = 'paid';
+            remaining -= payment;
+            totalApplied += payment;
+        });
+        if (totalApplied > 0) Database.save();
+        return totalApplied;
+    },
+
+    // ============================================================
+    //  AUTO-COMPUTE LATE from attendance vs schedule
+    // ============================================================
+    autoComputeLateMinutes(empId, periodStart, periodEnd) {
+        const records = (DataStore.attendanceRecords || []).filter(r =>
+            r.employeeId === empId && r.date >= periodStart && r.date <= periodEnd
+        );
+        return records.reduce((sum, r) => sum + (r.lateMinutes || 0), 0);
+    },
+
+    // ============================================================
+    //  AUTO-DETECT TEXT BOX TYPE — returns field type hint
+    // ============================================================
+    autoDetectFieldType(value) {
+        if (!value || value === '') return 'empty';
+        const v = String(value).trim();
+        if (/^[₱\$]?\s*[\d,]+\.?\d*$/.test(v)) return 'currency';
+        if (/^\d+\.?\d*\s*(hr|hrs|hours|h)$/i.test(v)) return 'hours';
+        if (/^\d+\.?\d*\s*(min|mins|minutes|m)$/i.test(v)) return 'minutes';
+        if (/^\d+\.?\d*\s*%$/.test(v)) return 'percentage';
+        if (/^\d+\.?\d*$/.test(v)) return 'number';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return 'date';
+        return 'text';
+    },
+
+    // Smart input handler — auto-formats based on detected type
+    smartInputHandler(inputEl) {
+        if (!inputEl) return;
+        const val = inputEl.value.trim();
+        const type = this.autoDetectFieldType(val);
+        // Remove decorators and set clean numeric value
+        if (type === 'currency') {
+            inputEl.value = parseFloat(val.replace(/[₱\$,\s]/g, '')) || 0;
+        } else if (type === 'hours') {
+            inputEl.value = parseFloat(val) || 0;
+        } else if (type === 'minutes') {
+            inputEl.value = parseFloat(val) || 0;
+        } else if (type === 'percentage') {
+            inputEl.value = parseFloat(val) || 0;
+        }
+    },
 
     // ============================================================
     //  2024 SSS CONTRIBUTION TABLE (RA 11199)
@@ -86,6 +181,19 @@ const Payroll = {
     //  RENDER MAIN VIEW
     // ============================================================
     render(container) {
+        // Listen for real-time sync events to auto-refresh UI across devices
+        if (!this._syncListenerAttached) {
+            window.addEventListener('ubms-data-changed', (e) => {
+                const types = ['employees','payslips','attendanceRecords','workSchedules','timesheets',
+                    'performanceReviews','incidentReports','cashAdvances'];
+                if (types.includes(e.detail?.entityType)) {
+                    const area = document.getElementById('payrollTabContent');
+                    if (area) this.renderTabContent();
+                }
+            });
+            this._syncListenerAttached = true;
+        }
+
         const employees = this.getFilteredEmployees();
         const payslips = this.getFilteredPayslips();
         const totalPayout = payslips.reduce((s, p) => s + (p.netPay || 0), 0);
@@ -264,20 +372,21 @@ const Payroll = {
                             r.source === 'biometric' ? `<span class="badge-tag" style="background:#e8eaf6;color:#3f51b5;font-size:10px;padding:2px 6px">biometric</span>` :
                             `<span class="badge-tag" style="background:#f5f5f5;color:#666;font-size:10px;padding:2px 6px">manual</span>`;
                         const canClockOut = r.timeIn && !r.timeOut;
-                        const isSA = Auth.isSuperAdmin();
-                        const editBtn = isSA ? `<button class="btn btn-sm btn-secondary" onclick="Payroll.openEditAttendance('${r.id}')" title="Edit Record"><i class="fas fa-edit"></i></button>` : '';
+                        const canEdit = Auth.isSuperAdmin() || Auth.isManager();
+                        const editBtn = canEdit ? `<button class="btn btn-sm btn-secondary" onclick="Payroll.openEditAttendance('${r.id}')" title="Edit Record"><i class="fas fa-edit"></i></button>` : '';
+                        const deleteBtn = (Auth.isSuperAdmin() || Auth.isManager()) ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deleteAttendance('${r.id}')" title="Delete Record" style="margin-left:2px"><i class="fas fa-trash"></i></button>` : '';
                         return `<tr>
                             <td><strong>${emp?.name || r.employeeId}</strong></td>
                             <td style="font-size:11px">${r.date}</td>
                             <td>${r.timeIn || '—'}</td>
-                            <td>${r.timeOut || '<span style="color:var(--warning);font-size:11px">Pending</span>'}</td>
+                            <td>${r.timeOut ? r.timeOut : ''}</td>
                             <td style="color:${r.lateMinutes > 0 ? 'var(--danger)' : ''}">${r.lateMinutes || 0}m</td>
                             <td style="color:${r.undertimeMinutes > 0 ? 'var(--danger)' : ''}">${r.undertimeMinutes || 0}m</td>
                             <td>${r.overtimeHours || 0}h</td>
                             <td>${locDetail}</td>
                             <td>${srcBadge}</td>
                             <td><span class="badge-tag badge-${r.status === 'present' ? 'green' : r.status === 'absent' ? 'red' : r.status === 'late' ? 'orange' : 'orange'}">${r.status || 'present'}</span></td>
-                            <td style="white-space:nowrap">${editBtn}${canClockOut ? ` <button class="btn btn-sm btn-danger" onclick="Payroll.adminClockOut('${r.id}')" title="Clock Out"><i class="fas fa-sign-out-alt"></i></button>` : ''}</td>
+                            <td style="white-space:nowrap">${editBtn}${deleteBtn}${canClockOut ? ` <button class="btn btn-sm btn-danger" onclick="Payroll.adminClockOut('${r.id}')" title="Clock Out"><i class="fas fa-sign-out-alt"></i></button>` : ''}</td>
                         </tr>`;
                     }).join('')}
                     </tbody>
@@ -497,7 +606,7 @@ const Payroll = {
     //  SUPERADMIN: EDIT ATTENDANCE RECORD (date, time-in, time-out)
     // ============================================================
     openEditAttendance(attId) {
-        if (!Auth.isSuperAdmin()) { App.showToast('Only Super Admin can edit attendance records', 'error'); return; }
+        if (!Auth.isSuperAdmin() && !Auth.isManager()) { App.showToast('Only Super Admin or Managers can edit attendance records', 'error'); return; }
         const rec = (DataStore.attendanceRecords || []).find(r => r.id === attId);
         if (!rec) { App.showToast('Record not found', 'error'); return; }
         const emp = (DataStore.employees || []).find(e => e.id === rec.employeeId);
@@ -546,7 +655,7 @@ const Payroll = {
     },
 
     async saveEditAttendance(attId) {
-        if (!Auth.isSuperAdmin()) { App.showToast('Only Super Admin can edit attendance records', 'error'); return; }
+        if (!Auth.isSuperAdmin() && !Auth.isManager()) { App.showToast('Only Super Admin or Managers can edit attendance records', 'error'); return; }
         const rec = (DataStore.attendanceRecords || []).find(r => r.id === attId);
         if (!rec) { App.showToast('Record not found', 'error'); return; }
 
@@ -669,11 +778,11 @@ const Payroll = {
         return `
         <div class="card">
             <div class="card-header"><h3><i class="fas fa-calendar-alt"></i> Work Schedules</h3>
-                <button class="btn btn-sm btn-primary" onclick="Payroll.openSetSchedule()"><i class="fas fa-plus"></i> Set Schedule</button>
+                ${this.canEditPayroll() ? `<button class="btn btn-sm btn-primary" onclick="Payroll.openSetSchedule()"><i class="fas fa-plus"></i> Set Schedule</button>` : ''}
             </div>
             <div class="card-body no-padding">
                 <table class="data-table">
-                    <thead><tr><th>Employee</th>${days.map(d => `<th>${d.slice(0,3)}</th>`).join('')}<th>Hrs/Wk</th></tr></thead>
+                    <thead><tr><th>Employee</th>${days.map(d => `<th>${d.slice(0,3)}</th>`).join('')}<th>Hrs/Wk</th><th>Actions</th></tr></thead>
                     <tbody>
                     ${employees.map(emp => {
                         const sched = schedules.find(s => s.employeeId === emp.id) || {};
@@ -684,7 +793,11 @@ const Payroll = {
                             return day?.off ? `<td style="color:var(--text-muted)">OFF</td>` :
                                 day ? `<td style="font-size:11px">${day.start}-${day.end}</td>` : `<td style="color:var(--text-muted)">—</td>`;
                         }).join('')}
-                        <td><strong>${totalHrs}</strong></td></tr>`;
+                        <td><strong>${totalHrs}</strong></td>
+                        <td style="white-space:nowrap">
+                            ${this.canEditPayroll() ? `<button class="btn btn-sm btn-secondary" onclick="Payroll.openEditSchedule('${emp.id}')" title="Edit Schedule"><i class="fas fa-edit"></i></button>` : ''}
+                            ${this.canDeletePayroll() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deleteSchedule('${emp.id}')" title="Delete Schedule"><i class="fas fa-trash"></i></button>` : ''}
+                        </td></tr>`;
                     }).join('')}
                     </tbody>
                 </table>
@@ -752,7 +865,7 @@ const Payroll = {
         return `
         <div class="card">
             <div class="card-header"><h3><i class="fas fa-gift"></i> 13th Month Pay — ${year}</h3>
-                <button class="btn btn-sm btn-primary" onclick="Payroll.generateAll13thMonth()"><i class="fas fa-layer-group"></i> Generate All</button>
+                ${this.canEditPayroll() ? `<button class="btn btn-sm btn-primary" onclick="Payroll.generateAll13thMonth()"><i class="fas fa-layer-group"></i> Generate All</button>` : ''}
             </div>
             <div class="card-body no-padding">
                 <table class="data-table">
@@ -763,7 +876,8 @@ const Payroll = {
                         return `<tr><td><strong>${emp.name}</strong></td><td>${DataStore.companies[emp.company]?.name || emp.company}</td>
                         <td>${Utils.formatCurrency(data.totalBasic)}</td><td>${data.monthsWorked}</td>
                         <td><strong style="color:var(--success)">${Utils.formatCurrency(data.thirteenthMonth)}</strong></td>
-                        <td><button class="btn btn-sm btn-primary" onclick="Payroll.generate13thMonthPayslip('${emp.id}')"><i class="fas fa-receipt"></i></button></td></tr>`;
+                        <td>${this.canEditPayroll() ? `<button class="btn btn-sm btn-primary" onclick="Payroll.generate13thMonthPayslip('${emp.id}')"><i class="fas fa-receipt"></i></button>` : ''}</td></tr>`;
+                    }).join('')}
                     }).join('')}
                     </tbody>
                 </table>
@@ -1021,13 +1135,15 @@ const Payroll = {
                 <div>
                     <strong>${p.employeeName}</strong>
                     <div style="font-size:12px;color:var(--text-muted)">${p.periodStart} to ${p.periodEnd} (${p.payFrequency})</div>
+                    ${p.cashAdvanceDeduction ? `<div style="font-size:11px;color:var(--warning)"><i class="fas fa-hand-holding-usd"></i> CA Ded: ${Utils.formatCurrency(p.cashAdvanceDeduction)}</div>` : ''}
+                    ${p.transportPay ? `<div style="font-size:11px;color:var(--secondary)"><i class="fas fa-truck"></i> Transport: ${Utils.formatCurrency(p.transportPay)}</div>` : ''}
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
                     <strong style="color:var(--secondary)">${Utils.formatCurrency(p.netPay || 0)}</strong>
                     <button class="btn btn-sm btn-info" onclick="Payroll.viewPayslip('${p.id}')" title="View"><i class="fas fa-eye"></i></button>
-                    ${Auth.isSuperAdmin() ? `<button class="btn btn-sm btn-warning" onclick="Payroll.editPayslip('${p.id}')" title="Edit / Override"><i class="fas fa-edit"></i></button>` : ''}
+                    ${this.canEditPayroll() ? `<button class="btn btn-sm btn-warning" onclick="Payroll.editPayslip('${p.id}')" title="Edit / Override"><i class="fas fa-edit"></i></button>` : ''}
                     <button class="btn btn-sm btn-success" onclick="Payroll.printPayslip('${p.id}')" title="Print"><i class="fas fa-print"></i></button>
-                    ${Auth.isSuperAdmin() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deletePayslip('${p.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
+                    ${this.canDeletePayroll() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deletePayslip('${p.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
             </div>
         `).join('');
@@ -1192,40 +1308,43 @@ const Payroll = {
     //  PAYSLIP GENERATION
     // ============================================================
     openGeneratePayslip(empId) {
+        if (!this.canEditPayroll()) { App.showToast('Only Super Admin or Managers can generate payslips', 'error'); return; }
         const employees = this.getFilteredEmployees().filter(e => e.status === 'active');
         if (employees.length === 0) { App.showToast('Add employees first', 'error'); return; }
 
         const today = new Date();
         const y = today.getFullYear();
         const m = String(today.getMonth() + 1).padStart(2, '0');
+        const isEditable = this.canEditPayroll();
+        const disabledAttr = isEditable ? '' : 'disabled';
 
         App.openModal('Generate Payslip', `
         <form>
             <div class="form-group"><label>Employee</label>
-                <select class="form-control" id="psEmployee" onchange="Payroll.previewDeductions()">
+                <select class="form-control" id="psEmployee" onchange="Payroll.previewDeductions()" ${disabledAttr}>
                     ${employees.map(e => `<option value="${e.id}" ${e.id === empId ? 'selected' : ''}>${e.name} — ${Utils.formatCurrency(e.monthlyRate || 0)}/mo</option>`).join('')}
                 </select>
             </div>
             <div class="form-row">
                 <div class="form-group"><label>Pay Period Type</label>
-                    <select class="form-control" id="psPeriod" onchange="Payroll.previewDeductions()">
+                    <select class="form-control" id="psPeriod" onchange="Payroll.previewDeductions()" ${disabledAttr}>
                         <option value="weekly">Weekly</option>
                         <option value="semi-monthly">Semi-Monthly (1st–15th)</option>
                         <option value="monthly">Monthly</option>
                     </select>
                 </div>
-                <div class="form-group"><label>Period Start</label><input type="date" class="form-control" id="psPeriodStart" value="${y}-${m}-01"></div>
+                <div class="form-group"><label>Period Start</label><input type="date" class="form-control" id="psPeriodStart" value="${y}-${m}-01" onchange="Payroll.autoFillFromAttendance()" ${disabledAttr}></div>
             </div>
             <div class="form-row">
-                <div class="form-group"><label>Period End</label><input type="date" class="form-control" id="psPeriodEnd" value="${y}-${m}-15"></div>
-                <div class="form-group"><label>Days Worked</label><input type="number" class="form-control" id="psDaysWorked" value="13" min="0" max="31" onchange="Payroll.previewDeductions()"></div>
+                <div class="form-group"><label>Period End</label><input type="date" class="form-control" id="psPeriodEnd" value="${y}-${m}-15" onchange="Payroll.autoFillFromAttendance()" ${disabledAttr}></div>
+                <div class="form-group"><label>Days Worked <small style="color:var(--info)">(auto from attendance)</small></label><input type="number" class="form-control" id="psDaysWorked" value="13" min="0" max="31" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
             </div>
 
             <h4 style="margin:16px 0 8px;font-size:14px;color:var(--text-muted)">ADDITIONAL EARNINGS</h4>
             <div class="form-row">
-                <div class="form-group"><label>Overtime Hours</label><input type="number" class="form-control" id="psOT" value="0" min="0" step="0.5" onchange="Payroll.previewDeductions()"></div>
+                <div class="form-group"><label>Overtime Hours</label><input type="number" class="form-control" id="psOT" value="0" min="0" step="0.5" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
                 <div class="form-group"><label>OT Rate Multiplier</label>
-                    <select class="form-control" id="psOTRate">
+                    <select class="form-control" id="psOTRate" ${disabledAttr}>
                         <option value="1.25">Regular OT (125%)</option>
                         <option value="1.30">Special Holiday OT (130%)</option>
                         <option value="2.00">Regular Holiday OT (200%)</option>
@@ -1233,12 +1352,35 @@ const Payroll = {
                 </div>
             </div>
             <div class="form-row">
-                <div class="form-group"><label>Allowances (₱)</label><input type="number" class="form-control" id="psAllowance" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()"></div>
-                <div class="form-group"><label>Bonuses (₱)</label><input type="number" class="form-control" id="psBonus" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()"></div>
+                <div class="form-group"><label>Allowances (₱)</label><input type="number" class="form-control" id="psAllowance" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
+                <div class="form-group"><label>Bonuses (₱)</label><input type="number" class="form-control" id="psBonus" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
             </div>
             <div class="form-row">
-                <div class="form-group"><label>Incentive (₱)</label><input type="number" class="form-control" id="psIncentive" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()"></div>
-                <div class="form-group"><label>Late Deduction (₱)</label><input type="number" class="form-control" id="psLateDeduction" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()"></div>
+                <div class="form-group"><label>Incentive (₱)</label><input type="number" class="form-control" id="psIncentive" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
+                <div class="form-group"><label>Late Deduction (₱) <small style="color:var(--info)">(auto-computed)</small></label><input type="number" class="form-control" id="psLateDeduction" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
+            </div>
+
+            <h4 style="margin:16px 0 8px;font-size:14px;color:var(--secondary)"><i class="fas fa-truck" style="margin-right:6px"></i>TRANSPORT / BIYAHE</h4>
+            <div class="form-row">
+                <div class="form-group"><label>Transport Rate (₱/day)</label><input type="number" class="form-control" id="psTransportRate" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
+                <div class="form-group"><label>Transport Days</label><input type="number" class="form-control" id="psTransportDays" value="0" min="0" max="31" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
+            </div>
+
+            <h4 style="margin:16px 0 8px;font-size:14px;color:var(--danger)"><i class="fas fa-hand-holding-usd" style="margin-right:6px"></i>CASH ADVANCE</h4>
+            <div id="psCashAdvanceInfo" style="padding:10px;background:#fff8e1;border-radius:8px;font-size:12px;margin-bottom:8px"></div>
+            <div class="form-row">
+                <div class="form-group"><label>CA Deduction This Period (₱)</label><input type="number" class="form-control" id="psCashAdvanceDeduction" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
+                <div class="form-group"><label>Other Deductions (₱)</label><input type="number" class="form-control" id="psOtherDeductions" value="0" min="0" step="0.01" onchange="Payroll.previewDeductions()" oninput="Payroll.smartInputHandler(this)" ${disabledAttr}></div>
+            </div>
+
+            <h4 style="margin:16px 0 8px;font-size:14px;color:var(--text-muted)">GOVERNMENT DEDUCTIONS <small>(editable by managers/superadmin)</small></h4>
+            <div class="form-row">
+                <div class="form-group"><label>SSS (EE) Override</label><input type="number" class="form-control" id="psSSSOverride" value="" min="0" step="0.01" placeholder="Auto" onchange="Payroll.previewDeductions()" ${disabledAttr}></div>
+                <div class="form-group"><label>PhilHealth (EE) Override</label><input type="number" class="form-control" id="psPhilHealthOverride" value="" min="0" step="0.01" placeholder="Auto" onchange="Payroll.previewDeductions()" ${disabledAttr}></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Pag-IBIG (EE) Override</label><input type="number" class="form-control" id="psPagIBIGOverride" value="" min="0" step="0.01" placeholder="Auto" onchange="Payroll.previewDeductions()" ${disabledAttr}></div>
+                <div class="form-group"><label>WHT Override</label><input type="number" class="form-control" id="psTaxOverride" value="" min="0" step="0.01" placeholder="Auto" onchange="Payroll.previewDeductions()" ${disabledAttr}></div>
             </div>
 
             <h4 style="margin:16px 0 8px;font-size:14px;color:var(--text-muted)">DEDUCTIONS PREVIEW</h4>
@@ -1247,6 +1389,42 @@ const Payroll = {
             <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
             <button class="btn btn-primary" onclick="Payroll.generatePayslip()"><i class="fas fa-check"></i> Generate Payslip</button>
         `, true);
+
+        this.autoFillFromAttendance();
+        this.previewDeductions();
+    },
+
+    // Auto-fill days worked, late, OT from attendance records for the selected period
+    autoFillFromAttendance() {
+        const empId = document.getElementById('psEmployee')?.value;
+        const periodStart = document.getElementById('psPeriodStart')?.value;
+        const periodEnd = document.getElementById('psPeriodEnd')?.value;
+        if (!empId || !periodStart || !periodEnd) return;
+
+        const emp = DataStore.employees.find(e => e.id === empId);
+        if (!emp) return;
+
+        const attData = this.getAttendanceSummary(empId, periodStart, periodEnd);
+        const lateDeduction = this.calcLateDeduction(emp, attData.totalLateMinutes || 0);
+        const caBalance = this.getCashAdvanceBalance(empId);
+
+        // Auto-fill fields
+        if (attData.daysPresent > 0) {
+            const daysEl = document.getElementById('psDaysWorked');
+            if (daysEl) daysEl.value = attData.daysPresent;
+        }
+        const otEl = document.getElementById('psOT');
+        if (otEl && attData.totalOT > 0) otEl.value = attData.totalOT;
+        const lateEl = document.getElementById('psLateDeduction');
+        if (lateEl) lateEl.value = lateDeduction.toFixed(2);
+
+        // Show CA info
+        const caInfoEl = document.getElementById('psCashAdvanceInfo');
+        if (caInfoEl) {
+            caInfoEl.innerHTML = caBalance > 0
+                ? `<i class="fas fa-info-circle" style="color:var(--warning)"></i> <strong>CA Balance: ${Utils.formatCurrency(caBalance)}</strong> — Enter deduction amount for this pay period.`
+                : `<i class="fas fa-check-circle" style="color:var(--success)"></i> No outstanding cash advance balance.`;
+        }
 
         this.previewDeductions();
     },
@@ -1264,21 +1442,42 @@ const Payroll = {
         const bonus = parseFloat(document.getElementById('psBonus')?.value || 0);
         const incentive = parseFloat(document.getElementById('psIncentive')?.value || 0);
         const lateDeduction = parseFloat(document.getElementById('psLateDeduction')?.value || 0);
+        const transportRate = parseFloat(document.getElementById('psTransportRate')?.value || 0);
+        const transportDays = parseInt(document.getElementById('psTransportDays')?.value || 0);
+        const cashAdvanceDeduction = parseFloat(document.getElementById('psCashAdvanceDeduction')?.value || 0);
+        const otherDeductions = parseFloat(document.getElementById('psOtherDeductions')?.value || 0);
 
-        const calc = this.calculatePayslip(emp, { period, daysWorked, otHours, otRate, allowance, bonus, incentive, lateDeduction });
+        // Editable gov deduction overrides
+        const sssVal = document.getElementById('psSSSOverride')?.value;
+        const phVal = document.getElementById('psPhilHealthOverride')?.value;
+        const pagVal = document.getElementById('psPagIBIGOverride')?.value;
+        const taxVal = document.getElementById('psTaxOverride')?.value;
+        const sssOverride = sssVal !== '' && sssVal !== undefined ? parseFloat(sssVal) : undefined;
+        const philhealthOverride = phVal !== '' && phVal !== undefined ? parseFloat(phVal) : undefined;
+        const pagibigOverride = pagVal !== '' && pagVal !== undefined ? parseFloat(pagVal) : undefined;
+        const taxOverride = taxVal !== '' && taxVal !== undefined ? parseFloat(taxVal) : undefined;
+
+        const calc = this.calculatePayslip(emp, {
+            period, daysWorked, otHours, otRate, allowance, bonus, incentive, lateDeduction,
+            cashAdvanceDeduction, transportRate, transportDays, otherDeductions,
+            sssOverride, philhealthOverride, pagibigOverride, taxOverride
+        });
 
         document.getElementById('psDeductionPreview').innerHTML = `
             <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Basic Pay (${daysWorked} days):</span><strong>${Utils.formatCurrency(calc.basicPay)}</strong></div>
             <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Overtime (${otHours}h × ${otRate}×):</span><strong>${Utils.formatCurrency(calc.overtimePay)}</strong></div>
             <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Allowances:</span><strong>${Utils.formatCurrency(calc.allowance)}</strong></div>
             ${incentive > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Incentive:</span><strong>${Utils.formatCurrency(calc.incentive)}</strong></div>` : ''}
+            ${calc.transportPay > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span><i class="fas fa-truck" style="margin-right:4px;color:var(--secondary)"></i>Transport/Biyahe (${transportDays}d × ₱${transportRate}):</span><strong style="color:var(--secondary)">${Utils.formatCurrency(calc.transportPay)}</strong></div>` : ''}
             <div style="display:flex;justify-content:space-between;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:8px"><span><strong>Gross Pay:</strong></span><strong style="color:var(--secondary)">${Utils.formatCurrency(calc.grossPay)}</strong></div>
 
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>SSS (EE):</span><span>-${Utils.formatCurrency(calc.sss)}</span></div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>PhilHealth (EE):</span><span>-${Utils.formatCurrency(calc.philhealth)}</span></div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>Pag-IBIG (EE):</span><span>-${Utils.formatCurrency(calc.pagibig)}</span></div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>Withholding Tax:</span><span>-${Utils.formatCurrency(calc.tax)}</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>SSS (EE)${sssOverride !== undefined ? ' <small>[overridden]</small>' : ''}:</span><span>-${Utils.formatCurrency(calc.sss)}</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>PhilHealth (EE)${philhealthOverride !== undefined ? ' <small>[overridden]</small>' : ''}:</span><span>-${Utils.formatCurrency(calc.philhealth)}</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>Pag-IBIG (EE)${pagibigOverride !== undefined ? ' <small>[overridden]</small>' : ''}:</span><span>-${Utils.formatCurrency(calc.pagibig)}</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>Withholding Tax${taxOverride !== undefined ? ' <small>[overridden]</small>' : ''}:</span><span>-${Utils.formatCurrency(calc.tax)}</span></div>
             ${lateDeduction > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>Late Deduction:</span><span>-${Utils.formatCurrency(calc.lateDeduction)}</span></div>` : ''}
+            ${cashAdvanceDeduction > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span><i class="fas fa-hand-holding-usd" style="margin-right:4px"></i>Cash Advance:</span><span>-${Utils.formatCurrency(calc.cashAdvanceDeduction)}</span></div>` : ''}
+            ${otherDeductions > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px;color:var(--danger)"><span>Other Deductions:</span><span>-${Utils.formatCurrency(calc.otherDeductions)}</span></div>` : ''}
             <div style="display:flex;justify-content:space-between;margin-bottom:8px;color:var(--danger);border-bottom:1px solid var(--border);padding-bottom:8px"><span>Total Deductions:</span><span>-${Utils.formatCurrency(calc.totalDeductions)}</span></div>
 
             <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700;padding-top:4px"><span>NET PAY:</span><span style="color:var(--success)">${Utils.formatCurrency(calc.netPay)}</span></div>
@@ -1287,13 +1486,17 @@ const Payroll = {
 
     calculatePayslip(emp, opts) {
         const { period, daysWorked, otHours, otRate, allowance, bonus,
-                lateDeduction = 0, incentive = 0 } = opts;
+                lateDeduction = 0, incentive = 0,
+                cashAdvanceDeduction = 0, transportRate = 0, transportDays = 0,
+                sssOverride, philhealthOverride, pagibigOverride, taxOverride,
+                otherDeductions = 0 } = opts;
         const dailyRate = emp.dailyRate || (emp.monthlyRate / 26);
         const hourlyRate = dailyRate / 8;
 
         const basicPay = dailyRate * daysWorked;
         const overtimePay = hourlyRate * otHours * otRate;
-        const grossPay = basicPay + overtimePay + allowance + bonus + incentive;
+        const transportPay = transportRate * transportDays;
+        const grossPay = basicPay + overtimePay + allowance + bonus + incentive + transportPay;
 
         // Monthly equivalents for contribution computation
         const monthlyEquiv = period === 'semi-monthly' ? grossPay * 2 : period === 'weekly' ? grossPay * 4 : grossPay;
@@ -1304,27 +1507,29 @@ const Payroll = {
 
         // For semi-monthly split by 2, weekly split by 4
         const divisor = period === 'semi-monthly' ? 2 : period === 'weekly' ? 4 : 1;
-        const sss = sssRow.ee / divisor;
-        const philhealth = philRow.ee / divisor;
-        const pagibig = pagRow.ee / divisor;
+        const sss = sssOverride !== undefined ? sssOverride : sssRow.ee / divisor;
+        const philhealth = philhealthOverride !== undefined ? philhealthOverride : philRow.ee / divisor;
+        const pagibig = pagibigOverride !== undefined ? pagibigOverride : pagRow.ee / divisor;
 
         // Taxable income = gross - mandatory contributions
         const totalContrib = sss + philhealth + pagibig;
         const taxableIncome = grossPay - totalContrib;
-        const tax = this.getWithholdingTax(taxableIncome, period);
+        const tax = taxOverride !== undefined ? taxOverride : this.getWithholdingTax(taxableIncome, period);
 
-        const totalDeductions = totalContrib + tax + lateDeduction;
+        const totalDeductions = totalContrib + tax + lateDeduction + cashAdvanceDeduction + otherDeductions;
         const netPay = grossPay - totalDeductions;
 
         return {
             basicPay, overtimePay, allowance, bonus, incentive, lateDeduction, grossPay,
             sss, philhealth, pagibig, tax,
             sssER: sssRow.er / divisor, philhealthER: philRow.er / divisor, pagibigER: pagRow.er / divisor,
-            totalDeductions, netPay, dailyRate, hourlyRate, monthlyEquiv
+            totalDeductions, netPay, dailyRate, hourlyRate, monthlyEquiv,
+            cashAdvanceDeduction, transportPay, transportRate, transportDays, otherDeductions
         };
     },
 
     generatePayslip() {
+        if (!this.canEditPayroll()) { App.showToast('Unauthorized', 'error'); return; }
         const empId = document.getElementById('psEmployee')?.value;
         const emp = DataStore.employees.find(e => e.id === empId);
         if (!emp) { App.showToast('Select an employee', 'error'); return; }
@@ -1337,8 +1542,31 @@ const Payroll = {
         const bonus = parseFloat(document.getElementById('psBonus')?.value || 0);
         const incentive = parseFloat(document.getElementById('psIncentive')?.value || 0);
         const lateDeduction = parseFloat(document.getElementById('psLateDeduction')?.value || 0);
+        const transportRate = parseFloat(document.getElementById('psTransportRate')?.value || 0);
+        const transportDays = parseInt(document.getElementById('psTransportDays')?.value || 0);
+        const cashAdvanceDeduction = parseFloat(document.getElementById('psCashAdvanceDeduction')?.value || 0);
+        const otherDeductions = parseFloat(document.getElementById('psOtherDeductions')?.value || 0);
 
-        const calc = this.calculatePayslip(emp, { period, daysWorked, otHours, otRate, allowance, bonus, incentive, lateDeduction });
+        // Editable gov deduction overrides
+        const sssVal = document.getElementById('psSSSOverride')?.value;
+        const phVal = document.getElementById('psPhilHealthOverride')?.value;
+        const pagVal = document.getElementById('psPagIBIGOverride')?.value;
+        const taxVal = document.getElementById('psTaxOverride')?.value;
+        const sssOverride = sssVal !== '' ? parseFloat(sssVal) : undefined;
+        const philhealthOverride = phVal !== '' ? parseFloat(phVal) : undefined;
+        const pagibigOverride = pagVal !== '' ? parseFloat(pagVal) : undefined;
+        const taxOverride = taxVal !== '' ? parseFloat(taxVal) : undefined;
+
+        const calc = this.calculatePayslip(emp, {
+            period, daysWorked, otHours, otRate, allowance, bonus, incentive, lateDeduction,
+            cashAdvanceDeduction, transportRate, transportDays, otherDeductions,
+            sssOverride, philhealthOverride, pagibigOverride, taxOverride
+        });
+
+        // Apply cash advance payment if any
+        if (cashAdvanceDeduction > 0) {
+            this.applyCashAdvancePayment(empId, cashAdvanceDeduction);
+        }
 
         Database.addPayslip({
             employeeId: empId,
@@ -1359,6 +1587,11 @@ const Payroll = {
             bonus: calc.bonus,
             incentive: calc.incentive,
             lateDeduction: calc.lateDeduction,
+            transportRate: calc.transportRate,
+            transportDays: calc.transportDays,
+            transportPay: calc.transportPay,
+            cashAdvanceDeduction: calc.cashAdvanceDeduction,
+            otherDeductions: calc.otherDeductions,
             grossPay: calc.grossPay,
             sss: calc.sss,
             philhealth: calc.philhealth,
@@ -1377,6 +1610,7 @@ const Payroll = {
 
         App.closeModal();
         App.showToast('Payslip generated', 'success');
+        if (SyncManager && SyncManager.trackChange) SyncManager.trackChange('payslips', 'add', null, null, emp.company);
         this.render(document.getElementById('contentArea'));
     },
 
@@ -1422,6 +1656,7 @@ const Payroll = {
                     ${ps.allowance ? `<tr><td style="padding:6px 8px" colspan="2">Allowances</td><td style="padding:6px 8px;text-align:right">${Utils.formatCurrency(ps.allowance)}</td></tr>` : ''}
                     ${ps.bonus ? `<tr><td style="padding:6px 8px" colspan="2">Bonus</td><td style="padding:6px 8px;text-align:right">${Utils.formatCurrency(ps.bonus)}</td></tr>` : ''}
                     ${ps.incentive ? `<tr><td style="padding:6px 8px" colspan="2">Incentive</td><td style="padding:6px 8px;text-align:right">${Utils.formatCurrency(ps.incentive)}</td></tr>` : ''}
+                    ${ps.transportPay ? `<tr><td style="padding:6px 8px" colspan="2"><i class="fas fa-truck" style="margin-right:4px"></i>Transport/Biyahe (${ps.transportDays || 0}d × ₱${ps.transportRate || 0})</td><td style="padding:6px 8px;text-align:right">${Utils.formatCurrency(ps.transportPay)}</td></tr>` : ''}
                     <tr style="font-weight:700;border-top:1px solid var(--border)"><td style="padding:8px" colspan="2">GROSS PAY</td><td style="padding:8px;text-align:right">${Utils.formatCurrency(ps.grossPay)}</td></tr>
                 </tbody>
             </table>
@@ -1434,6 +1669,8 @@ const Payroll = {
                     <tr><td style="padding:6px 8px" colspan="2">Pag-IBIG (Employee)</td><td style="padding:6px 8px;text-align:right;color:var(--danger)">${Utils.formatCurrency(ps.pagibig)}</td></tr>
                     <tr><td style="padding:6px 8px" colspan="2">Withholding Tax</td><td style="padding:6px 8px;text-align:right;color:var(--danger)">${Utils.formatCurrency(ps.tax)}</td></tr>
                     ${ps.lateDeduction ? `<tr><td style="padding:6px 8px" colspan="2">Late / Undertime Deduction</td><td style="padding:6px 8px;text-align:right;color:var(--danger)">${Utils.formatCurrency(ps.lateDeduction)}</td></tr>` : ''}
+                    ${ps.cashAdvanceDeduction ? `<tr><td style="padding:6px 8px" colspan="2"><i class="fas fa-hand-holding-usd" style="margin-right:4px"></i>Cash Advance Deduction</td><td style="padding:6px 8px;text-align:right;color:var(--danger)">${Utils.formatCurrency(ps.cashAdvanceDeduction)}</td></tr>` : ''}
+                    ${ps.otherDeductions ? `<tr><td style="padding:6px 8px" colspan="2">Other Deductions</td><td style="padding:6px 8px;text-align:right;color:var(--danger)">${Utils.formatCurrency(ps.otherDeductions)}</td></tr>` : ''}
                     <tr style="font-weight:700;border-top:1px solid var(--border)"><td style="padding:8px" colspan="2">TOTAL DEDUCTIONS</td><td style="padding:8px;text-align:right;color:var(--danger)">${Utils.formatCurrency(ps.totalDeductions)}</td></tr>
                 </tbody>
             </table>
@@ -1506,6 +1743,8 @@ const Payroll = {
                                     <button class="btn btn-sm btn-success" onclick="Payroll.approveTimesheet('${ts.id}')" title="Approve"><i class="fas fa-check"></i></button>
                                     <button class="btn btn-sm btn-danger" onclick="Payroll.rejectTimesheet('${ts.id}')" title="Reject"><i class="fas fa-times"></i></button>` : ''}
                                     <button class="btn btn-sm btn-primary" onclick="Payroll.printTimesheet('${ts.id}')" title="Print"><i class="fas fa-print"></i></button>
+                                    ${Payroll.canEditPayroll() ? `<button class="btn btn-sm btn-warning" onclick="Payroll.editTimesheet('${ts.id}')" title="Edit"><i class="fas fa-edit"></i></button>` : ''}
+                                    ${Payroll.canDeletePayroll() ? `<button class="btn btn-sm btn-danger" onclick="Payroll.deleteTimesheet('${ts.id}')" title="Delete"><i class="fas fa-trash"></i></button>` : ''}
                                 </div>
                             </td>
                         </tr>`;
@@ -2186,7 +2425,7 @@ const Payroll = {
     //  SUPERADMIN: EDIT / OVERRIDE PAYSLIP
     // ============================================================
     editPayslip(id) {
-        if (!Auth.isSuperAdmin()) { App.showToast('Only Super Admin can edit payslips', 'error'); return; }
+        if (!this.canEditPayroll()) { App.showToast('Only Super Admin or Managers can edit payslips', 'error'); return; }
         const ps = DataStore.payslips.find(p => p.id === id);
         if (!ps) { App.showToast('Payslip not found', 'error'); return; }
 
@@ -2238,7 +2477,7 @@ const Payroll = {
     },
 
     savePayslipOverride(id) {
-        if (!Auth.isSuperAdmin()) { App.showToast('Unauthorized', 'error'); return; }
+        if (!this.canEditPayroll()) { App.showToast('Unauthorized', 'error'); return; }
         const ps = DataStore.payslips.find(p => p.id === id);
         if (!ps) { App.showToast('Payslip not found', 'error'); return; }
 
@@ -2275,7 +2514,7 @@ const Payroll = {
     },
 
     deletePayslip(id) {
-        if (!Auth.isSuperAdmin()) { App.showToast('Only Super Admin can delete payslips', 'error'); return; }
+        if (!this.canDeletePayroll()) { App.showToast('Only Super Admin or Managers can delete payslips', 'error'); return; }
         if (!confirm('Delete this payslip? This cannot be undone.')) return;
         const idx = DataStore.payslips.findIndex(p => p.id === id);
         if (idx >= 0) {
@@ -2301,5 +2540,220 @@ const Payroll = {
         </style></head><body>${printContent}
         <script>setTimeout(function(){window.print();},300);<\/script></body></html>`);
         printWindow.document.close();
+    },
+
+    // ============================================================
+    //  TIMESHEET: EDIT & DELETE
+    // ============================================================
+    editTimesheet(id) {
+        if (!this.canEditPayroll()) { App.showToast('Unauthorized', 'error'); return; }
+        const ts = (DataStore.timesheets || []).find(t => t.id === id);
+        if (!ts) { App.showToast('Timesheet not found', 'error'); return; }
+
+        App.openModal(`Edit Timesheet — ${ts.employeeName}`, `
+        <form>
+            <div class="form-row">
+                <div class="form-group"><label>Period Start</label><input type="date" class="form-control" id="editTsStart" value="${ts.periodStart || ''}"></div>
+                <div class="form-group"><label>Period End</label><input type="date" class="form-control" id="editTsEnd" value="${ts.periodEnd || ''}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Regular Hours</label><input type="number" class="form-control" id="editTsRegHrs" value="${ts.regularHours || 0}" min="0" step="0.5"></div>
+                <div class="form-group"><label>Overtime Hours</label><input type="number" class="form-control" id="editTsOTHrs" value="${ts.overtimeHours || 0}" min="0" step="0.5"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Days Present</label><input type="number" class="form-control" id="editTsDaysPresent" value="${ts.daysPresent || 0}" min="0"></div>
+                <div class="form-group"><label>Days Absent</label><input type="number" class="form-control" id="editTsDaysAbsent" value="${ts.daysAbsent || 0}" min="0"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Total Late (min)</label><input type="number" class="form-control" id="editTsLate" value="${ts.totalLateMinutes || 0}" min="0"></div>
+                <div class="form-group"><label>Status</label>
+                    <select class="form-control" id="editTsStatus">
+                        <option value="pending" ${ts.status === 'pending' ? 'selected' : ''}>Pending</option>
+                        <option value="approved" ${ts.status === 'approved' ? 'selected' : ''}>Approved</option>
+                        <option value="rejected" ${ts.status === 'rejected' ? 'selected' : ''}>Rejected</option>
+                    </select>
+                </div>
+            </div>
+        </form>`, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Payroll.saveEditTimesheet('${id}')"><i class="fas fa-save"></i> Save</button>
+        `);
+    },
+
+    saveEditTimesheet(id) {
+        if (!this.canEditPayroll()) { App.showToast('Unauthorized', 'error'); return; }
+        Database.updateTimesheet(id, {
+            periodStart: document.getElementById('editTsStart')?.value,
+            periodEnd: document.getElementById('editTsEnd')?.value,
+            regularHours: parseFloat(document.getElementById('editTsRegHrs')?.value || 0),
+            overtimeHours: parseFloat(document.getElementById('editTsOTHrs')?.value || 0),
+            daysPresent: parseInt(document.getElementById('editTsDaysPresent')?.value || 0),
+            daysAbsent: parseInt(document.getElementById('editTsDaysAbsent')?.value || 0),
+            totalLateMinutes: parseInt(document.getElementById('editTsLate')?.value || 0),
+            status: document.getElementById('editTsStatus')?.value || 'pending',
+            updatedAt: new Date().toISOString()
+        });
+        if (SyncManager && SyncManager.trackChange) SyncManager.trackChange('timesheets', 'update', id, null);
+        App.closeModal();
+        App.showToast('Timesheet updated', 'success');
+        this.renderTabContent();
+    },
+
+    deleteTimesheet(id) {
+        if (!this.canDeletePayroll()) { App.showToast('Only Super Admin or Managers can delete timesheets', 'error'); return; }
+        if (!confirm('Delete this timesheet? This cannot be undone.')) return;
+        DataStore.timesheets = (DataStore.timesheets || []).filter(t => t.id !== id);
+        Database.save();
+        if (SyncManager && SyncManager.trackChange) SyncManager.trackChange('timesheets', 'delete', id, null);
+        Database.addAuditEntry('Timesheet Deleted', `Timesheet ${id} deleted by ${Auth.getName()}`, 'warning');
+        App.showToast('Timesheet deleted', 'success');
+        this.renderTabContent();
+    },
+
+    // ============================================================
+    //  SCHEDULE: EDIT & DELETE
+    // ============================================================
+    openEditSchedule(empId) {
+        if (!this.canEditPayroll()) { App.showToast('Unauthorized', 'error'); return; }
+        const emp = DataStore.employees.find(e => e.id === empId);
+        if (!emp) return;
+        const sched = (DataStore.workSchedules || []).find(s => s.employeeId === empId) || {};
+        const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+
+        App.openModal(`Edit Schedule — ${emp.name}`, `
+        <form>
+            ${days.map(d => {
+                const day = sched[d] || {};
+                return `
+                <div class="form-row" style="align-items:center">
+                    <div class="form-group" style="flex:0.5"><label>${d.charAt(0).toUpperCase() + d.slice(1)}</label></div>
+                    <div class="form-group"><input type="time" class="form-control" id="sched_${d}_start" value="${day.start || '08:00'}"></div>
+                    <div class="form-group"><input type="time" class="form-control" id="sched_${d}_end" value="${day.end || '17:00'}"></div>
+                    <div class="form-group" style="flex:0.3"><label><input type="checkbox" id="sched_${d}_off" ${day.off ? 'checked' : ''}> OFF</label></div>
+                </div>`;
+            }).join('')}
+        </form>`, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Payroll.saveEditSchedule('${empId}')"><i class="fas fa-save"></i> Save</button>
+        `, true);
+    },
+
+    saveEditSchedule(empId) {
+        if (!this.canEditPayroll()) return;
+        const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+        const existing = (DataStore.workSchedules || []).find(s => s.employeeId === empId);
+        const sched = existing || { id: Utils.generateId('SCH'), employeeId: empId };
+        days.forEach(d => {
+            const off = document.getElementById(`sched_${d}_off`)?.checked;
+            const start = document.getElementById(`sched_${d}_start`)?.value || '08:00';
+            const end = document.getElementById(`sched_${d}_end`)?.value || '17:00';
+            const hours = off ? 0 : this.computeHoursBetween(start, end);
+            sched[d] = off ? { off: true, hours: 0 } : { start, end, hours };
+        });
+        if (!existing) {
+            if (!DataStore.workSchedules) DataStore.workSchedules = [];
+            DataStore.workSchedules.push(sched);
+        }
+        Database.save();
+        if (SyncManager && SyncManager.trackChange) SyncManager.trackChange('workSchedules', 'update', sched.id, sched);
+        App.closeModal();
+        App.showToast('Schedule updated', 'success');
+        this.renderTabContent();
+    },
+
+    deleteSchedule(empId) {
+        if (!this.canDeletePayroll()) { App.showToast('Only Super Admin or Managers can delete schedules', 'error'); return; }
+        if (!confirm('Delete this work schedule?')) return;
+        DataStore.workSchedules = (DataStore.workSchedules || []).filter(s => s.employeeId !== empId);
+        Database.save();
+        if (SyncManager && SyncManager.trackChange) SyncManager.trackChange('workSchedules', 'delete', empId, null);
+        Database.addAuditEntry('Schedule Deleted', `Schedule for ${empId} deleted by ${Auth.getName()}`, 'warning');
+        App.showToast('Schedule deleted', 'success');
+        this.renderTabContent();
+    },
+
+    // ============================================================
+    //  ATTENDANCE: DELETE
+    // ============================================================
+    deleteAttendance(attId) {
+        if (!this.canDeletePayroll()) { App.showToast('Only Super Admin or Managers can delete attendance records', 'error'); return; }
+        if (!confirm('Delete this attendance record? This cannot be undone.')) return;
+        const rec = (DataStore.attendanceRecords || []).find(r => r.id === attId);
+        DataStore.attendanceRecords = (DataStore.attendanceRecords || []).filter(r => r.id !== attId);
+        Database.save();
+        if (SyncManager && SyncManager.trackChange) SyncManager.trackChange('attendanceRecords', 'delete', attId, null);
+        const emp = rec ? (DataStore.employees || []).find(e => e.id === rec.employeeId) : null;
+        Database.addAuditEntry('Attendance Deleted', `Attendance ${attId} for ${emp?.name || 'unknown'} deleted by ${Auth.getName()}`, 'warning');
+        App.showToast('Attendance record deleted', 'success');
+        this.renderTabContent();
+    },
+
+    // ============================================================
+    //  CASH ADVANCE MODULE
+    // ============================================================
+    openAddCashAdvance() {
+        if (!this.canEditPayroll()) { App.showToast('Unauthorized', 'error'); return; }
+        const employees = this.getFilteredEmployees();
+        const today = new Date().toISOString().split('T')[0];
+
+        App.openModal('Add Cash Advance', `
+        <form>
+            <div class="form-group"><label>Employee</label>
+                <select class="form-control" id="caEmployee" onchange="Payroll.previewCABalance()">
+                    ${employees.map(e => `<option value="${e.id}">${e.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Amount (₱)</label><input type="number" class="form-control" id="caAmount" value="0" min="0" step="0.01" oninput="Payroll.smartInputHandler(this)"></div>
+                <div class="form-group"><label>Date</label><input type="date" class="form-control" id="caDate" value="${today}"></div>
+            </div>
+            <div class="form-group"><label>Purpose / Notes</label><input type="text" class="form-control" id="caPurpose" placeholder="Reason for cash advance"></div>
+            <div id="caBalancePreview" style="padding:10px;background:#fff8e1;border-radius:8px;font-size:12px;margin-top:8px"></div>
+        </form>`, `
+            <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="Payroll.saveCashAdvance()"><i class="fas fa-save"></i> Save</button>
+        `);
+        this.previewCABalance();
+    },
+
+    previewCABalance() {
+        const empId = document.getElementById('caEmployee')?.value;
+        const el = document.getElementById('caBalancePreview');
+        if (!el || !empId) return;
+        const balance = this.getCashAdvanceBalance(empId);
+        el.innerHTML = balance > 0
+            ? `<i class="fas fa-exclamation-triangle" style="color:var(--warning)"></i> Current CA Balance: <strong>${Utils.formatCurrency(balance)}</strong>`
+            : `<i class="fas fa-check-circle" style="color:var(--success)"></i> No outstanding CA balance.`;
+    },
+
+    saveCashAdvance() {
+        if (!this.canEditPayroll()) return;
+        const empId = document.getElementById('caEmployee')?.value;
+        const amount = parseFloat(document.getElementById('caAmount')?.value || 0);
+        if (!empId || amount <= 0) { App.showToast('Enter valid amount', 'error'); return; }
+        const emp = DataStore.employees.find(e => e.id === empId);
+
+        this.addCashAdvance({
+            employeeId: empId,
+            employeeName: emp?.name || empId,
+            company: emp?.company || '',
+            amount,
+            date: document.getElementById('caDate')?.value || new Date().toISOString().split('T')[0],
+            purpose: document.getElementById('caPurpose')?.value || ''
+        });
+
+        App.closeModal();
+        App.showToast('Cash advance recorded', 'success');
+        this.renderTabContent();
+    },
+
+    deleteCashAdvance(caId) {
+        if (!this.canDeletePayroll()) { App.showToast('Unauthorized', 'error'); return; }
+        if (!confirm('Delete this cash advance record?')) return;
+        DataStore.cashAdvances = (DataStore.cashAdvances || []).filter(ca => ca.id !== caId);
+        Database.save();
+        if (SyncManager && SyncManager.trackChange) SyncManager.trackChange('cashAdvances', 'delete', caId, null);
+        App.showToast('Cash advance deleted', 'success');
+        this.renderTabContent();
     }
 };

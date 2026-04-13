@@ -213,6 +213,7 @@ const Database = {
         DataStore.performanceReviews = [];
         DataStore.timesheets = [];
         DataStore.incidentReports = [];
+        DataStore.cashAdvances = [];
         DataStore.monthlyRevenue = {
             dheekay: [0,0,0,0,0,0,0,0,0,0,0,0],
             kdchavit: [0,0,0,0,0,0,0,0,0,0,0,0],
@@ -280,7 +281,7 @@ const Database = {
                     'inventoryItems', 'inventoryTransactions',
                     'inspections', 'bankReconciliations', 'collectionReceipts', 'biometricLogs',
                     'performanceReviews', 'timesheets', 'incidentReports',
-                    'projectMilestones'
+                    'projectMilestones', 'cashAdvances'
                 ];
                 mutableKeys.forEach(key => {
                     if (data[key] !== undefined) {
@@ -350,6 +351,7 @@ const Database = {
                 timesheets: DataStore.timesheets || [],
                 incidentReports: DataStore.incidentReports || [],
                 projectMilestones: DataStore.projectMilestones || [],
+                cashAdvances: DataStore.cashAdvances || [],
                 _lastSaved: new Date().toISOString()
             };
             localStorage.setItem(this.DB_KEY, JSON.stringify(data));
@@ -1571,7 +1573,7 @@ const Database = {
                 'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
                 'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
                 'workSchedules', 'biometricLogs', 'notifications', 'activityLog',
-                'projectMilestones'
+                'projectMilestones', 'cashAdvances'
             ];
             const payload = {};
             for (const type of entityTypes) {

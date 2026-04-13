@@ -486,8 +486,11 @@
             }
 
             // Route to standalone app if specific company selected, unified if 'all'
+            // Use session company (from DB) to ensure correct routing, fall back to dropdown
+            const sess = JSON.parse(localStorage.getItem('ubms_session') || '{}');
+            const effectiveCompany = (sess.company && sess.company !== 'all') ? sess.company : company;
             const companyRoutes = { dheekay: 'dheekay/index.html', kdchavit: 'kdchavit/index.html', nuatthai: 'nuatthai/index.html', autocasa: 'autocasa/index.html' };
-            const destination = companyRoutes[company] || 'index.html';
+            const destination = companyRoutes[effectiveCompany] || 'index.html';
 
             if (result.mustChangePassword) {
                 showChangePasswordModal(username, destination);

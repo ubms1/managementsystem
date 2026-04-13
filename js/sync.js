@@ -241,7 +241,7 @@ const SyncManager = {
                 'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
                 'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
                 'workSchedules', 'biometricLogs', 'notifications', 'activityLog',
-                'projectMilestones'
+                'projectMilestones', 'cashAdvances'
             ];
 
             const payload = {};
