@@ -12,7 +12,7 @@ const ENTITY_TYPES = [
     'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
     'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
     'workSchedules', 'biometricLogs', 'notifications', 'activityLog',
-    'projectMilestones'
+    'projectMilestones', 'cashAdvances'
 ];
 
 // ============================================================
@@ -245,8 +245,8 @@ exports.bulkImport = async (req, res) => {
                 for (const entity of data[entityType]) {
                     if (!entity.id) continue;
                     const entityBusiness = entity.company || business || 'all';
-                    // Strip internal meta fields before saving
-                    const { _createdBy, _business, _createdAt, _updatedAt, ...cleanEntity } = entity;
+                    // Strip internal meta fields before saving, but preserve _updatedAt for merge
+                    const { _createdBy, _business, _createdAt, ...cleanEntity } = entity;
 
                     await connection.query(
                         `INSERT INTO entities (id, entityType, business, createdBy, data)
@@ -287,7 +287,7 @@ exports.exportAll = async (req, res) => {
 
         const connection = await pool.getConnection();
         try {
-            let query = `SELECT id, entityType, business, createdBy, data, createdAt FROM entities WHERE isDeleted = FALSE`;
+            let query = `SELECT id, entityType, business, createdBy, data, createdAt, updatedAt FROM entities WHERE isDeleted = FALSE`;
             const params = [];
             if (business && business !== 'all') {
                 query += ` AND (business = ? OR business = 'all')`;
@@ -297,12 +297,12 @@ exports.exportAll = async (req, res) => {
 
             const [rows] = await connection.query(query, params);
 
-            // Group by entityType
+            // Group by entityType — include updatedAt for timestamp merge
             const grouped = {};
             for (const r of rows) {
                 if (!grouped[r.entityType]) grouped[r.entityType] = [];
                 const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
-                grouped[r.entityType].push({ ...d, _createdBy: r.createdBy });
+                grouped[r.entityType].push({ ...d, _createdBy: r.createdBy, _updatedAt: r.updatedAt ? r.updatedAt.toISOString() : null });
             }
 
             // Include all users (with passwords for cross-PC auth sync)

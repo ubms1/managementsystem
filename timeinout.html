@@ -991,11 +991,12 @@ function renderApp() {
             <div class="selected-emp-name" id="actionEmpName">—</div>
             <div class="selected-emp-pos" id="actionEmpPos">—</div>
             <div class="status-info" id="actionStatus"></div>
+            <div id="browseFaceStatus" style="display:none;margin-bottom:10px;text-align:center"></div>
             <div class="action-btns">
-                <button class="btn-timein" id="btnTimeIn" onclick="doClockIn()">
+                <button class="btn-timein" id="btnTimeIn" onclick="doBrowseClockIn()">
                     <i class="fas fa-sign-in-alt"></i> TIME IN
                 </button>
-                <button class="btn-timeout" id="btnTimeOut" onclick="doClockOut()">
+                <button class="btn-timeout" id="btnTimeOut" onclick="doBrowseClockOut()">
                     <i class="fas fa-sign-out-alt"></i> TIME OUT
                 </button>
             </div>
@@ -1115,6 +1116,7 @@ function updateActionPanel() {
     const statusEl = document.getElementById('actionStatus');
     const btnIn = document.getElementById('btnTimeIn');
     const btnOut = document.getElementById('btnTimeOut');
+    const faceStatusEl = document.getElementById('browseFaceStatus');
     if (!nameEl) return;
 
     nameEl.textContent = emp.name;
@@ -1124,6 +1126,7 @@ function updateActionPanel() {
         // Not yet clocked in
         statusEl.innerHTML = `<span class="status-pill none"><i class="fas fa-circle"></i> Not yet clocked in today</span>`;
         btnIn.disabled = false;
+        btnIn.style.opacity = '1';
         btnOut.disabled = true;
         btnOut.style.opacity = '0.3';
     } else if (rec.timeIn && !rec.timeOut) {
@@ -1142,6 +1145,77 @@ function updateActionPanel() {
         btnOut.style.opacity = '0.3';
         document.getElementById('locationInfo').innerHTML = `<i class="fas fa-check-circle" style="color:var(--success)"></i> <span style="color:var(--success)">Attendance complete for today</span>`;
     }
+
+    // Check face enrollment status for browse mode
+    if (faceStatusEl) {
+        faceStatusEl.style.display = 'block';
+        faceStatusEl.innerHTML = `<span style="color:var(--text-muted);font-size:12px"><i class="fas fa-spinner fa-spin"></i> Checking face enrollment…</span>`;
+        checkFaceEnrollment(emp.id).then(hasDescriptor => {
+            if (hasDescriptor === true) {
+                faceStatusEl.innerHTML = `<div style="font-size:12px;color:var(--success);font-weight:600"><i class="fas fa-user-check"></i> Face Enrolled — Verification required for clock in/out</div>`;
+            } else if (hasDescriptor === false) {
+                faceStatusEl.innerHTML = `<div style="font-size:12px;color:#f39c12;font-weight:600;margin-bottom:8px"><i class="fas fa-exclamation-triangle"></i> Face Not Enrolled</div>
+                    <button onclick="startBrowseEnroll()" class="face-scan-btn" style="background:#f39c12;padding:8px 16px;font-size:12px"><i class="fas fa-user-plus"></i> Enroll Face Now</button>`;
+            } else {
+                faceStatusEl.innerHTML = `<div style="font-size:11px;color:var(--text-muted)"><i class="fas fa-wifi" style="opacity:0.5"></i> Face verification server unavailable</div>`;
+            }
+        }).catch(() => {
+            faceStatusEl.innerHTML = '';
+            faceStatusEl.style.display = 'none';
+        });
+    }
+}
+
+// ---- Browse mode face enrollment ----
+function startBrowseEnroll() {
+    if (!state.selectedEmployee) { showToast('No employee selected', 'error'); return; }
+    const emp = state.employees.find(e => e.id === state.selectedEmployee);
+    if (!emp) return;
+    faceScanResolvedEmp = emp;
+    startFaceScan('enroll');
+}
+
+// ---- Browse mode clock in/out with face verification ----
+function doBrowseClockIn() {
+    if (!state.selectedEmployee) return;
+    const emp = state.employees.find(e => e.id === state.selectedEmployee);
+    if (!emp) return;
+    const existing = getTodayRecord(emp.id);
+    if (existing) { showToast('Already clocked in today!', 'error'); return; }
+    faceScanResolvedEmp = emp;
+    pendingClockAction = 'in';
+    checkFaceEnrollment(emp.id).then(hasDescriptor => {
+        if (hasDescriptor) {
+            startFaceScan('clock');
+        } else {
+            doClockIn();
+            pendingClockAction = null;
+        }
+    }).catch(() => {
+        doClockIn();
+        pendingClockAction = null;
+    });
+}
+
+function doBrowseClockOut() {
+    if (!state.selectedEmployee) return;
+    const emp = state.employees.find(e => e.id === state.selectedEmployee);
+    if (!emp) return;
+    const rec = getTodayRecord(emp.id);
+    if (!rec || rec.timeOut) { showToast('No open clock-in found!', 'error'); return; }
+    faceScanResolvedEmp = emp;
+    pendingClockAction = 'out';
+    checkFaceEnrollment(emp.id).then(hasDescriptor => {
+        if (hasDescriptor) {
+            startFaceScan('clock');
+        } else {
+            doClockOut();
+            pendingClockAction = null;
+        }
+    }).catch(() => {
+        doClockOut();
+        pendingClockAction = null;
+    });
 }
 
 // ---- Clock In ----
@@ -1882,6 +1956,12 @@ async function enrollFaceNow() {
             const overlay = document.getElementById('faceScanOverlay');
             if (overlay) overlay.style.display = 'none';
             showToast(`Face enrolled successfully for ${faceScanResolvedEmp.name}!`, 'success');
+            // Refresh the UI to show enrolled status
+            if (activeMode === 'pin' && faceScanResolvedEmp) {
+                showPinEmployee(faceScanResolvedEmp);
+            } else if (activeMode === 'browse' && state.selectedEmployee) {
+                updateActionPanel();
+            }
         } else {
             const err = await resp.json().catch(() => ({}));
             showToast('Enrollment failed: ' + (err.error || 'Unknown error'), 'error');
@@ -2056,6 +2136,11 @@ function processBioQueue() {
 
     loadState();
     renderApp();
+
+    // Periodic sync every 30 seconds to keep attendance data current across all devices
+    setInterval(() => {
+        syncFromServer();
+    }, 30000);
 
     // After render, enforce role-based tab visibility
     if (role === 'employee') {

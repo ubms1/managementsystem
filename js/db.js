@@ -133,6 +133,29 @@ const Database = {
     },
 
     // Full bidirectional sync — push local data first, then pull everything from server
+    // _recentLocalEdits tracks entity IDs edited locally in the last 10 seconds to prevent overwrite
+    _recentLocalEdits: new Map(), // Map<entityId, timestamp>
+    _lastSaveTimestamp: null,
+
+    // Mark entities as recently edited locally (call before save)
+    _markLocalEdits(entityIds) {
+        const now = Date.now();
+        for (const id of entityIds) {
+            this._recentLocalEdits.set(id, now);
+        }
+        // Clean entries older than 15 seconds
+        for (const [key, ts] of this._recentLocalEdits) {
+            if (now - ts > 15000) this._recentLocalEdits.delete(key);
+        }
+    },
+
+    // Check if an entity was recently edited locally
+    _isRecentlyEditedLocally(entityId) {
+        const ts = this._recentLocalEdits.get(entityId);
+        if (!ts) return false;
+        return (Date.now() - ts) < 15000; // 15-second protection window
+    },
+
     async fullSync() {
         try {
             const healthy = await checkApiHealth();
@@ -301,10 +324,126 @@ const Database = {
         }
     },
 
-    // ---- Save to localStorage ----
-    save() {
+    // ---- Save to localStorage + push to server ----
+    // dirtyIds: optional array of entity IDs that were actually modified (for timestamp-based merge)
+    // When called without dirtyIds (e.g. autoSave), just saves current state without stamping _updatedAt
+    save(dirtyIds) {
         try {
+            const now = new Date().toISOString();
+
+            // Only stamp _updatedAt on entities that were ACTUALLY modified (not all entities)
+            if (dirtyIds && dirtyIds.length > 0) {
+                // Stamp _updatedAt on the specific modified entities
+                const entityArrays = [
+                    'customers', 'invoices', 'expenses', 'projects', 'subcontractors',
+                    'bookings', 'memberships', 'jobCards', 'vehicles', 'autoParts',
+                    'employees', 'payslips', 'attendanceRecords', 'workSchedules',
+                    'performanceReviews', 'timesheets', 'incidentReports', 'cashAdvances',
+                    'equipment', 'safetyRecords', 'documents', 'spaInventory', 'estimates',
+                    'birInvoices', 'inventoryItems', 'inventoryTransactions', 'inspections',
+                    'bankReconciliations', 'collectionReceipts', 'therapists', 'spaServices',
+                    'autoServices', 'posTransactions', 'journalEntries', 'isoDocuments',
+                    'isoAudits', 'isoNcrs', 'isoCpars', 'projectMilestones',
+                    'memberships', 'membershipPackages'
+                ];
+                const dirtySet = new Set(dirtyIds);
+                for (const arrName of entityArrays) {
+                    const arr = DataStore[arrName];
+                    if (!Array.isArray(arr)) continue;
+                    for (const item of arr) {
+                        if (item && item.id && dirtySet.has(item.id)) {
+                            item._updatedAt = now;
+                        }
+                    }
+                }
+                // Mark only the modified entities as recently edited locally (15-second protection)
+                this._markLocalEdits(dirtyIds);
+            }
+            this._lastSaveTimestamp = now;
+
             // Recompute monthly revenue from actual invoices before saving
+            this.recalcMonthlyRevenue();
+            const data = {
+                customers: DataStore.customers,
+                invoices: DataStore.invoices,
+                expenses: DataStore.expenses,
+                projects: DataStore.projects,
+                subcontractors: DataStore.subcontractors,
+                bookings: DataStore.bookings,
+                memberships: DataStore.memberships,
+                membershipPackages: DataStore.membershipPackages,
+                jobCards: DataStore.jobCards,
+                vehicles: DataStore.vehicles,
+                autoParts: DataStore.autoParts,
+                therapists: DataStore.therapists,
+                activityLog: DataStore.activityLog,
+                notifications: DataStore.notifications,
+                monthlyRevenue: DataStore.monthlyRevenue,
+                spaServices: DataStore.spaServices,
+                autoServices: DataStore.autoServices,
+                chartOfAccounts: DataStore.chartOfAccounts,
+                equipment: DataStore.equipment,
+                safetyRecords: DataStore.safetyRecords,
+                documents: DataStore.documents,
+                spaInventory: DataStore.spaInventory,
+                estimates: DataStore.estimates,
+                birInvoices: DataStore.birInvoices,
+                employees: DataStore.employees,
+                payslips: DataStore.payslips,
+                attendanceRecords: DataStore.attendanceRecords,
+                workSchedules: DataStore.workSchedules,
+                posTransactions: DataStore.posTransactions,
+                journalEntries: DataStore.journalEntries,
+                isoDocuments: DataStore.isoDocuments,
+                isoAudits: DataStore.isoAudits,
+                isoNcrs: DataStore.isoNcrs,
+                isoCpars: DataStore.isoCpars,
+                inventoryItems: DataStore.inventoryItems,
+                inventoryTransactions: DataStore.inventoryTransactions,
+                inspections: DataStore.inspections,
+                bankReconciliations: DataStore.bankReconciliations,
+                collectionReceipts: DataStore.collectionReceipts,
+                biometricLogs: DataStore.biometricLogs || [],
+                performanceReviews: DataStore.performanceReviews || [],
+                timesheets: DataStore.timesheets || [],
+                incidentReports: DataStore.incidentReports || [],
+                projectMilestones: DataStore.projectMilestones || [],
+                cashAdvances: DataStore.cashAdvances || [],
+                _lastSaved: now
+            };
+            localStorage.setItem(this.DB_KEY, JSON.stringify(data));
+
+            // Push to server for any explicit save (CRUD or external caller)
+            this._debouncedServerPush();
+        } catch (e) {
+            console.error('Database save error:', e);
+        }
+    },
+
+    // Debounced push to server — batches rapid saves into a single sync (2-second debounce)
+    _pushTimer: null,
+    _debouncedServerPush() {
+        if (this._pushTimer) clearTimeout(this._pushTimer);
+        this._pushTimer = setTimeout(async () => {
+            try {
+                if (!navigator.onLine) return;
+                const healthy = await checkApiHealth();
+                if (!healthy) return;
+                await this.syncAllToServer();
+            } catch (e) {
+                console.warn('Debounced server push error:', e.message);
+            }
+        }, 2000);
+    },
+
+    // ---- Auto-save every 30 seconds (persist only, no server push or timestamp stamping) ----
+    startAutoSave() {
+        setInterval(() => this._persistLocal(), 30000);
+    },
+
+    // Internal: persist DataStore to localStorage only (no sync, no _updatedAt stamping)
+    _persistLocal() {
+        try {
             this.recalcMonthlyRevenue();
             const data = {
                 customers: DataStore.customers,
@@ -356,13 +495,8 @@ const Database = {
             };
             localStorage.setItem(this.DB_KEY, JSON.stringify(data));
         } catch (e) {
-            console.error('Database save error:', e);
+            console.error('Auto-save error:', e);
         }
-    },
-
-    // ---- Auto-save every 30 seconds ----
-    startAutoSave() {
-        setInterval(() => this.save(), 30000);
     },
 
     // ---- Reset database to fresh state ----
@@ -896,7 +1030,7 @@ const Database = {
         customer.created = customer.created || new Date().toISOString().split('T')[0];
         customer.totalSpent = customer.totalSpent || 0;
         DataStore.customers.push(customer);
-        this.save();
+        this.save([customer.id]);
         this.addAuditEntry('Customer Created', `Added ${customer.name}`);
         return customer;
     },
@@ -905,14 +1039,14 @@ const Database = {
         const idx = DataStore.customers.findIndex(c => c.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.customers[idx], updates);
-            this.save();
+            this.save([id]);
             this.addAuditEntry('Customer Updated', `Updated ${DataStore.customers[idx].name}`);
         }
     },
 
     deleteCustomer(id) {
         DataStore.customers = DataStore.customers.filter(c => c.id !== id);
-        this.save();
+        this.save([id]);
         this.addAuditEntry('Customer Deleted', `Removed customer ${id}`);
     },
 
@@ -921,7 +1055,7 @@ const Database = {
         invoice.id = invoice.id || Utils.generateId('INV');
         invoice.issueDate = invoice.issueDate || new Date().toISOString().split('T')[0];
         DataStore.invoices.push(invoice);
-        this.save();
+        this.save([invoice.id]);
         this.addAuditEntry('Invoice Created', `${invoice.id} — ${Utils.formatCurrency(invoice.amount)}`);
         return invoice;
     },
@@ -930,7 +1064,7 @@ const Database = {
         const idx = DataStore.invoices.findIndex(i => i.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.invoices[idx], updates);
-            this.save();
+            this.save([id]);
             this.addAuditEntry('Invoice Updated', `Updated ${id}`);
         }
     },
@@ -945,7 +1079,7 @@ const Database = {
             } else {
                 inv.status = 'partial';
             }
-            this.save();
+            this.save([invoiceId]);
             this.addAuditEntry('Payment Recorded', `${Utils.formatCurrency(amount)} for ${invoiceId}`, 'success');
         }
     },
@@ -955,7 +1089,7 @@ const Database = {
         expense.id = expense.id || Utils.generateId('EXP');
         expense.date = expense.date || new Date().toISOString().split('T')[0];
         DataStore.expenses.push(expense);
-        this.save();
+        this.save([expense.id]);
         this.addAuditEntry('Expense Recorded', `${expense.id} — ${Utils.formatCurrency(expense.amount)}`);
         return expense;
     },
@@ -964,7 +1098,7 @@ const Database = {
     addProject(project) {
         project.id = project.id || Utils.generateId('PRJ');
         DataStore.projects.push(project);
-        this.save();
+        this.save([project.id]);
         this.addAuditEntry('Project Created', `${project.name}`);
         return project;
     },
@@ -973,7 +1107,7 @@ const Database = {
         const idx = DataStore.projects.findIndex(p => p.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.projects[idx], updates);
-            this.save();
+            this.save([id]);
             this.addAuditEntry('Project Updated', `Updated ${DataStore.projects[idx].name}`);
         }
     },
@@ -983,7 +1117,7 @@ const Database = {
         booking.id = booking.id || Utils.generateId('BK');
         booking.company = booking.company || 'nuatthai';
         DataStore.bookings.push(booking);
-        this.save();
+        this.save([booking.id]);
         this.addAuditEntry('Booking Created', `${booking.id} — ${booking.date} ${booking.time}`);
         return booking;
     },
@@ -992,7 +1126,7 @@ const Database = {
         const idx = DataStore.bookings.findIndex(b => b.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.bookings[idx], updates);
-            this.save();
+            this.save([id]);
             this.addAuditEntry('Booking Updated', `Updated ${id}`);
         }
     },
@@ -1003,7 +1137,7 @@ const Database = {
         jobCard.company = jobCard.company || 'autocasa';
         jobCard.dateIn = jobCard.dateIn || new Date().toISOString().split('T')[0];
         DataStore.jobCards.push(jobCard);
-        this.save();
+        this.save([jobCard.id]);
         this.addAuditEntry('Job Card Created', `${jobCard.id}`);
         return jobCard;
     },
@@ -1012,7 +1146,7 @@ const Database = {
         const idx = DataStore.jobCards.findIndex(j => j.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.jobCards[idx], updates);
-            this.save();
+            this.save([id]);
             this.addAuditEntry('Job Card Updated', `Updated ${id}`);
         }
     },
@@ -1021,7 +1155,7 @@ const Database = {
     addVehicle(vehicle) {
         vehicle.id = vehicle.id || Utils.generateId('VH');
         DataStore.vehicles.push(vehicle);
-        this.save();
+        this.save([vehicle.id]);
         this.addAuditEntry('Vehicle Registered', `${vehicle.make} ${vehicle.model} (${vehicle.plate})`);
         return vehicle;
     },
@@ -1032,7 +1166,7 @@ const Database = {
         if (part) {
             part.quantity += quantityChange;
             if (part.quantity < 0) part.quantity = 0;
-            this.save();
+            this.save([partId]);
             this.addAuditEntry('Inventory Updated', `${part.name}: ${quantityChange > 0 ? '+' : ''}${quantityChange} (now: ${part.quantity})`);
         }
     },
@@ -1040,7 +1174,7 @@ const Database = {
     addPart(part) {
         part.id = part.id || Utils.generateId('PT');
         DataStore.autoParts.push(part);
-        this.save();
+        this.save([part.id]);
         this.addAuditEntry('Part Added', `${part.name} (${part.sku})`);
         return part;
     },
@@ -1050,7 +1184,7 @@ const Database = {
         membership.id = membership.id || Utils.generateId('MEM');
         membership.purchaseDate = membership.purchaseDate || new Date().toISOString().split('T')[0];
         DataStore.memberships.push(membership);
-        this.save();
+        this.save([membership.id]);
         this.addAuditEntry('Membership Created', `${membership.type} for ${membership.customer}`);
         return membership;
     },
@@ -1060,7 +1194,7 @@ const Database = {
         const idx = DataStore.therapists.findIndex(t => t.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.therapists[idx], updates);
-            this.save();
+            this.save([id]);
         }
     },
 
@@ -1095,7 +1229,7 @@ const Database = {
     addSubcontractor(sub) {
         sub.id = sub.id || Utils.generateId('SUB');
         DataStore.subcontractors.push(sub);
-        this.save();
+        this.save([sub.id]);
         this.addAuditEntry('Subcontractor Added', `${sub.name} — ${sub.specialty}`);
         return sub;
     },
@@ -1131,7 +1265,7 @@ const Database = {
             }
         }
 
-        this.save();
+        this.save([invoice.id]);
         this.addActivity('success', `POS Sale: ${Utils.formatCurrency(transaction.total)}`, company);
         this.addAuditEntry('POS Transaction', `${invoice.id} — ${Utils.formatCurrency(transaction.total)}`, 'success');
         return invoice;
@@ -1144,7 +1278,7 @@ const Database = {
         inspection.date = inspection.date || new Date().toISOString();
         inspection.company = 'autocasa';
         DataStore.inspections.push(inspection);
-        this.save();
+        this.save([inspection.id]);
         this.addAuditEntry('Inspection Saved', `${inspection.id} for vehicle ${inspection.vehicleId}`);
         return inspection;
     },
@@ -1158,7 +1292,7 @@ const Database = {
         item.id = item.id || Utils.generateId('EQP');
         item.dateAdded = item.dateAdded || new Date().toISOString().split('T')[0];
         DataStore.equipment.push(item);
-        this.save();
+        this.save([item.id]);
         this.addAuditEntry('Equipment Added', `${item.name} (${item.type})`);
         return item;
     },
@@ -1167,14 +1301,14 @@ const Database = {
         const idx = DataStore.equipment.findIndex(e => e.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.equipment[idx], updates);
-            this.save();
+            this.save([id]);
             this.addAuditEntry('Equipment Updated', `Updated ${id}`);
         }
     },
 
     deleteEquipment(id) {
         DataStore.equipment = DataStore.equipment.filter(e => e.id !== id);
-        this.save();
+        this.save([id]);
         this.addAuditEntry('Equipment Removed', `Removed ${id}`);
     },
 
@@ -1183,7 +1317,7 @@ const Database = {
         record.id = record.id || Utils.generateId('SAF');
         record.date = record.date || new Date().toISOString().split('T')[0];
         DataStore.safetyRecords.push(record);
-        this.save();
+        this.save([record.id]);
         this.addAuditEntry('Safety Record', `${record.type}: ${record.title}`);
         return record;
     },
@@ -1192,7 +1326,7 @@ const Database = {
         const idx = DataStore.safetyRecords.findIndex(s => s.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.safetyRecords[idx], updates);
-            this.save();
+            this.save([id]);
         }
     },
 
@@ -1201,7 +1335,7 @@ const Database = {
         doc.id = doc.id || Utils.generateId('DOC');
         doc.uploadDate = doc.uploadDate || new Date().toISOString().split('T')[0];
         DataStore.documents.push(doc);
-        this.save();
+        this.save([doc.id]);
         this.addAuditEntry('Document Added', `${doc.title} (${doc.category})`);
         return doc;
     },
@@ -1210,13 +1344,13 @@ const Database = {
         const idx = DataStore.documents.findIndex(d => d.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.documents[idx], updates);
-            this.save();
+            this.save([id]);
         }
     },
 
     deleteDocument(id) {
         DataStore.documents = DataStore.documents.filter(d => d.id !== id);
-        this.save();
+        this.save([id]);
         this.addAuditEntry('Document Deleted', `Removed ${id}`);
     },
 
@@ -1224,7 +1358,7 @@ const Database = {
     addSpaInventoryItem(item) {
         item.id = item.id || Utils.generateId('SPI');
         DataStore.spaInventory.push(item);
-        this.save();
+        this.save([item.id]);
         this.addAuditEntry('Spa Item Added', `${item.name}`);
         return item;
     },
@@ -1233,7 +1367,7 @@ const Database = {
         const idx = DataStore.spaInventory.findIndex(i => i.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.spaInventory[idx], updates);
-            this.save();
+            this.save([id]);
         }
     },
 
@@ -1243,7 +1377,7 @@ const Database = {
         estimate.date = estimate.date || new Date().toISOString().split('T')[0];
         estimate.company = estimate.company || 'autocasa';
         DataStore.estimates.push(estimate);
-        this.save();
+        this.save([estimate.id]);
         this.addAuditEntry('Estimate Created', `${estimate.id} — ${Utils.formatCurrency(estimate.total)}`);
         return estimate;
     },
@@ -1252,7 +1386,7 @@ const Database = {
         const idx = DataStore.estimates.findIndex(e => e.id === id);
         if (idx >= 0) {
             Object.assign(DataStore.estimates[idx], updates);
-            this.save();
+            this.save([id]);
         }
     },
 
@@ -1268,7 +1402,7 @@ const Database = {
             priority: est.priority || 'normal',
             notes: `Converted from Estimate ${est.id}`
         });
-        this.save();
+        this.save([est.id]);
         return jobCard;
     },
 
@@ -1279,18 +1413,18 @@ const Database = {
         const id = Utils.generateId('BIR');
         const entry = { id, ...invoice, date: invoice.date || new Date().toISOString().split('T')[0], createdAt: new Date().toISOString() };
         DataStore.birInvoices.push(entry);
-        this.save();
+        this.save([entry.id]);
         this.addAuditEntry('BIR Invoice Created', `Invoice ${id} for ${invoice.customerName || 'customer'}`);
         return entry;
     },
     updateBirInvoice(id, updates) {
         const inv = DataStore.birInvoices.find(i => i.id === id);
-        if (inv) { Object.assign(inv, updates); this.save(); }
+        if (inv) { Object.assign(inv, updates); this.save([id]); }
         return inv;
     },
     deleteBirInvoice(id) {
         DataStore.birInvoices = DataStore.birInvoices.filter(i => i.id !== id);
-        this.save();
+        this.save([id]);
     },
     getNextBirSeriesNo(company) {
         const companyInvs = DataStore.birInvoices.filter(i => i.company === company);
@@ -1311,18 +1445,18 @@ const Database = {
         }
         const entry = { id, ...employee, userId, createdAt: new Date().toISOString() };
         DataStore.employees.push(entry);
-        this.save();
+        this.save([entry.id]);
         this.addAuditEntry('Employee Added', `${employee.name} (${employee.company}) — User ID: ${userId}`);
         return entry;
     },
     updateEmployee(id, updates) {
         const emp = DataStore.employees.find(e => e.id === id);
-        if (emp) { Object.assign(emp, updates); this.save(); }
+        if (emp) { Object.assign(emp, updates); this.save([id]); }
         return emp;
     },
     deleteEmployee(id) {
         DataStore.employees = DataStore.employees.filter(e => e.id !== id);
-        this.save();
+        this.save([id]);
     },
 
     // ============================================================
@@ -1332,13 +1466,13 @@ const Database = {
         const id = Utils.generateId('PAY');
         const entry = { id, ...payslip, generatedAt: new Date().toISOString() };
         DataStore.payslips.push(entry);
-        this.save();
+        this.save([entry.id]);
         this.addAuditEntry('Payslip Generated', `Payslip ${id} for ${payslip.employeeName}`);
         return entry;
     },
     updatePayslip(id, updates) {
         const ps = DataStore.payslips.find(p => p.id === id);
-        if (ps) { Object.assign(ps, updates); this.save(); }
+        if (ps) { Object.assign(ps, updates); this.save([id]); }
         return ps;
     },
 
@@ -1349,18 +1483,18 @@ const Database = {
         const id = Utils.generateId('INV');
         const entry = { id, ...item, quantity: item.quantity || 0, createdAt: new Date().toISOString() };
         DataStore.inventoryItems.push(entry);
-        this.save();
+        this.save([entry.id]);
         this.addAuditEntry('Inventory Item Added', `${item.name} (${item.company})`);
         return entry;
     },
     updateInventoryItem(id, updates) {
         const item = DataStore.inventoryItems.find(i => i.id === id);
-        if (item) { Object.assign(item, updates); this.save(); }
+        if (item) { Object.assign(item, updates); this.save([id]); }
         return item;
     },
     deleteInventoryItem(id) {
         DataStore.inventoryItems = DataStore.inventoryItems.filter(i => i.id !== id);
-        this.save();
+        this.save([id]);
     },
 
     // ============================================================
@@ -1376,7 +1510,7 @@ const Database = {
             if (txn.direction === 'in') item.quantity = (item.quantity || 0) + txn.qty;
             else if (txn.direction === 'out') item.quantity = Math.max(0, (item.quantity || 0) - txn.qty);
         }
-        this.save();
+        this.save([entry.id, txn.itemId].filter(Boolean));
         return entry;
     },
 
@@ -1387,18 +1521,18 @@ const Database = {
         const id = Utils.generateId('PRV');
         const entry = { id, ...review, createdAt: new Date().toISOString() };
         DataStore.performanceReviews.push(entry);
-        this.save();
+        this.save([entry.id]);
         this.addAuditEntry('Performance Review Added', `Review ${id} for ${review.employeeName || review.employeeId}`);
         return entry;
     },
     updatePerformanceReview(id, updates) {
         const r = DataStore.performanceReviews.find(p => p.id === id);
-        if (r) { Object.assign(r, updates); this.save(); }
+        if (r) { Object.assign(r, updates); this.save([id]); }
         return r;
     },
     deletePerformanceReview(id) {
         DataStore.performanceReviews = DataStore.performanceReviews.filter(p => p.id !== id);
-        this.save();
+        this.save([id]);
     },
 
     // ============================================================
@@ -1408,18 +1542,18 @@ const Database = {
         const id = Utils.generateId('TS');
         const entry = { id, ...ts, createdAt: new Date().toISOString() };
         DataStore.timesheets.push(entry);
-        this.save();
+        this.save([entry.id]);
         this.addAuditEntry('Timesheet Generated', `Timesheet ${id} for ${ts.employeeName || ts.employeeId}`);
         return entry;
     },
     updateTimesheet(id, updates) {
         const ts = DataStore.timesheets.find(t => t.id === id);
-        if (ts) { Object.assign(ts, updates); this.save(); }
+        if (ts) { Object.assign(ts, updates); this.save([id]); }
         return ts;
     },
     deleteTimesheet(id) {
         DataStore.timesheets = DataStore.timesheets.filter(t => t.id !== id);
-        this.save();
+        this.save([id]);
     },
 
     // ============================================================
@@ -1429,18 +1563,18 @@ const Database = {
         const id = Utils.generateId('INC');
         const entry = { id, ...report, createdAt: new Date().toISOString() };
         DataStore.incidentReports.push(entry);
-        this.save();
+        this.save([entry.id]);
         this.addAuditEntry('Incident Report Filed', `Incident ${id}: ${report.type} - ${report.severity}`);
         return entry;
     },
     updateIncidentReport(id, updates) {
         const r = DataStore.incidentReports.find(i => i.id === id);
-        if (r) { Object.assign(r, updates); this.save(); }
+        if (r) { Object.assign(r, updates); this.save([id]); }
         return r;
     },
     deleteIncidentReport(id) {
         DataStore.incidentReports = DataStore.incidentReports.filter(i => i.id !== id);
-        this.save();
+        this.save([id]);
     },
 
     // ============================================================
@@ -1508,14 +1642,28 @@ const Database = {
                 const localById = new Map(DataStore[type].filter(x => x && x.id).map(x => [x.id, x]));
                 for (const item of result.data[type]) {
                     if (!item || !item.id) continue;
-                    const { _createdBy, _business, _createdAt, _updatedAt, ...clean } = item;
+                    const { _createdBy, _business, _createdAt, ...clean } = item;
                     // Ensure customer objects always have a companies array
                     if (type === 'customers' && !clean.companies) clean.companies = [];
+
                     if (localById.has(item.id)) {
-                        // Server wins: update local with server data
-                        Object.assign(localById.get(item.id), clean);
+                        // TIMESTAMP-BASED MERGE: only accept server data if newer than local
+                        // AND not recently edited locally (15-second protection window)
+                        const local = localById.get(item.id);
+                        const localTs = local._updatedAt || '';
+                        const serverTs = clean._updatedAt || item._updatedAt || '';
+
+                        // Skip if this entity was recently edited locally (prevents revert)
+                        if (this._isRecentlyEditedLocally(item.id)) {
+                            continue; // protect local edit from overwrite
+                        }
+
+                        // Only overwrite if server version is newer or same age
+                        if (serverTs >= localTs) {
+                            Object.assign(local, clean);
+                        }
                     } else {
-                        // New item from another user/PC
+                        // New item from another user/PC — always add
                         localById.set(item.id, clean);
                     }
                     merged++;
@@ -1605,6 +1753,6 @@ const Database = {
 
     // Internal: save to localStorage without triggering sync wrappers
     _saveLocal() {
-        this.save();
+        this._persistLocal();
     }
 };
