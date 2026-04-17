@@ -1719,6 +1719,8 @@ const Database = {
     },
 
     // Push all local DataStore data to the server (call manually or on reconnect)
+    // Only sends entities modified since last successful push to reduce data thrashing
+    _lastPushTimestamp: null,
     async syncAllToServer() {
         try {
             if (!navigator.onLine) return { success: false, error: 'Offline' };
@@ -1728,6 +1730,7 @@ const Database = {
             const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
             const userId = session.userId || session.id || session.username || 'unknown';
             const business = session.company || 'all';
+            const lastPush = this._lastPushTimestamp || localStorage.getItem('ubms_last_push_ts') || '';
 
             const entityTypes = [
                 'customers', 'invoices', 'expenses', 'projects', 'bookings',
@@ -1743,19 +1746,35 @@ const Database = {
                 'projectMilestones', 'cashAdvances'
             ];
             const payload = {};
+            let dirtyCount = 0;
             for (const type of entityTypes) {
-                if (DataStore[type] && DataStore[type].length > 0) {
+                if (!DataStore[type] || DataStore[type].length === 0) continue;
+                // Only push entities that have _updatedAt newer than last push
+                // Or all entities if this is the first push (no lastPush timestamp)
+                if (lastPush) {
+                    const modified = DataStore[type].filter(item =>
+                        item && (item._updatedAt > lastPush || !item._updatedAt)
+                    );
+                    if (modified.length > 0) {
+                        payload[type] = modified;
+                        dirtyCount += modified.length;
+                    }
+                } else {
                     payload[type] = DataStore[type];
+                    dirtyCount += DataStore[type].length;
                 }
             }
+
+            // Always sync users
             const users = JSON.parse(localStorage.getItem(this.USERS_KEY) || '[]');
             if (users.length > 0) payload._users = users;
 
-            // Also include audit log
-            const auditRaw = localStorage.getItem(this.AUDIT_KEY);
-            if (auditRaw) {
-                try { payload.activityLog = JSON.parse(auditRaw); } catch {}
+            // Skip push if nothing changed (except users)
+            if (dirtyCount === 0 && users.length === 0) {
+                return { success: true, totalImported: 0, message: 'Nothing to push' };
             }
+
+            const pushTimestamp = new Date().toISOString();
 
             const response = await fetch(`${API_BASE_URL}/data/import`, {
                 method: 'POST',
@@ -1763,6 +1782,12 @@ const Database = {
                 body: JSON.stringify({ data: payload, userId, business })
             });
             const result = await response.json();
+
+            if (result.success) {
+                this._lastPushTimestamp = pushTimestamp;
+                localStorage.setItem('ubms_last_push_ts', pushTimestamp);
+            }
+
             return result;
         } catch (e) {
             console.error('syncAllToServer error:', e.message);

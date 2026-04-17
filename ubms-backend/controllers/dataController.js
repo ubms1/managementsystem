@@ -238,7 +238,7 @@ exports.bulkImport = async (req, res) => {
                 }
             }
 
-            // --- Import all entity types ---
+            // --- Import all entity types (with timestamp-based merge) ---
             for (const entityType of ENTITY_TYPES) {
                 if (!data[entityType] || !Array.isArray(data[entityType])) continue;
 
@@ -248,15 +248,46 @@ exports.bulkImport = async (req, res) => {
                     // Strip internal meta fields before saving, but preserve _updatedAt for merge
                     const { _createdBy, _business, _createdAt, ...cleanEntity } = entity;
 
-                    await connection.query(
-                        `INSERT INTO entities (id, entityType, business, createdBy, data)
-                         VALUES (?, ?, ?, ?, ?)
-                         ON DUPLICATE KEY UPDATE
-                           data = VALUES(data),
-                           business = VALUES(business),
-                           updatedAt = CURRENT_TIMESTAMP(3)`,
-                        [entity.id, entityType, entityBusiness, userId || 'system', JSON.stringify(cleanEntity)]
-                    );
+                    // Timestamp-based merge: only overwrite if incoming _updatedAt is newer
+                    // or if the entity doesn't exist yet on the server
+                    const clientUpdatedAt = cleanEntity._updatedAt || null;
+
+                    if (clientUpdatedAt) {
+                        // Only update if client timestamp is newer than server timestamp
+                        await connection.query(
+                            `INSERT INTO entities (id, entityType, business, createdBy, data)
+                             VALUES (?, ?, ?, ?, ?)
+                             ON DUPLICATE KEY UPDATE
+                               data = IF(
+                                 updatedAt <= ? OR updatedAt IS NULL,
+                                 VALUES(data),
+                                 data
+                               ),
+                               business = IF(
+                                 updatedAt <= ? OR updatedAt IS NULL,
+                                 VALUES(business),
+                                 business
+                               ),
+                               updatedAt = IF(
+                                 updatedAt <= ? OR updatedAt IS NULL,
+                                 CURRENT_TIMESTAMP(3),
+                                 updatedAt
+                               )`,
+                            [entity.id, entityType, entityBusiness, userId || 'system', JSON.stringify(cleanEntity),
+                             clientUpdatedAt, clientUpdatedAt, clientUpdatedAt]
+                        );
+                    } else {
+                        // No timestamp — use INSERT IGNORE to not overwrite existing
+                        await connection.query(
+                            `INSERT INTO entities (id, entityType, business, createdBy, data)
+                             VALUES (?, ?, ?, ?, ?)
+                             ON DUPLICATE KEY UPDATE
+                               data = VALUES(data),
+                               business = VALUES(business),
+                               updatedAt = CURRENT_TIMESTAMP(3)`,
+                            [entity.id, entityType, entityBusiness, userId || 'system', JSON.stringify(cleanEntity)]
+                        );
+                    }
                     totalImported++;
                 }
             }

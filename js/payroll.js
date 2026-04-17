@@ -362,9 +362,9 @@ const Payroll = {
             </div>
             <div class="card-body no-padding">
                 <table class="data-table">
-                    <thead><tr><th>Employee</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Late</th><th>UT</th><th>OT</th><th>Geolocation</th><th>Source</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Employee</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Late</th><th>UT</th><th>OT</th><th>Biyahe</th><th>Geolocation</th><th>Source</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>
-                    ${todayRecs.length === 0 ? '<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text-muted)"><i class="fas fa-clock" style="margin-right:6px"></i>No attendance records for today</td></tr>' :
+                    ${todayRecs.length === 0 ? '<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--text-muted)"><i class="fas fa-clock" style="margin-right:6px"></i>No attendance records for today</td></tr>' :
                     todayRecs.map(r => {
                         const emp = DataStore.employees.find(e => e.id === r.employeeId);
                         const locDetail = this.renderGeoCell(r);
@@ -383,6 +383,7 @@ const Payroll = {
                             <td style="color:${r.lateMinutes > 0 ? 'var(--danger)' : ''}">${r.lateMinutes || 0}m</td>
                             <td style="color:${r.undertimeMinutes > 0 ? 'var(--danger)' : ''}">${r.undertimeMinutes || 0}m</td>
                             <td>${r.overtimeHours || 0}h</td>
+                            <td style="color:${(r.biyaheAllowance || 0) > 0 ? '#065f46' : ''}; font-weight:${(r.biyaheAllowance || 0) > 0 ? '700' : 'normal'}">${(r.biyaheAllowance || 0) > 0 ? '₱' + parseFloat(r.biyaheAllowance).toLocaleString('en-PH', {minimumFractionDigits:2}) : '—'}</td>
                             <td>${locDetail}</td>
                             <td>${srcBadge}</td>
                             <td><span class="badge-tag badge-${r.status === 'present' ? 'green' : r.status === 'absent' ? 'red' : r.status === 'late' ? 'orange' : 'orange'}">${r.status || 'present'}</span></td>
@@ -397,7 +398,7 @@ const Payroll = {
             <div class="card-header"><h3><i class="fas fa-history"></i> Attendance Summary (Current Month)</h3></div>
             <div class="card-body no-padding">
                 <table class="data-table">
-                    <thead><tr><th>Employee</th><th>Days Present</th><th>Absences</th><th>Total Late (min)</th><th>Total Undertime</th><th>Total OT (hrs)</th><th>GPS Tagged</th><th>Attendance Rate</th></tr></thead>
+                    <thead><tr><th>Employee</th><th>Days Present</th><th>Absences</th><th>Total Late (min)</th><th>Total Undertime</th><th>Total OT (hrs)</th><th>Total Biyahe</th><th>GPS Tagged</th><th>Attendance Rate</th></tr></thead>
                     <tbody>
                     ${employees.map(emp => {
                         const now = new Date();
@@ -407,12 +408,14 @@ const Payroll = {
                         const totalLate = empRecs.reduce((s, r) => s + (r.lateMinutes || 0), 0);
                         const totalUT = empRecs.reduce((s, r) => s + (r.undertimeMinutes || 0), 0);
                         const totalOT = empRecs.reduce((s, r) => s + (r.overtimeHours || 0), 0);
+                        const totalBiyahe = empRecs.reduce((s, r) => s + (parseFloat(r.biyaheAllowance) || 0), 0);
                         const geoCount = empRecs.filter(r => r.location).length;
                         const workDays = this.getWorkDaysInMonth(now.getFullYear(), now.getMonth());
                         const rate = workDays > 0 ? ((present / workDays) * 100).toFixed(0) : 0;
                         const rateColor = rate >= 95 ? 'var(--success)' : rate >= 80 ? 'var(--warning)' : 'var(--danger)';
                         return `<tr><td><strong>${emp.name}</strong></td><td>${present}</td><td style="color:${absent > 0 ? 'var(--danger)' : ''}">${absent}</td>
                         <td style="color:${totalLate > 0 ? 'var(--danger)' : ''}">${totalLate}</td><td>${totalUT}</td><td>${totalOT}</td>
+                        <td style="color:${totalBiyahe > 0 ? '#065f46' : ''};font-weight:${totalBiyahe > 0 ? '700' : 'normal'}">${totalBiyahe > 0 ? '₱' + totalBiyahe.toLocaleString('en-PH', {minimumFractionDigits:2}) : '—'}</td>
                         <td>${geoCount}/${empRecs.length}</td>
                         <td><strong style="color:${rateColor}">${rate}%</strong></td></tr>`;
                     }).join('')}
@@ -556,6 +559,7 @@ const Payroll = {
                 <div class="form-group"><label>Undertime (min)</label><input type="number" class="form-control" id="attUndertime" value="0" min="0"></div>
                 <div class="form-group"><label>Overtime (hrs)</label><input type="number" class="form-control" id="attOT" value="0" min="0" step="0.5"></div>
             </div>
+            <div class="form-group"><label><i class="fas fa-truck" style="margin-right:4px;color:var(--secondary)"></i>Allowance-Biyahe (₱)</label><input type="number" class="form-control" id="attBiyahe" value="0" min="0" step="0.01" placeholder="Transport/travel allowance"></div>
             <div class="form-group"><label>Notes</label><input type="text" class="form-control" id="attNotes" placeholder="Optional notes"></div>
         </form>`, `
             <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
@@ -574,6 +578,7 @@ const Payroll = {
             lateMinutes: parseInt(document.getElementById('attLate')?.value || 0),
             undertimeMinutes: parseInt(document.getElementById('attUndertime')?.value || 0),
             overtimeHours: parseFloat(document.getElementById('attOT')?.value || 0),
+            biyaheAllowance: parseFloat(document.getElementById('attBiyahe')?.value || 0),
             notes: document.getElementById('attNotes')?.value || ''
         };
         if (!DataStore.attendanceRecords) DataStore.attendanceRecords = [];
@@ -643,6 +648,7 @@ const Payroll = {
                 <div class="form-group"><label>Undertime (min)</label><input type="number" class="form-control" id="editAttUndertime" value="${rec.undertimeMinutes || 0}" min="0"></div>
                 <div class="form-group"><label>Overtime (hrs)</label><input type="number" class="form-control" id="editAttOT" value="${rec.overtimeHours || 0}" min="0" step="0.5"></div>
             </div>
+            <div class="form-group"><label><i class="fas fa-truck" style="margin-right:4px;color:var(--secondary)"></i>Allowance-Biyahe (₱)</label><input type="number" class="form-control" id="editAttBiyahe" value="${rec.biyaheAllowance || 0}" min="0" step="0.01" placeholder="Transport/travel allowance"></div>
             <div class="form-group"><label>Notes</label><input type="text" class="form-control" id="editAttNotes" value="${(rec.notes || '').replace(/"/g, '&quot;')}" placeholder="Optional notes"></div>
         </form>
         <div style="margin-top:12px;padding:10px;background:#fef3c7;border-radius:8px;font-size:11px;color:#92400e">
@@ -666,6 +672,7 @@ const Payroll = {
         const newLate = parseInt(document.getElementById('editAttLate')?.value || 0);
         const newUndertime = parseInt(document.getElementById('editAttUndertime')?.value || 0);
         const newOT = parseFloat(document.getElementById('editAttOT')?.value || 0);
+        const newBiyahe = parseFloat(document.getElementById('editAttBiyahe')?.value || 0);
         const newNotes = document.getElementById('editAttNotes')?.value || '';
 
         if (!newDate) { App.showToast('Date is required', 'error'); return; }
@@ -688,6 +695,7 @@ const Payroll = {
         if ((rec.lateMinutes || 0) !== newLate) changes.push(`Late: ${rec.lateMinutes || 0} → ${newLate}`);
         if ((rec.undertimeMinutes || 0) !== newUndertime) changes.push(`UT: ${rec.undertimeMinutes || 0} → ${newUndertime}`);
         if ((rec.overtimeHours || 0) !== newOT) changes.push(`OT: ${rec.overtimeHours || 0} → ${newOT}`);
+        if ((rec.biyaheAllowance || 0) !== newBiyahe) changes.push(`Biyahe: ${rec.biyaheAllowance || 0} → ${newBiyahe}`);
 
         // Update local record
         rec.date = newDate;
@@ -699,6 +707,7 @@ const Payroll = {
         rec.lateMinutes = newLate;
         rec.undertimeMinutes = newUndertime;
         rec.overtimeHours = newOT;
+        rec.biyaheAllowance = newBiyahe;
         rec.notes = newNotes;
 
         Database.save();
@@ -715,6 +724,7 @@ const Payroll = {
                 lateMinutes: newLate,
                 undertimeMinutes: newUndertime,
                 overtimeHours: newOT,
+                biyaheAllowance: newBiyahe,
                 notes: newNotes
             });
         } catch (e) {
@@ -1090,7 +1100,8 @@ const Payroll = {
             daysPresent: records.filter(r => r.status === 'present' || r.status === 'late').length,
             daysAbsent: records.filter(r => r.status === 'absent').length,
             totalLateMinutes: records.reduce((s, r) => s + (r.lateMinutes || 0), 0),
-            totalOT: records.reduce((s, r) => s + (r.overtimeHours || 0), 0)
+            totalOT: records.reduce((s, r) => s + (r.overtimeHours || 0), 0),
+            totalBiyahe: records.reduce((s, r) => s + (parseFloat(r.biyaheAllowance) || 0), 0)
         };
     },
 
@@ -1417,6 +1428,12 @@ const Payroll = {
         if (otEl && attData.totalOT > 0) otEl.value = attData.totalOT;
         const lateEl = document.getElementById('psLateDeduction');
         if (lateEl) lateEl.value = lateDeduction.toFixed(2);
+
+        // Auto-fill biyahe/transport total from attendance records
+        if (attData.totalBiyahe > 0) {
+            const allowanceEl = document.getElementById('psAllowance');
+            if (allowanceEl) allowanceEl.value = attData.totalBiyahe.toFixed(2);
+        }
 
         // Show CA info
         const caInfoEl = document.getElementById('psCashAdvanceInfo');

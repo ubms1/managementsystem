@@ -38,6 +38,7 @@ const App = {
         this.setupNavVisibility();
         this.setupSidebarClickOutside();
         this.loadNotifications();
+        this.setupSyncListeners();
         this.navigate(Auth.getDefaultModule());
 
         // Hide loading screen
@@ -214,6 +215,42 @@ const App = {
         this.updateCompanyBadge();
         this.updateSidebarLogo();
         this.navigate(this.currentModule);
+    },
+
+    // ---- Sync Listeners — refresh UI when data changes from other devices/browsers ----
+    _syncRefreshTimer: null,
+    setupSyncListeners() {
+        // Debounced re-render when remote changes arrive via SSE or pull sync
+        const debouncedRefresh = () => {
+            if (this._syncRefreshTimer) clearTimeout(this._syncRefreshTimer);
+            this._syncRefreshTimer = setTimeout(() => {
+                if (this.currentModule) {
+                    try {
+                        const content = document.getElementById('contentArea');
+                        if (content) this.renderModule(this.currentModule);
+                    } catch (e) {
+                        console.warn('Sync UI refresh error:', e.message);
+                    }
+                }
+            }, 1500); // 1.5s debounce to batch rapid changes
+        };
+
+        // Real-time SSE changes
+        window.addEventListener('ubms-data-changed', (e) => {
+            if (e.detail?.source === 'remote') {
+                debouncedRefresh();
+            }
+        });
+
+        // Full sync completed (pull from server)
+        window.addEventListener('ubms-data-loaded', () => {
+            debouncedRefresh();
+        });
+
+        // Sync complete (offline queue flushed)
+        window.addEventListener('ubms-sync-complete', () => {
+            debouncedRefresh();
+        });
     },
 
     updateSidebarLogo() {

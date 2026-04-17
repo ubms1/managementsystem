@@ -936,6 +936,13 @@ function renderApp() {
                 </button>
                 <div class="face-scan-security"><i class="fas fa-info-circle"></i> One-time setup required</div>
             </div>
+            <div id="pinBiyaheBox" style="display:none;margin-bottom:12px;padding:12px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0">
+                <label style="font-size:12px;font-weight:700;color:#065f46;display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                    <i class="fas fa-truck"></i> Allowance-Biyahe (₱)
+                </label>
+                <input type="number" id="pinBiyaheAmount" value="0" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:10px 14px;border:2px solid #bbf7d0;border-radius:8px;font-size:16px;font-weight:700;text-align:center;outline:none" onfocus="this.style.borderColor='var(--company-color,var(--accent))'" onblur="this.style.borderColor='#bbf7d0'">
+                <div style="font-size:10px;color:var(--text-muted);margin-top:4px;text-align:center">Enter transport/biyahe allowance if applicable</div>
+            </div>
             <div class="action-btns" id="pinActionBtns" style="display:none">
                 <button class="btn-timein" id="pinBtnIn" onclick="doFaceClockIn()">
                     <i class="fas fa-sign-in-alt"></i> TIME IN
@@ -998,6 +1005,13 @@ function renderApp() {
             <div class="selected-emp-pos" id="actionEmpPos">—</div>
             <div class="status-info" id="actionStatus"></div>
             <div id="browseFaceStatus" style="display:none;margin-bottom:10px;text-align:center"></div>
+            <div style="margin-bottom:12px;padding:12px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0">
+                <label style="font-size:12px;font-weight:700;color:#065f46;display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                    <i class="fas fa-truck"></i> Allowance-Biyahe (₱)
+                </label>
+                <input type="number" id="browseBiyaheAmount" value="0" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:10px 14px;border:2px solid #bbf7d0;border-radius:8px;font-size:16px;font-weight:700;text-align:center;outline:none" onfocus="this.style.borderColor='var(--company-color,var(--accent))'" onblur="this.style.borderColor='#bbf7d0'">
+                <div style="font-size:10px;color:var(--text-muted);margin-top:4px;text-align:center">Enter transport/biyahe allowance if applicable</div>
+            </div>
             <div class="action-btns">
                 <button class="btn-timein" id="btnTimeIn" onclick="doBrowseClockIn()">
                     <i class="fas fa-sign-in-alt"></i> TIME IN
@@ -1021,7 +1035,7 @@ function renderApp() {
             </div>
             <div id="todayLogBody">
                 <table class="log-table">
-                    <thead><tr><th>Employee</th><th>Time In</th><th>Time Out</th><th>Status</th><th>Geolocation</th></tr></thead>
+                    <thead><tr><th>Employee</th><th>Time In</th><th>Time Out</th><th>Biyahe</th><th>Status</th><th>Geolocation</th></tr></thead>
                     <tbody id="logTableBody"></tbody>
                 </table>
             </div>
@@ -1044,7 +1058,7 @@ function renderTodayLog() {
     const count = document.getElementById('logCount');
     if (!tbody) return;
     if (state.todayRecords.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">No records yet today</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">No records yet today</td></tr>`;
         if (count) count.textContent = '0 entries';
         return;
     }
@@ -1070,10 +1084,13 @@ function renderTodayLog() {
             geoHtml = `<div style="display:flex;flex-direction:column;gap:2px">${parts.join('')}</div>`;
         }
         const srcBadge = r.source === 'biometric' ? ' <span style="background:#e8eaf6;color:#3f51b5;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">BIO</span>' : '';
+        const biyaheAmt = r.biyaheAllowance || 0;
+        const biyaheHtml = biyaheAmt > 0 ? `<span style="color:#065f46;font-weight:700;font-size:11px">₱${parseFloat(biyaheAmt).toLocaleString('en-PH', {minimumFractionDigits:2})}</span>` : '<span style="color:var(--text-muted);font-size:11px">—</span>';
         return `<tr>
             <td><strong>${emp?.name || r.employeeId}</strong>${srcBadge}</td>
             <td>${r.timeIn || '—'}</td>
             <td>${r.timeOut || '<span style="color:var(--warning);font-size:11px">Pending</span>'}</td>
+            <td>${biyaheHtml}</td>
             <td><span class="badge ${statusClass}">${statusLabel}</span></td>
             <td>${geoHtml}</td>
         </tr>`;
@@ -1258,6 +1275,10 @@ async function doClockIn() {
         }
     }
 
+    // Get biyahe allowance from input (use PIN input if in PIN mode, otherwise browse input)
+    const biyaheInput = activeMode === 'pin' ? document.getElementById('pinBiyaheAmount') : document.getElementById('browseBiyaheAmount');
+    const biyaheAllowance = parseFloat(biyaheInput?.value || 0);
+
     const record = {
         id: genId(),
         employeeId: emp.id,
@@ -1270,6 +1291,7 @@ async function doClockIn() {
         lateMinutes,
         undertimeMinutes: 0,
         overtimeHours: 0,
+        biyaheAllowance,
         notes: '',
         location: geoResult,
         locationOut: null,
@@ -1318,6 +1340,10 @@ async function doClockIn() {
         showToast(`TIME IN recorded at ${timeInStr}${locMsg}`, 'success');
     }
     updateLocationInfo(geoResult);
+
+    // Reset biyahe input
+    const biyaheReset = activeMode === 'pin' ? document.getElementById('pinBiyaheAmount') : document.getElementById('browseBiyaheAmount');
+    if (biyaheReset) biyaheReset.value = '0';
 
     // Reset PIN mode after success
     if (activeMode === 'pin') {
@@ -1533,6 +1559,9 @@ function showPinEmployee(emp) {
     function enableClockButtons(rec) {
         if (btns) {
             btns.style.display = 'flex';
+            // Show biyahe input in PIN mode
+            const pinBiyaheBox = document.getElementById('pinBiyaheBox');
+            if (pinBiyaheBox) pinBiyaheBox.style.display = 'block';
             const pinBtnIn = document.getElementById('pinBtnIn');
             const pinBtnOut = document.getElementById('pinBtnOut');
             if (!rec) {
@@ -1581,6 +1610,10 @@ function hidePinEmployee() {
     const faceEnrollPrompt = document.getElementById('faceEnrollPrompt');
     if (card) card.classList.remove('visible');
     if (btns) btns.style.display = 'none';
+    const pinBiyaheBox = document.getElementById('pinBiyaheBox');
+    if (pinBiyaheBox) { pinBiyaheBox.style.display = 'none'; }
+    const pinBiyaheAmt = document.getElementById('pinBiyaheAmount');
+    if (pinBiyaheAmt) pinBiyaheAmt.value = '0';
     if (faceScanPrompt) faceScanPrompt.style.display = 'none';
     if (faceEnrollPrompt) faceEnrollPrompt.style.display = 'none';
 }

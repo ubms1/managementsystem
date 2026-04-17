@@ -218,55 +218,16 @@ const SyncManager = {
     },
 
     // ============================================
-    //  Send all localStorage data to server
+    //  Send localStorage data to server (delegates to Database.syncAllToServer)
     // ============================================
     async syncAllLocalData() {
         if (!navigator.onLine) return { success: false, error: 'Offline' };
         try {
-            const healthy = await checkApiHealth();
-            if (!healthy) return { success: false, error: 'Server unreachable' };
-
-            const session = JSON.parse(localStorage.getItem('ubms_session') || '{}');
-            const userId = session.userId || session.id || session.username || 'unknown';
-            const business = session.company || 'all';
-
-            const entityTypes = [
-                'customers', 'invoices', 'expenses', 'projects', 'bookings',
-                'jobCards', 'vehicles', 'autoParts', 'memberships', 'membershipPackages',
-                'employees', 'payslips', 'inventoryItems', 'inventoryTransactions', 'estimates',
-                'birInvoices', 'equipment', 'safetyRecords', 'documents',
-                'spaInventory', 'spaServices', 'autoServices', 'chartOfAccounts',
-                'performanceReviews', 'timesheets', 'incidentReports',
-                'subcontractors', 'inspections', 'therapists', 'posTransactions',
-                'attendanceRecords', 'journalEntries', 'isoDocuments', 'isoAudits',
-                'isoNcrs', 'isoCpars', 'bankReconciliations', 'collectionReceipts',
-                'workSchedules', 'biometricLogs', 'notifications', 'activityLog',
-                'projectMilestones', 'cashAdvances'
-            ];
-
-            const payload = {};
-            if (typeof DataStore !== 'undefined') {
-                for (const type of entityTypes) {
-                    if (DataStore[type] && DataStore[type].length > 0) {
-                        payload[type] = DataStore[type];
-                    }
-                }
+            // Delegate to Database.syncAllToServer which handles incremental push
+            if (typeof Database !== 'undefined' && Database.syncAllToServer) {
+                return await Database.syncAllToServer();
             }
-
-            // Include all localStorage users
-            const localUsers = JSON.parse(localStorage.getItem('ubms_users') || '[]');
-            if (localUsers.length > 0) payload._users = localUsers;
-
-            const response = await fetch(`${API_BASE_URL}/data/import`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: payload, userId, business })
-            });
-            const result = await response.json();
-            if (result.success) {
-                console.log(`✓ Synced ${result.totalImported} records, ${result.usersSynced} users to server`);
-            }
-            return result;
+            return { success: false, error: 'Database not available' };
         } catch (e) {
             console.error('syncAllLocalData error:', e);
             return { success: false, error: e.message };
@@ -395,9 +356,13 @@ const SyncManager = {
                     break;
             }
 
-            // Save to localStorage without triggering sync
-            if (typeof Database !== 'undefined' && Database._saveLocal) {
-                Database._saveLocal();
+            // Save to localStorage WITHOUT triggering server push (local-only persist)
+            if (typeof Database !== 'undefined') {
+                if (Database._persistLocal) {
+                    Database._persistLocal();
+                } else if (Database._saveLocal) {
+                    Database._saveLocal();
+                }
             }
 
             // Notify UI
@@ -457,13 +422,19 @@ const SyncManager = {
     //  Online / Offline Handlers
     // ============================================
     onOnline() {
-        console.log('Back online');
+        console.log('Back online — starting reconnect sync');
         this.isOnline = true;
         this.updateConnectionStatus(true);
 
+        // Step 1: Flush offline queue first (queued individual changes)
         setTimeout(() => this.syncOfflineQueue(), 1000);
-        setTimeout(() => this.syncAllLocalData(), 2000);  // push all local data to server
-        setTimeout(() => this.pullChanges(), 4000);
+        // Step 2: Full bidirectional sync via Database (push dirty → pull all → merge)
+        setTimeout(() => {
+            if (typeof Database !== 'undefined' && Database.fullSync) {
+                Database.fullSync();
+            }
+        }, 3000);
+        // Step 3: Re-establish SSE for real-time updates
         setTimeout(() => this.connectSSE(), 5000);
     },
 
@@ -502,10 +473,19 @@ const SyncManager = {
 };
 
 // ============================================
-//  Add _saveLocal to Database (localStorage only, no sync)
+//  Ensure _saveLocal is localStorage-only (no server push)
 // ============================================
 if (typeof Database !== 'undefined') {
-    Database._saveLocal = Database.save;
+    // _saveLocal is already defined in db.js as _persistLocal().
+    // Do NOT overwrite it with save() — that causes sync loops.
+    // Keep a reference to the original unwrapped save for wrapper use.
+    if (!Database._originalSave) {
+        Database._originalSave = Database.save.bind(Database);
+    }
+    // Ensure _saveLocal only persists locally
+    if (!Database._saveLocal || Database._saveLocal === Database.save) {
+        Database._saveLocal = function() { Database._persistLocal(); };
+    }
 }
 
 // ============================================
