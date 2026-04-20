@@ -10,9 +10,21 @@ const API_BASE_URL = (function() {
     if (custom) return custom.replace(/\/$/, '') + '/api';
 
     const loc = window.location;
+    const cleanHost = loc.hostname.replace(/^www\./, '');
 
-    // GitHub Pages or external hosting — connect to the LAN backend server
-    if (loc.hostname.includes('github.io') || (loc.protocol === 'https:' && loc.port !== '3443')) {
+    // Production domains — API is on same origin served via nginx reverse proxy
+    const productionDomains = [
+        'dheekaybuilders.com',
+        'kdchavitconstruction.com',
+        'nuatthai.com',
+        'autocasa.com'
+    ];
+    if (productionDomains.includes(cleanHost)) {
+        return loc.origin + '/api';
+    }
+
+    // GitHub Pages — connect to the LAN backend server
+    if (loc.hostname.includes('github.io')) {
         return 'http://10.56.221.132:3000/api';
     }
     // If served from the backend (port 3000 or 3443), use same origin

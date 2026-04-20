@@ -22,6 +22,9 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust nginx reverse proxy (sets req.ip, req.protocol correctly on production)
+app.set('trust proxy', 1);
+
 // Middleware - Allow all origins for multi-device access
 app.use(cors({
     origin: '*',
@@ -78,7 +81,40 @@ app.get('/api/health', (req, res) => {
 // ============================================
 const FRONTEND_ROOT = path.join(__dirname, '..');
 
-// Serve individual business portals
+// ============================================
+// Virtual Host Portal Routing
+// Maps <domain>/system/* to the correct portal
+// dheekaybuilders.com/system  → dheekay portal
+// kdchavitconstruction.com/system → kdchavit portal
+// ============================================
+const VIRTUAL_HOST_PORTALS = {
+    'dheekaybuilders.com':      'dheekay',
+    'kdchavitconstruction.com': 'kdchavit',
+};
+
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) return next(); // never intercept API
+    const host = (req.headers.host || '').replace(/^www\./, '').split(':')[0];
+    const portalFolder = VIRTUAL_HOST_PORTALS[host];
+    if (!portalFolder) return next();
+
+    // Redirect bare /system to /system/ so relative asset paths resolve correctly
+    if (req.path === '/system') return res.redirect(301, '/system/');
+
+    if (req.path.startsWith('/system')) {
+        const subPath = req.path.slice('/system'.length) || '/index.html';
+        const target = subPath === '/' ? 'index.html' : subPath.replace(/^\//, '');
+        const filePath = path.join(FRONTEND_ROOT, portalFolder, target);
+        if (fs.existsSync(filePath)) return res.sendFile(filePath);
+        // SPA fallback — serve portal index for unknown sub-paths
+        return res.sendFile(path.join(FRONTEND_ROOT, portalFolder, 'index.html'));
+    }
+
+    // For all other paths on a portal domain (css/js/images etc.), serve from root
+    next();
+});
+
+// Serve individual business portals (LAN / direct-port access)
 app.use('/dheekay', express.static(path.join(FRONTEND_ROOT, 'dheekay')));
 app.use('/kdchavit', express.static(path.join(FRONTEND_ROOT, 'kdchavit')));
 app.use('/nuatthai', express.static(path.join(FRONTEND_ROOT, 'nuatthai')));
@@ -174,13 +210,16 @@ async function startServer() {
             console.log(`   Unified:    GET /api/unified/dashboard, /api/unified/businesses, /api/unified/config`);
             console.log(`   Sync:       GET /api/sync/stream (SSE), POST /api/sync/changes, /api/sync/bulk`);
             console.log(`   Data:       POST /api/data/import, GET /api/data/export, GET /api/data/:type, GET /api/data/user/:userId`);
-            console.log(`\n🏢 Business Portals:`);
+            console.log(`\n🏢 Business Portals (LAN):`);
             console.log(`   Unified:    http://localhost:${PORT}/`);
             console.log(`   Dheekay:    http://localhost:${PORT}/dheekay/`);
             console.log(`   KDChavit:   http://localhost:${PORT}/kdchavit/`);
             console.log(`   NuatThai:   http://localhost:${PORT}/nuatthai/`);
             console.log(`   AutoCasa:   http://localhost:${PORT}/autocasa/`);
             console.log(`   Time Clock: http://localhost:${PORT}/timeinout`);
+            console.log(`\n🌐 Production URLs:`);
+            console.log(`   Dheekay:    https://dheekaybuilders.com/system/`);
+            console.log(`   KDChavit:   https://kdchavitconstruction.com/system/`);
             addresses.forEach(a => {
                 console.log(`\n   📱 Share this URL for online access:`);
                 console.log(`      http://${a.address}:${PORT}`);
