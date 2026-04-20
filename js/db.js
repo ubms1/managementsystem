@@ -12,10 +12,11 @@ const API_BASE_URL = (function() {
     const loc = window.location;
     const cleanHost = loc.hostname.replace(/^www\./, '');
 
-    // Production domains — API is on same origin served via nginx reverse proxy
+    // Production domains — API is on same origin served via cPanel Node.js / Passenger
     const productionDomains = [
         'dheekaybuilders.com',
         'kdchavitconstruction.com',
+        'rushmedz.com',
         'nuatthai.com',
         'autocasa.com'
     ];

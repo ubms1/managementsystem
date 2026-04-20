@@ -1,0 +1,23 @@
+# ============================================================
+#  .htaccess for kdchavitconstruction.com document root
+#  Routes all requests through the Node.js app via Passenger
+#
+#  Place this file at:
+#    /home/rushmedz/kdchavitconstruction.com/.htaccess
+# ============================================================
+
+RewriteEngine On
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Redirect www to non-www
+RewriteCond %{HTTP_HOST} ^www\.kdchavitconstruction\.com [NC]
+RewriteRule ^(.*)$ https://kdchavitconstruction.com/$1 [L,R=301]
+
+# Let Phusion Passenger handle Node.js routing
+PassengerAppRoot "/home/rushmedz/ubms/ubms-backend"
+PassengerAppType node
+PassengerStartupFile app.js
+PassengerNodejs /home/rushmedz/nodevenv/ubms/ubms-backend/18/bin/node
