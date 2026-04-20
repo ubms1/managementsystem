@@ -98,6 +98,9 @@ app.use((req, res, next) => {
     const portalFolder = VIRTUAL_HOST_PORTALS[host];
     if (!portalFolder) return next();
 
+    // Redirect bare domain root → /system/
+    if (req.path === '/' || req.path === '') return res.redirect(302, '/system/');
+
     // Redirect bare /system to /system/ so relative asset paths resolve correctly
     if (req.path === '/system') return res.redirect(301, '/system/');
 
