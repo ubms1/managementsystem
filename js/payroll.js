@@ -1435,12 +1435,16 @@ const Payroll = {
             if (allowanceEl) allowanceEl.value = attData.totalBiyahe.toFixed(2);
         }
 
-        // Show CA info
+        // Show CA info and auto-populate deduction field with full balance
         const caInfoEl = document.getElementById('psCashAdvanceInfo');
+        const caDeductEl = document.getElementById('psCashAdvanceDeduction');
         if (caInfoEl) {
             caInfoEl.innerHTML = caBalance > 0
-                ? `<i class="fas fa-info-circle" style="color:var(--warning)"></i> <strong>CA Balance: ${Utils.formatCurrency(caBalance)}</strong> — Enter deduction amount for this pay period.`
+                ? `<i class="fas fa-info-circle" style="color:var(--warning)"></i> <strong>CA Balance: ${Utils.formatCurrency(caBalance)}</strong> — Amount auto-filled below. Adjust if needed.`
                 : `<i class="fas fa-check-circle" style="color:var(--success)"></i> No outstanding cash advance balance.`;
+        }
+        if (caDeductEl) {
+            caDeductEl.value = caBalance > 0 ? caBalance.toFixed(2) : '0';
         }
 
         this.previewDeductions();
@@ -2487,6 +2491,10 @@ const Payroll = {
                 <div class="form-group"><label>Pag-IBIG (EE)</label><input type="number" class="form-control" id="editPsPag" value="${ps.pagibig || 0}" min="0" step="0.01"></div>
                 <div class="form-group"><label>Withholding Tax</label><input type="number" class="form-control" id="editPsTax" value="${ps.tax || 0}" min="0" step="0.01"></div>
             </div>
+            <div class="form-row">
+                <div class="form-group"><label><i class="fas fa-hand-holding-usd" style="margin-right:4px;color:var(--danger)"></i>Cash Advance Deduction (₱)</label><input type="number" class="form-control" id="editPsCA" value="${ps.cashAdvanceDeduction || 0}" min="0" step="0.01"></div>
+                <div class="form-group"><label>Other Deductions (₱)</label><input type="number" class="form-control" id="editPsOther" value="${ps.otherDeductions || 0}" min="0" step="0.01"></div>
+            </div>
         </form>`, `
             <button class="btn btn-secondary" onclick="App.closeModal()">Cancel</button>
             <button class="btn btn-warning" onclick="Payroll.savePayslipOverride('${ps.id}')"><i class="fas fa-save"></i> Save Override</button>
@@ -2509,8 +2517,11 @@ const Payroll = {
         const pagibig = parseFloat(document.getElementById('editPsPag')?.value || 0);
         const tax = parseFloat(document.getElementById('editPsTax')?.value || 0);
 
+        const cashAdvanceDeduction = parseFloat(document.getElementById('editPsCA')?.value || 0);
+        const otherDeductions = parseFloat(document.getElementById('editPsOther')?.value || 0);
+
         const grossPay = basicPay + overtimePay + allowance + bonus + incentive;
-        const totalDeductions = sss + philhealth + pagibig + tax + lateDeduction;
+        const totalDeductions = sss + philhealth + pagibig + tax + lateDeduction + cashAdvanceDeduction + otherDeductions;
         const netPay = grossPay - totalDeductions;
 
         Object.assign(ps, {
@@ -2519,7 +2530,8 @@ const Payroll = {
             periodStart: document.getElementById('editPsStart')?.value || ps.periodStart,
             periodEnd: document.getElementById('editPsEnd')?.value || ps.periodEnd,
             basicPay, overtimePay, allowance, bonus, incentive, lateDeduction,
-            grossPay, sss, philhealth, pagibig, tax, totalDeductions, netPay,
+            grossPay, sss, philhealth, pagibig, tax, cashAdvanceDeduction, otherDeductions,
+            totalDeductions, netPay,
             overriddenBy: 'superadmin',
             overriddenAt: new Date().toISOString()
         });
