@@ -4,7 +4,7 @@
    Network-first for API, cache-first for assets
    ======================================== */
 
-const CACHE_NAME = 'ubms-cache-v2';
+const CACHE_NAME = 'ubms-cache-v1';
 const STATIC_ASSETS = [
     '/',
     '/login',

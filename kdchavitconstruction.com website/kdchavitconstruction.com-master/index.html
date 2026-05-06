@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="KDChavit Construction – PCAB-licensed (on-going application) construction company in Tuguegarao City specializing in Telco Tower Construction, engineering structures, residential, commercial, office and institutional projects." />
+  <meta name="keywords" content="KDChavit Construction, Tuguegarao, Cagayan, Telco Tower, PCAB, construction company, engineering, residential, commercial" />
+  <meta name="author" content="KDChavit Construction" />
+  <meta property="og:title" content="KDChavit Construction | Building Excellence" />
+  <meta property="og:description" content="PCAB-licensed (on-going application) construction company specializing in Telco Tower Construction and engineering structures in Cagayan Valley." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.kdchavitconstruction.com/" />
+  <link rel="canonical" href="https://www.kdchavitconstruction.com/" />
+  <title>KDChavit Construction | Building Excellence Since 2026</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- AOS Animation Library -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css" />
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- =========================================================
+       TOP BAR
+  ========================================================= -->
+  <div class="topbar">
+    <div class="container topbar__inner">
+      <div class="topbar__left">
+        <span><i class="fas fa-map-marker-alt"></i> Enrile Boulevard, Carig, Tuguegarao City, Cagayan 3500</span>
+      </div>
+      <div class="topbar__right">
+        <a href="mailto:kdchavitconstruction2025@gmail.com"><i class="fas fa-envelope"></i> kdchavitconstruction2025@gmail.com</a>
+        <a href="tel:+639543389875"><i class="fas fa-phone-alt"></i> 09543389875</a>
+        <span class="topbar__badges">
+          <span class="badge badge--pcab">PCAB Licensed (Ongoing)</span>
+          <span class="badge badge--iso">ISO Certified (Ongoing)</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       NAVBAR
+  ========================================================= -->
+  <header class="navbar" id="navbar">
+    <div class="container navbar__inner">
+      <!-- Logo -->
+      <a href="#home" class="navbar__brand">
+        <div class="logo-circle">
+          <img src="logo.png" alt="KDChavit Construction Logo" />
+        </div>
+        <div class="navbar__brand-text">
+          <span class="brand-name">KDChavit</span>
+          <span class="brand-sub">Construction</span>
+        </div>
+      </a>
+
+      <!-- Desktop Nav -->
+      <nav class="navbar__nav" id="navMenu">
+        <ul class="navbar__list">
+          <li><a href="index.html" class="nav-link active">Home</a></li>
+          <li><a href="about.html" class="nav-link">About</a></li>
+          <li class="dropdown">
+            <a href="services.html" class="nav-link">Services <i class="fas fa-chevron-down"></i></a>
+            <ul class="dropdown-menu">
+              <li><a href="services.html#telco"><i class="fas fa-broadcast-tower"></i> Telco Tower Construction</a></li>
+              <li><a href="services.html#engineering"><i class="fas fa-drafting-compass"></i> Engineering Structures</a></li>
+              <li><a href="services.html#residential"><i class="fas fa-home"></i> Residential</a></li>
+              <li><a href="services.html#commercial"><i class="fas fa-store"></i> Commercial</a></li>
+              <li><a href="services.html#office"><i class="fas fa-building"></i> Office Buildings</a></li>
+              <li><a href="services.html#institutional"><i class="fas fa-university"></i> Institutional</a></li>
+            </ul>
+          </li>
+          <li><a href="projects.html" class="nav-link">Projects</a></li>
+          <li><a href="certifications.html" class="nav-link">Certifications</a></li>
+          <li><a href="contact.html" class="nav-link">Contact</a></li>
+        </ul>
+      </nav>
+
+      <!-- CTA Button -->
+      <a href="contact.html" class="btn btn--primary navbar__cta">Get a Quote</a>
+
+      <!-- Mobile Hamburger -->
+      <button class="navbar__toggle" id="navToggle" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile Menu Overlay -->
+  <div class="mobile-menu" id="mobileMenu">
+    <button class="mobile-menu__close" id="mobileClose" aria-label="Close menu"><i class="fas fa-times"></i></button>
+    <div class="mobile-menu__logo">
+      <div class="logo-circle logo-circle--sm">
+        <img src="logo.png" alt="KDChavit Construction" />
+      </div>
+      <span>KDChavit Construction</span>
+    </div>
+    <ul class="mobile-menu__list">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="services.html">Services</a></li>
+      <li><a href="projects.html">Projects</a></li>
+      <li><a href="certifications.html">Certifications</a></li>
+      <li><a href="contact.html">Contact</a></li>
+    </ul>
+    <a href="contact.html" class="btn btn--primary">Get a Quote</a>
+  </div>
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+
+  <!-- =========================================================
+       HERO SECTION
+  ========================================================= -->
+  <section class="hero" id="home">
+    <!-- Animated background shapes -->
+    <div class="hero__bg">
+      <div class="hero__bg-overlay"></div>
+      <div class="hero__particles" id="particles"></div>
+    </div>
+
+    <!-- Slides -->
+    <div class="hero__slider" id="heroSlider">
+      <!-- Slide 1: Telco Tower (primary focus) -->
+      <div class="hero__slide active">
+        <div class="hero__slide-bg hero__slide-bg--1"></div>
+      </div>
+      <!-- Slide 2: Construction site -->
+      <div class="hero__slide">
+        <div class="hero__slide-bg hero__slide-bg--2"></div>
+      </div>
+      <!-- Slide 3: Engineering structure -->
+      <div class="hero__slide">
+        <div class="hero__slide-bg hero__slide-bg--3"></div>
+      </div>
+    </div>
+
+    <div class="container hero__content">
+      <div class="hero__tag" data-aos="fade-down" data-aos-delay="100">
+        <i class="fas fa-hard-hat"></i> PCAB License on-going &bull; Est. 2026
+      </div>
+      <h1 class="hero__title" data-aos="fade-up" data-aos-delay="200">
+        Building <span class="hero__title-accent">Structures</span><br />
+        That Last a Lifetime
+      </h1>
+      <p class="hero__subtitle" data-aos="fade-up" data-aos-delay="350">
+        KDChavit Construction delivers world-class Telco Tower Construction and<br class="hide-sm" />
+        engineering projects across Cagayan Valley and beyond.
+      </p>
+      <div class="hero__actions" data-aos="fade-up" data-aos-delay="500">
+        <a href="#services" class="btn btn--primary btn--lg">
+          <i class="fas fa-layer-group"></i> Our Services
+        </a>
+        <a href="#projects" class="btn btn--outline btn--lg">
+          <i class="fas fa-images"></i> View Projects
+        </a>
+      </div>
+    </div>
+
+    <!-- Slider dots -->
+    <div class="hero__dots">
+      <button class="hero__dot active" data-index="0" aria-label="Slide 1"></button>
+      <button class="hero__dot" data-index="1" aria-label="Slide 2"></button>
+      <button class="hero__dot" data-index="2" aria-label="Slide 3"></button>
+    </div>
+
+    <!-- Scroll indicator -->
+    <a href="#about" class="hero__scroll-down">
+      <span>Scroll</span>
+      <i class="fas fa-chevron-down"></i>
+    </a>
+  </section>
+
+  <!-- =========================================================
+       STATS TICKER
+  ========================================================= -->
+  <section class="stats">
+    <div class="container stats__grid">
+      <div class="stats__item" data-aos="zoom-in" data-aos-delay="100">
+        <i class="fas fa-broadcast-tower"></i>
+        <div>
+          <span class="stats__num" data-target="000">0</span><span class="stats__suffix">+</span>
+          <p>Telco Towers Built</p>
+        </div>
+      </div>
+      <div class="stats__item" data-aos="zoom-in" data-aos-delay="200">
+        <i class="fas fa-building"></i>
+        <div>
+          <span class="stats__num" data-target="000">0</span><span class="stats__suffix">+</span>
+          <p>Structures Completed</p>
+        </div>
+      </div>
+      <div class="stats__item" data-aos="zoom-in" data-aos-delay="300">
+        <i class="fas fa-users"></i>
+        <div>
+          <span class="stats__num" data-target="000">0</span><span class="stats__suffix">+</span>
+          <p>Satisfied Clients</p>
+        </div>
+      </div>
+      <div class="stats__item" data-aos="zoom-in" data-aos-delay="400">
+        <i class="fas fa-hard-hat"></i>
+        <div>
+          <span class="stats__num" data-target="000">0</span><span class="stats__suffix">+</span>
+          <p>Expert Workforce</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       ABOUT SECTION
+  ========================================================= -->
+  <section class="about section" id="about">
+    <div class="container about__grid">
+      <!-- Image side -->
+      <div class="about__visual" data-aos="fade-right">
+        <div class="about__img-wrap">
+          <img src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=700&q=80&auto=format" alt="KDChavit Construction team at a construction site" loading="lazy" />
+          <div class="about__badge">
+            <i class="fas fa-award"></i>
+            <span>PCAB<br />License – Ongoing</span>
+          </div>
+        </div>
+        <div class="about__cert-strip" data-aos="fade-up" data-aos-delay="200">
+          <div class="cert-pill">
+            <i class="fas fa-certificate"></i> PCAB License – Ongoing
+          </div>
+          <div class="cert-pill cert-pill--outline">
+            <i class="fas fa-circle-notch fa-spin"></i> ISO Certification – Ongoing
+          </div>
+        </div>
+      </div>
+
+      <!-- Text side -->
+      <div class="about__text" data-aos="fade-left">
+        <div class="section-tag">About Us</div>
+        <h2 class="section-title">Who We Are</h2>
+        <div class="section-divider"></div>
+        <p class="about__lead">
+          KDChavit Construction is a PCAB-licensed construction firm proudly based in <strong>Tuguegarao City, Cagayan</strong>. Established in <strong>2026</strong>, we have rapidly built a reputation for delivering structurally sound, aesthetically refined, and on-time construction projects.
+        </p>
+        <p>
+          With a highly skilled team of engineers, architects, and construction professionals, we specialize in <strong>Telco Tower Construction</strong> and a broad range of engineering structures — from residential homes to large-scale commercial and institutional buildings.
+        </p>
+        <ul class="about__features">
+          <li><i class="fas fa-check-circle"></i> PCAB Licensed (Ongoing) Construction Company</li>
+          <li><i class="fas fa-check-circle"></i> Ongoing ISO Certification</li>
+          <li><i class="fas fa-check-circle"></i> Expert Engineers &amp; Architects</li>
+          <li><i class="fas fa-check-circle"></i> Serving Cagayan Valley &amp; Beyond</li>
+          <li><i class="fas fa-check-circle"></i> On-time, On-budget Delivery</li>
+          <li><i class="fas fa-check-circle"></i> Safety-First Culture</li>
+        </ul>
+        <a href="contact.html" class="btn btn--primary">
+          <i class="fas fa-paper-plane"></i> Contact Us Today
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       MISSION / VISION / CORE VALUES
+  ========================================================= -->
+  <section class="mvv section section--gray" id="mission">
+    <div class="container">
+      <div class="section-head" data-aos="fade-up">
+        <div class="section-tag">Our Foundation</div>
+        <h2 class="section-title">Mission, Vision &amp; Core Values</h2>
+        <div class="section-divider section-divider--center"></div>
+        <p class="section-desc">The principles that guide every project, every decision, and every relationship we build.</p>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div class="mvv__tabs" data-aos="fade-up" data-aos-delay="100">
+        <button class="mvv__tab active" data-tab="mission"><i class="fas fa-rocket"></i> Mission</button>
+        <button class="mvv__tab" data-tab="vision"><i class="fas fa-eye"></i> Vision</button>
+        <button class="mvv__tab" data-tab="values"><i class="fas fa-star"></i> Core Values</button>
+      </div>
+
+      <!-- Tab Panels -->
+      <div class="mvv__panels">
+
+        <!-- MISSION -->
+        <div class="mvv__panel active" id="tab-mission" data-aos="fade-up" data-aos-delay="200">
+          <div class="mvv__panel-inner mvv__panel-inner--mission">
+            <div class="mvv__panel-icon">
+              <i class="fas fa-rocket"></i>
+            </div>
+            <div class="mvv__panel-content">
+              <h3>Our Mission</h3>
+              <p class="mvv__statement">
+                To deliver superior construction services with unwavering commitment to safety, quality, and client satisfaction — building structures that strengthen communities and stand the test of time.
+              </p>
+              <div class="mvv__bullets">
+                <div class="mvv__bullet"><i class="fas fa-hard-hat"></i><span>Provide safe, reliable, and high-quality construction solutions across all project types.</span></div>
+                <div class="mvv__bullet"><i class="fas fa-users"></i><span>Foster lasting partnerships with clients, contractors, and communities in Cagayan Valley and beyond.</span></div>
+                <div class="mvv__bullet"><i class="fas fa-broadcast-tower"></i><span>Lead Telco Tower Construction in the region with cutting-edge engineering and technical excellence.</span></div>
+                <div class="mvv__bullet"><i class="fas fa-leaf"></i><span>Adopt sustainable and innovative building practices that reduce environmental impact.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VISION -->
+        <div class="mvv__panel" id="tab-vision" data-aos="fade-up" data-aos-delay="200">
+          <div class="mvv__panel-inner mvv__panel-inner--vision">
+            <div class="mvv__panel-icon">
+              <i class="fas fa-eye"></i>
+            </div>
+            <div class="mvv__panel-content">
+              <h3>Our Vision</h3>
+              <p class="mvv__statement">
+                To be the most trusted and respected construction company in Cagayan Valley — recognized for engineering excellence, ethical practices, and transformative structures that inspire progress.
+              </p>
+              <div class="mvv__bullets">
+                <div class="mvv__bullet"><i class="fas fa-trophy"></i><span>Become the preferred contractor for Telco Tower and infrastructure projects in Northern Luzon.</span></div>
+                <div class="mvv__bullet"><i class="fas fa-globe-asia"></i><span>Expand our expertise nationally while maintaining deep roots and commitment to Cagayan.</span></div>
+                <div class="mvv__bullet"><i class="fas fa-certificate"></i><span>Achieve and maintain full ISO certification as a benchmark of world-class quality management.</span></div>
+                <div class="mvv__bullet"><i class="fas fa-handshake"></i><span>Build a legacy of integrity, innovation, and community development through every project we undertake.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CORE VALUES -->
+        <div class="mvv__panel" id="tab-values" data-aos="fade-up" data-aos-delay="200">
+          <div class="mvv__values-grid">
+            <div class="value-card">
+              <div class="value-card__icon value-card__icon--dark"><i class="fas fa-shield-alt"></i></div>
+              <h4>Integrity</h4>
+              <p>We operate with honesty and transparency in every transaction, contract, and conversation — with clients, partners, and team members.</p>
+            </div>
+            <div class="value-card">
+              <div class="value-card__icon value-card__icon--gold"><i class="fas fa-gem"></i></div>
+              <h4>Excellence</h4>
+              <p>We pursue the highest standards of quality in materials, workmanship, and service delivery — accepting nothing less than the best.</p>
+            </div>
+            <div class="value-card">
+              <div class="value-card__icon value-card__icon--blue"><i class="fas fa-hard-hat"></i></div>
+              <h4>Safety</h4>
+              <p>The safety and well-being of our workers, clients, and the public is our top priority on every single project site.</p>
+            </div>
+            <div class="value-card">
+              <div class="value-card__icon value-card__icon--green"><i class="fas fa-lightbulb"></i></div>
+              <h4>Innovation</h4>
+              <p>We embrace new technologies, methods, and ideas that improve efficiency, sustainability, and outcomes for our clients.</p>
+            </div>
+            <div class="value-card">
+              <div class="value-card__icon value-card__icon--purple"><i class="fas fa-users"></i></div>
+              <h4>Teamwork</h4>
+              <p>We believe that outstanding results come from a united team — respect, collaboration, and shared purpose drive everything we do.</p>
+            </div>
+            <div class="value-card">
+              <div class="value-card__icon value-card__icon--red"><i class="fas fa-handshake"></i></div>
+              <h4>Client Focus</h4>
+              <p>Our clients' goals are our goals. We listen, communicate openly, and work tirelessly to exceed expectations on every project.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       SERVICES SECTION
+  ========================================================= -->
+  <section class="services section section--gray" id="services">
+    <div class="container">
+      <div class="section-head" data-aos="fade-up">
+        <div class="section-tag">What We Do</div>
+        <h2 class="section-title">Our Services</h2>
+        <div class="section-divider section-divider--center"></div>
+        <p class="section-desc">From telecommunications infrastructure to residential masterpieces, we deliver construction excellence across every sector.</p>
+      </div>
+
+      <div class="services__grid">
+        <!-- Telco Tower -->
+        <div class="service-card" data-aos="fade-up" data-aos-delay="100">
+          <div class="service-card__icon">
+            <i class="fas fa-broadcast-tower"></i>
+          </div>
+          <div class="service-card__body">
+            <h3>Telco Tower Construction</h3>
+            <p>Our flagship specialty — we design, fabricate, and erect telecommunications towers to the highest structural and safety standards for major telecom carriers.</p>
+          </div>
+          <div class="service-card__footer">
+            <a href="contact.html" class="service-link">Inquire <i class="fas fa-arrow-right"></i></a>
+          </div>
+          <div class="service-card__num">01</div>
+        </div>
+
+        <!-- Engineering Structures -->
+        <div class="service-card" data-aos="fade-up" data-aos-delay="200">
+          <div class="service-card__icon">
+            <i class="fas fa-drafting-compass"></i>
+          </div>
+          <div class="service-card__body">
+            <h3>Engineering Structures</h3>
+            <p>Bridges, retaining walls, water structures, and other civil engineering projects built with precision engineering and quality materials.</p>
+          </div>
+          <div class="service-card__footer">
+            <a href="contact.html" class="service-link">Inquire <i class="fas fa-arrow-right"></i></a>
+          </div>
+          <div class="service-card__num">02</div>
+        </div>
+
+        <!-- Residential -->
+        <div class="service-card" data-aos="fade-up" data-aos-delay="300">
+          <div class="service-card__icon">
+            <i class="fas fa-home"></i>
+          </div>
+          <div class="service-card__body">
+            <h3>Residential</h3>
+            <p>From bungalows to multi-story residences, we build beautiful, durable homes tailored to your lifestyle and budget — with meticulous craftsmanship.</p>
+          </div>
+          <div class="service-card__footer">
+            <a href="contact.html" class="service-link">Inquire <i class="fas fa-arrow-right"></i></a>
+          </div>
+          <div class="service-card__num">03</div>
+        </div>
+
+        <!-- Commercial -->
+        <div class="service-card" data-aos="fade-up" data-aos-delay="100">
+          <div class="service-card__icon">
+            <i class="fas fa-store"></i>
+          </div>
+          <div class="service-card__body">
+            <h3>Commercial</h3>
+            <p>Retail centers, malls, warehouses, and mixed-use developments delivered with functional design, structural integrity, and on-schedule completion.</p>
+          </div>
+          <div class="service-card__footer">
+            <a href="contact.html" class="service-link">Inquire <i class="fas fa-arrow-right"></i></a>
+          </div>
+          <div class="service-card__num">04</div>
+        </div>
+
+        <!-- Office -->
+        <div class="service-card" data-aos="fade-up" data-aos-delay="200">
+          <div class="service-card__icon">
+            <i class="fas fa-building"></i>
+          </div>
+          <div class="service-card__body">
+            <h3>Office Buildings</h3>
+            <p>Modern office complexes designed for productivity and sustainability, incorporating the latest building technologies and green design principles.</p>
+          </div>
+          <div class="service-card__footer">
+            <a href="contact.html" class="service-link">Inquire <i class="fas fa-arrow-right"></i></a>
+          </div>
+          <div class="service-card__num">05</div>
+        </div>
+
+        <!-- Institutional -->
+        <div class="service-card" data-aos="fade-up" data-aos-delay="300">
+          <div class="service-card__icon">
+            <i class="fas fa-university"></i>
+          </div>
+          <div class="service-card__body">
+            <h3>Institutional</h3>
+            <p>Schools, hospitals, government facilities, and civic structures built to serve communities for generations — safe, functional, and dignified.</p>
+          </div>
+          <div class="service-card__footer">
+            <a href="contact.html" class="service-link">Inquire <i class="fas fa-arrow-right"></i></a>
+          </div>
+          <div class="service-card__num">06</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       WHY CHOOSE US
+  ========================================================= -->
+  <section class="why section" id="why">
+    <div class="why__bg-overlay"></div>
+    <div class="container why__inner">
+      <div class="why__text" data-aos="fade-right">
+        <div class="section-tag section-tag--light">Why KDChavit</div>
+        <h2 class="section-title section-title--light">Why Choose Us</h2>
+        <div class="section-divider"></div>
+        <p class="why__desc">
+          We combine technical expertise, modern equipment, and a dedicated workforce to deliver every project safely, on time, and within budget. Our commitment doesn't end at project completion.
+        </p>
+        <div class="why__list">
+          <div class="why__item">
+            <div class="why__icon"><i class="fas fa-shield-alt"></i></div>
+            <div>
+              <h4>Safety First</h4>
+              <p>Strict adherence to OSHS standards and safety protocols on every project site.</p>
+            </div>
+          </div>
+          <div class="why__item">
+            <div class="why__icon"><i class="fas fa-clock"></i></div>
+            <div>
+              <h4>On-Time Delivery</h4>
+              <p>We honor project timelines through efficient management and a disciplined workforce.</p>
+            </div>
+          </div>
+          <div class="why__item">
+            <div class="why__icon"><i class="fas fa-gem"></i></div>
+            <div>
+              <h4>Quality Materials</h4>
+              <p>We source only top-grade construction materials that meet national and international standards.</p>
+            </div>
+          </div>
+          <div class="why__item">
+            <div class="why__icon"><i class="fas fa-handshake"></i></div>
+            <div>
+              <h4>Client-Centric Approach</h4>
+              <p>Transparent communication and full client involvement from design to turnover.</p>
+            </div>
+          </div>
+        </div>
+        <a href="about.html" class="btn btn--primary">Learn More About Us</a>
+      </div>
+      <div class="why__visual" data-aos="fade-left">
+        <img src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=700&q=80&auto=format" alt="Construction worker at site" loading="lazy" />
+        <div class="why__card">
+          <i class="fas fa-hard-hat"></i>
+          <div>
+            <strong>Safety Excellence</strong>
+            <span>Zero-incident goal on every site</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       PROJECTS SECTION
+  ========================================================= -->
+  <section class="projects section section--gray" id="projects">
+    <div class="container">
+      <div class="section-head" data-aos="fade-up">
+        <div class="section-tag">Design Portfolio</div>
+        <h2 class="section-title">Project Design Portfolio</h2>
+        <div class="section-divider section-divider--center"></div>
+        <p class="section-desc">As an emerging construction company, we showcase our curated architectural concepts, structural blueprints, and design renders — the vision behind structures we are ready to build for you.</p>
+      </div>
+
+      <!-- Filter Buttons -->
+      <div class="projects__filter" data-aos="fade-up" data-aos-delay="100">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="telco">Telco Towers</button>
+        <button class="filter-btn" data-filter="residential">Residential</button>
+        <button class="filter-btn" data-filter="commercial">Commercial</button>
+        <button class="filter-btn" data-filter="institutional">Institutional</button>
+      </div>
+
+      <div class="projects__grid">
+        <div class="project-card" data-category="telco" data-aos="fade-up" data-aos-delay="100">
+          <div class="project-card__img">
+            <img src="https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600&q=80&auto=format" alt="Telco Tower Design Concept" loading="lazy" />
+            <span class="project-card__design-badge"><i class="fas fa-drafting-compass"></i> Design Concept</span>
+            <div class="project-card__overlay">
+              <span class="project-card__cat">Telco Tower</span>
+              <h3>Communications Tower Design 01</h3>
+              <p>Architectural Plan — Cagayan Valley</p>
+            </div>
+          </div>
+        </div>
+        <div class="project-card" data-category="residential" data-aos="fade-up" data-aos-delay="150">
+          <div class="project-card__img">
+            <img src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&q=80&auto=format" alt="Modern Family Residence Render" loading="lazy" />
+            <span class="project-card__design-badge"><i class="fas fa-pencil-ruler"></i> Architectural Render</span>
+            <div class="project-card__overlay">
+              <span class="project-card__cat">Residential</span>
+              <h3>Modern Family Residence</h3>
+              <p>Architectural Render — Tuguegarao City</p>
+            </div>
+          </div>
+        </div>
+        <div class="project-card" data-category="commercial" data-aos="fade-up" data-aos-delay="200">
+          <div class="project-card__img">
+            <img src="https://images.unsplash.com/photo-1555636222-cae831e670b3?w=600&q=80&auto=format" alt="Commercial Complex Design Proposal" loading="lazy" />
+            <span class="project-card__design-badge"><i class="fas fa-drafting-compass"></i> Design Proposal</span>
+            <div class="project-card__overlay">
+              <span class="project-card__cat">Commercial</span>
+              <h3>Commercial Complex Proposal</h3>
+              <p>Design Render — Tuguegarao City</p>
+            </div>
+          </div>
+        </div>
+        <div class="project-card" data-category="telco" data-aos="fade-up" data-aos-delay="100">
+          <div class="project-card__img">
+            <img src="https://images.unsplash.com/photo-1545259742-b4fd8fea67e4?w=600&q=80&auto=format" alt="Tower Structural Blueprint" loading="lazy" />
+            <span class="project-card__design-badge"><i class="fas fa-file-alt"></i> Structural Blueprint</span>
+            <div class="project-card__overlay">
+              <span class="project-card__cat">Telco Tower</span>
+              <h3>Lattice Tower Structural Plan</h3>
+              <p>Engineering Blueprint — Northern Luzon</p>
+            </div>
+          </div>
+        </div>
+        <div class="project-card" data-category="institutional" data-aos="fade-up" data-aos-delay="150">
+          <div class="project-card__img">
+            <img src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&q=80&auto=format" alt="School Building Design Concept" loading="lazy" />
+            <span class="project-card__design-badge"><i class="fas fa-pencil-ruler"></i> Architectural Render</span>
+            <div class="project-card__overlay">
+              <span class="project-card__cat">Institutional</span>
+              <h3>School Building Design</h3>
+              <p>Architectural Concept — Enrile, Cagayan</p>
+            </div>
+          </div>
+        </div>
+        <div class="project-card" data-category="residential" data-aos="fade-up" data-aos-delay="200">
+          <div class="project-card__img">
+            <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80&auto=format" alt="Two-Storey Residence Design Render" loading="lazy" />
+            <span class="project-card__design-badge"><i class="fas fa-pencil-ruler"></i> Design Render</span>
+            <div class="project-card__overlay">
+              <span class="project-card__cat">Residential</span>
+              <h3>Two-Storey Residence</h3>
+              <p>Design Render — Carig, Tuguegarao</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="projects__cta" data-aos="fade-up">
+        <a href="projects.html" class="btn btn--outline-dark btn--lg">
+          <i class="fas fa-images"></i> View Full Design Portfolio
+        </a>
+        <a href="contact.html" class="btn btn--primary btn--lg">
+          <i class="fas fa-paper-plane"></i> Start Your Project
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       CERTIFICATIONS SECTION
+  ========================================================= -->
+  <section class="certifications section" id="certifications">
+    <div class="container">
+      <div class="section-head" data-aos="fade-up">
+        <div class="section-tag">Credentials</div>
+        <h2 class="section-title">Our Certifications</h2>
+        <div class="section-divider section-divider--center"></div>
+        <p class="section-desc">Our credentials are proof of our commitment to quality, standards, and professional excellence.</p>
+      </div>
+      <div class="certs__grid">
+        <div class="cert-card" data-aos="fade-up" data-aos-delay="100">
+          <div class="cert-card__icon">
+            <i class="fas fa-certificate"></i>
+          </div>
+          <div class="cert-card__body">
+            <h3>PCAB License (on-going application)</h3>
+            <p class="cert-card__status cert-card__status--active">
+              <i class="fas fa-check-circle"></i> Active
+            </p>
+            <p>KDChavit Construction holds a valid <strong>Philippine Contractors Accreditation Board (PCAB)</strong> license, authorizing us to undertake construction projects in the Philippines in accordance with the Contractors' License Law (RA 4566).</p>
+          </div>
+        </div>
+        <div class="cert-card" data-aos="fade-up" data-aos-delay="200">
+          <div class="cert-card__icon cert-card__icon--gold">
+            <i class="fas fa-medal"></i>
+          </div>
+          <div class="cert-card__body">
+            <h3>ISO Certification</h3>
+            <p class="cert-card__status cert-card__status--ongoing">
+              <i class="fas fa-circle-notch fa-spin"></i> Certification Ongoing
+            </p>
+            <p>We are actively undergoing <strong>ISO Certification</strong> to formalize our quality management systems and align our operations with internationally recognized standards for construction excellence.</p>
+          </div>
+        </div>
+        <div class="cert-card" data-aos="fade-up" data-aos-delay="300">
+          <div class="cert-card__icon cert-card__icon--blue">
+            <i class="fas fa-shield-alt"></i>
+          </div>
+          <div class="cert-card__body">
+            <h3>Safety Compliance</h3>
+            <p class="cert-card__status cert-card__status--active">
+              <i class="fas fa-check-circle"></i> Compliant
+            </p>
+            <p>Our operations strictly comply with the <strong>Occupational Safety and Health Standards (OSHS)</strong> of the DOLE, ensuring a safe working environment for all our workers on every project site.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       CONTACT SECTION
+  ========================================================= -->
+  <section class="contact section section--gray" id="contact">
+    <div class="container">
+      <div class="section-head" data-aos="fade-up">
+        <div class="section-tag">Get In Touch</div>
+        <h2 class="section-title">Contact Us</h2>
+        <div class="section-divider section-divider--center"></div>
+        <p class="section-desc">Ready to start your project? Reach out to our team and we'll respond within 24 hours.</p>
+      </div>
+
+      <div class="contact__grid">
+        <!-- Contact Info -->
+        <div class="contact__info" data-aos="fade-right">
+          <div class="contact__info-card">
+            <div class="contact__logo-wrap">
+              <div class="logo-circle logo-circle--md">
+                <img src="logo.png" alt="KDChavit Construction" />
+              </div>
+              <div>
+                <strong>KDChavit Construction</strong>
+                <span>Est. 2026 &bull; PCAB Licensed</span>
+              </div>
+            </div>
+
+            <div class="contact__detail">
+              <div class="contact__detail-icon"><i class="fas fa-map-marker-alt"></i></div>
+              <div>
+                <strong>Office Address</strong>
+                <p>Enrile Boulevard, Carig<br />Tuguegarao City, Cagayan 3500</p>
+              </div>
+            </div>
+
+            <div class="contact__detail">
+              <div class="contact__detail-icon"><i class="fas fa-phone-alt"></i></div>
+              <div>
+                <strong>Phone / Mobile</strong>
+                <p><a href="tel:+639543389875">09543389875</a></p>
+              </div>
+            </div>
+
+            <div class="contact__detail">
+              <div class="contact__detail-icon"><i class="fas fa-envelope"></i></div>
+              <div>
+                <strong>Email Address</strong>
+                <p><a href="mailto:kdchavitconstruction2025@gmail.com">kdchavitconstruction2025@gmail.com</a></p>
+              </div>
+            </div>
+
+            <div class="contact__detail">
+              <div class="contact__detail-icon"><i class="fas fa-clock"></i></div>
+              <div>
+                <strong>Business Hours</strong>
+                <p>Monday – Friday: 8:00 AM – 5:00 PM<br />Saturday: 8:00 AM – 12:00 PM</p>
+              </div>
+            </div>
+
+            <div class="contact__social">
+              <a href="#" class="social-btn" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+              <a href="#" class="social-btn" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+              <a href="#" class="social-btn" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contact Form -->
+        <div class="contact__form-wrap" data-aos="fade-left">
+          <form class="contact-form" id="contactForm" novalidate>
+            <h3>Send Us a Message</h3>
+            <div class="form__row">
+              <div class="form__group">
+                <label for="firstName">First Name *</label>
+                <input type="text" id="firstName" name="firstName" placeholder="Juan" required />
+              </div>
+              <div class="form__group">
+                <label for="lastName">Last Name *</label>
+                <input type="text" id="lastName" name="lastName" placeholder="dela Cruz" required />
+              </div>
+            </div>
+            <div class="form__group">
+              <label for="email">Email Address *</label>
+              <input type="email" id="email" name="email" placeholder="you@example.com" required />
+            </div>
+            <div class="form__group">
+              <label for="phone">Phone Number</label>
+              <input type="tel" id="phone" name="phone" placeholder="09XXXXXXXXX" />
+            </div>
+            <div class="form__group">
+              <label for="service">Service of Interest</label>
+              <select id="service" name="service">
+                <option value="">-- Select a Service --</option>
+                <option>Telco Tower Construction</option>
+                <option>Engineering Structures</option>
+                <option>Residential</option>
+                <option>Commercial</option>
+                <option>Office Buildings</option>
+                <option>Institutional</option>
+              </select>
+            </div>
+            <div class="form__group">
+              <label for="message">Message *</label>
+              <textarea id="message" name="message" rows="5" placeholder="Tell us about your project..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn--primary btn--block">
+              <i class="fas fa-paper-plane"></i> Send Message
+            </button>
+            <p class="form__note">* Your information is kept confidential and will never be shared.</p>
+          </form>
+          <!-- Success message (hidden by default) -->
+          <div class="form-success" id="formSuccess">
+            <i class="fas fa-check-circle"></i>
+            <h3>Message Sent!</h3>
+            <p>Thank you for reaching out. Our team will get back to you within 24 hours.</p>
+            <a href="#home" class="btn btn--primary">Back to Top</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map Embed -->
+      <div class="contact__map" data-aos="fade-up">
+        <iframe
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3831.8348290693!2d121.74566687596!3d17.60927178328!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3375b2b24e3a3b45%3A0x736c14e20b4c55f8!2sCarig%2C%20Tuguegarao%20City%2C%20Cagayan!5e0!3m2!1sen!2sph!4v1710000000000!5m2!1sen!2sph"
+          width="100%"
+          height="350"
+          allowfullscreen=""
+          loading="lazy"
+          title="KDChavit Construction Location Map">
+        </iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       FOOTER
+  ========================================================= -->
+  <footer class="footer">
+    <div class="footer__top">
+      <div class="container footer__top-grid">
+
+        <!-- Brand -->
+        <div class="footer__col footer__col--brand">
+          <div class="footer__logo">
+            <div class="logo-circle logo-circle--sm">
+              <img src="logo.png" alt="KDChavit Construction" />
+            </div>
+            <div>
+              <span class="brand-name">KDChavit</span>
+              <span class="brand-sub">Construction</span>
+            </div>
+          </div>
+          <p>Building structures that last a lifetime. Trusted PCAB-licensed construction partner in Cagayan Valley and beyond since 2026.</p>
+          <div class="footer__social">
+            <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+            <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+          </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="footer__col">
+          <h4>Quick Links</h4>
+          <ul>
+            <li><a href="index.html"><i class="fas fa-chevron-right"></i> Home</a></li>
+            <li><a href="about.html"><i class="fas fa-chevron-right"></i> About Us</a></li>
+            <li><a href="services.html"><i class="fas fa-chevron-right"></i> Services</a></li>
+            <li><a href="projects.html"><i class="fas fa-chevron-right"></i> Projects</a></li>
+            <li><a href="certifications.html"><i class="fas fa-chevron-right"></i> Certifications</a></li>
+            <li><a href="contact.html"><i class="fas fa-chevron-right"></i> Contact</a></li>
+          </ul>
+        </div>
+
+        <!-- Services -->
+        <div class="footer__col">
+          <h4>Services</h4>
+          <ul>
+            <li><a href="services.html#telco"><i class="fas fa-chevron-right"></i> Telco Tower Construction</a></li>
+            <li><a href="services.html#engineering"><i class="fas fa-chevron-right"></i> Engineering Structures</a></li>
+            <li><a href="services.html#residential"><i class="fas fa-chevron-right"></i> Residential</a></li>
+            <li><a href="services.html#commercial"><i class="fas fa-chevron-right"></i> Commercial</a></li>
+            <li><a href="services.html#office"><i class="fas fa-chevron-right"></i> Office Buildings</a></li>
+            <li><a href="services.html#institutional"><i class="fas fa-chevron-right"></i> Institutional</a></li>
+          </ul>
+        </div>
+
+        <!-- Contact -->
+        <div class="footer__col">
+          <h4>Contact Info</h4>
+          <ul class="footer__contact-list">
+            <li>
+              <i class="fas fa-map-marker-alt"></i>
+              <span>Enrile Boulevard, Carig, Tuguegarao City, Cagayan 3500</span>
+            </li>
+            <li>
+              <i class="fas fa-phone-alt"></i>
+              <a href="tel:+639543389875">09543389875</a>
+            </li>
+            <li>
+              <i class="fas fa-envelope"></i>
+              <a href="mailto:kdchavitconstruction2025@gmail.com">kdchavitconstruction2025@gmail.com</a>
+            </li>
+          </ul>
+          <div class="footer__certs">
+            <span class="badge badge--pcab">PCAB Licensed</span>
+            <span class="badge badge--iso">ISO (Ongoing)</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="footer__bottom">
+      <div class="container footer__bottom-inner">
+        <p>&copy; <span id="year"></span> KDChavit Construction. All Rights Reserved.</p>
+        <p>Designed with <i class="fas fa-heart footer__heart"></i> in Tuguegarao City, Cagayan</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Back to Top Button -->
+  <button class="back-to-top" id="backToTop" aria-label="Back to top">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+
+  <!-- AOS Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
+  <!-- Custom Script -->
+  <script src="js/main.js"></script>
+</body>
+</html>
